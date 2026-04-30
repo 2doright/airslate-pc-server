@@ -25,7 +25,7 @@ AirSlate PC Server 是 AirSlate 的 Windows 端配套程序。
 
 ## 界面预览
 
-![AirSlate PC Server 主界面总览](https://github.com/2doright/airslate-pc-server/images/01-overview.jpg)
+![AirSlate PC Server 主界面总览](https://github.com/2doright/airslate-pc-server/blob/main/images/01-overview.jpg)
 
 ---
 
@@ -81,7 +81,7 @@ AirSlate PC Server 是 AirSlate 的 Windows 端配套程序。
 - 当前选择的显示器
 - 压感曲线调节区域
 
-![AirSlate PC Server 主界面总览](https://github.com/2doright/airslate-pc-server/images/01-overview.jpg)
+![AirSlate PC Server 主界面总览](https://github.com/2doright/airslate-pc-server/blob/main/images/01-overview.jpg)
 
 ### 第二步：在鸿蒙端输入电脑 IP
 
@@ -89,13 +89,13 @@ AirSlate PC Server 是 AirSlate 的 Windows 端配套程序。
 
 如果电脑上显示了多个地址，优先尝试列表中当前网络环境对应的那个地址。
 
-![IP](https://github.com/2doright/airslate-pc-server/images/02-ip.jpg)
+![IP](https://github.com/2doright/airslate-pc-server/blob/main/images/02-ip.jpg)
 
 ### 第三步：确认映射显示器
 
 如果你的电脑连接了多块屏幕，请先在 PC 端选择要映射的显示器。
 
-![显示器](https://github.com/2doright/airslate-pc-server/images/03-显示器.jpg)
+![显示器](https://github.com/2doright/airslate-pc-server/blob/main/images/03-显示器.jpg)
 
 建议：
 
@@ -145,7 +145,7 @@ AirSlate PC Server 是 AirSlate 的 Windows 端配套程序。
 
 你也可以直接拖动曲线控制点进行微调。
 
-![压感曲线调节](https://github.com/2doright/airslate-pc-server/images/03-pressure-curve.jpg)
+![压感曲线调节](https://github.com/2doright/airslate-pc-server/blob/main/images/03-pressure-curve.jpg)
 
 如果你不确定该选哪一个，可以从 **线性** 开始，再按手感慢慢调整。
 
@@ -177,7 +177,7 @@ AirSlate PC Server 是 AirSlate 的 Windows 端配套程序。
 - 笔记软件一套
 - 修图软件一套
 
-![预设](https://github.com/2doright/airslate-pc-server/images/04-preset.jpg)
+![预设](https://github.com/2doright/airslate-pc-server/blob/main/images/04-preset.jpg)
 
 ### 2. 录入按键
 
@@ -201,7 +201,7 @@ AirSlate PC Server 是 AirSlate 的 Windows 端配套程序。
 - **速划（单指）**
 - **长按**
 
-![分类区域](https://github.com/2doright/airslate-pc-server/images/05-area.jpg)
+![分类区域](https://github.com/2doright/airslate-pc-server/blob/main/images/05-area.jpg)
 
 ---
 
@@ -219,7 +219,7 @@ AirSlate PC Server 是 AirSlate 的 Windows 端配套程序。
 - 是否启用内环
 - 外环每个方向对应什么快捷键
 
-![径向菜单设置](https://github.com/2doright/airslate-pc-server/images/05-radial-menu.jpg)
+![径向菜单设置](https://github.com/2doright/airslate-pc-server/blob/main/images/05-radial-menu.jpg)
 
 如果关闭内环，双指划动会更直接地作用于外环。
 
