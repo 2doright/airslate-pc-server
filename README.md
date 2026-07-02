@@ -3,7 +3,9 @@
 AirSlate PC Server 是 AirSlate 的 Windows 端配套程序。
 它用于接收鸿蒙端应用 **AirSlate** 传来的笔输入与手势操作，让平板手写内容在电脑上直接生效。
 
-> 鸿蒙端应用名为 **AirSlate**，需等待后续上架。
+> 鸿蒙端应用名为 **AirSlate**，已于2026年7月2日上架鸿蒙应用商店。
+
+[![华为应用市场](https://img.shields.io/badge/华为应用市场-下载AirSlate-CF0A2C?style=for-the-badge&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
 
 ---
 
