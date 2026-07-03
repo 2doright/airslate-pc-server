@@ -1,0 +1,124 @@
+# Strict public-source allowlist.
+# Everything is ignored by default. Only files required to build, package,
+# and present the public project are explicitly allowed below.
+
+*
+!*/
+
+# Public repository metadata
+!.gitignore
+!README.md
+!LICENSE
+
+# Rust/Tauri source and build configuration
+!Cargo.toml
+!Cargo.lock
+!build.rs
+!tauri.conf.json
+!src/**
+
+# Frontend source and build configuration used by Tauri
+!frontend/index.html
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/tsconfig.json
+!frontend/vite.config.ts
+!frontend/src/**
+!frontend/public/**
+!frontend/*.config.js
+!frontend/*.config.cjs
+!frontend/*.config.mjs
+!frontend/*.config.ts
+
+# Application icons and bundle templates referenced by tauri.conf.json
+!icons/**
+!windows/tauri-installer.nsi
+!windows/tauri-main.wxs
+
+# Public README screenshots
+!images/**
+
+# Never publish local agent/tooling state, prompts, notes, or machine files
+.agents/**
+.codex/**
+.claude/**
+.cursor/**
+.continue/**
+.github/copilot-instructions.md
+AGENTS.md
+AGENTS.*.md
+CLAUDE.md
+CLAUDE.*.md
+GEMINI.md
+GEMINI.*.md
+.mcp.json
+.mcp.*.json
+
+# Private docs, plans, generated schemas, and local Tauri outputs
+doc/**
+capabilities/**
+gen/**
+target/**
+frontend/dist/**
+frontend/node_modules/**
+
+# Environment and local machine configuration
+.env
+.env.*
+!.env.example
+!.env.sample
+*.local
+*.local.*
+
+# Secrets, certificates, signing material, and archives/installers
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.keystore
+*.jks
+*.mobileprovision
+*.provisionprofile
+*.sig
+*.asc
+*.exe
+*.msi
+*.msix
+*.appx
+*.appxbundle
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.dmg
+*.pkg
+*.deb
+*.rpm
+
+# Logs, diagnostics, editor state, and caches
+*.log
+logs/**
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.dmp
+*.pdb
+.vscode/**
+.idea/**
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+.cache/**
+.parcel-cache/**
+.pytest_cache/**
+.ruff_cache/**
+.mypy_cache/**

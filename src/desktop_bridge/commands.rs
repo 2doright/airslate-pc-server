@@ -1,0 +1,252 @@
+use serde::Deserialize;
+use tauri::{AppHandle, State};
+use tauri_plugin_autostart::ManagerExt;
+
+use super::dto::{
+    AppBootstrapDto, PressureControlPointDto, PressureCurvePayload, app_bootstrap, parse_binding_id,
+};
+use crate::{
+    app::AppContext,
+    config::{PressureCurve, PressureCurveControlPoint},
+    error::AppError,
+    shortcut::{KeyCode, RadialInnerBindings},
+};
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BindingKeysPayload {
+    pub binding_id: String,
+    pub keys: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadialOuterSlotPayload {
+    pub index: usize,
+    pub keys: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadialInnerBindingsPayload {
+    pub top: String,
+    pub right: String,
+    pub bottom: String,
+    pub left: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RadialInnerEnabledPayload {
+    pub enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetSelectionPayload {
+    pub preset_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetNamePayload {
+    pub preset_id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePresetPayload {
+    pub name: String,
+}
+
+#[tauri::command]
+pub fn get_app_bootstrap(state: State<'_, AppContext>) -> Result<AppBootstrapDto, String> {
+    app_bootstrap(&state.runtime, &state.config_path.display().to_string()).map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_selected_monitor(
+    state: State<'_, AppContext>,
+    monitor_id: String,
+) -> Result<(), String> {
+    state
+        .runtime
+        .set_selected_monitor(monitor_id)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_pressure_curve(
+    state: State<'_, AppContext>,
+    payload: PressureCurvePayload,
+) -> Result<(), String> {
+    state
+        .runtime
+        .set_pressure_curve(PressureCurve {
+            control_point1: to_pressure_curve_point(payload.control_point1),
+            control_point2: to_pressure_curve_point(payload.control_point2),
+        })
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_launch_at_startup(
+    app: AppHandle,
+    state: State<'_, AppContext>,
+    enabled: bool,
+) -> Result<(), String> {
+    set_autostart_enabled(&app, enabled)?;
+
+    if let Err(error) = state.runtime.set_launch_at_startup(enabled) {
+        return match set_autostart_enabled(&app, !enabled) {
+            Ok(()) => Err(error_message(error)),
+            Err(rollback_error) => Err(format!(
+                "{}; autostart rollback failed: {rollback_error}",
+                error_message(error)
+            )),
+        };
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn select_shortcut_preset(
+    state: State<'_, AppContext>,
+    payload: PresetSelectionPayload,
+) -> Result<(), String> {
+    state
+        .runtime
+        .select_shortcut_preset(&payload.preset_id)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn create_shortcut_preset(
+    state: State<'_, AppContext>,
+    payload: CreatePresetPayload,
+) -> Result<(), String> {
+    state
+        .runtime
+        .create_shortcut_preset(payload.name)
+        .map(|_| ())
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn rename_shortcut_preset(
+    state: State<'_, AppContext>,
+    payload: PresetNamePayload,
+) -> Result<(), String> {
+    state
+        .runtime
+        .rename_shortcut_preset(&payload.preset_id, payload.name)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn delete_shortcut_preset(
+    state: State<'_, AppContext>,
+    payload: PresetSelectionPayload,
+) -> Result<(), String> {
+    state
+        .runtime
+        .delete_shortcut_preset(&payload.preset_id)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn reset_shortcut_preset(
+    state: State<'_, AppContext>,
+    payload: PresetSelectionPayload,
+) -> Result<(), String> {
+    state
+        .runtime
+        .reset_shortcut_preset(&payload.preset_id)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_binding_keys(
+    state: State<'_, AppContext>,
+    payload: BindingKeysPayload,
+) -> Result<(), String> {
+    let binding = parse_binding_id(&payload.binding_id).map_err(error_message)?;
+    let keys = payload
+        .keys
+        .iter()
+        .map(|key| parse_key_code(key))
+        .collect::<Result<Vec<_>, _>>()?;
+    state
+        .runtime
+        .set_binding_keys(binding, keys)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_radial_outer_slot(
+    state: State<'_, AppContext>,
+    payload: RadialOuterSlotPayload,
+) -> Result<(), String> {
+    let keys = payload
+        .keys
+        .iter()
+        .map(|key| parse_key_code(key))
+        .collect::<Result<Vec<_>, _>>()?;
+    state
+        .runtime
+        .set_radial_outer_binding(payload.index, keys)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_radial_inner_bindings(
+    state: State<'_, AppContext>,
+    payload: RadialInnerBindingsPayload,
+) -> Result<(), String> {
+    state
+        .runtime
+        .set_radial_inner_bindings(RadialInnerBindings {
+            top: parse_key_code(&payload.top)?,
+            right: parse_key_code(&payload.right)?,
+            bottom: parse_key_code(&payload.bottom)?,
+            left: parse_key_code(&payload.left)?,
+        })
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_radial_inner_enabled(
+    state: State<'_, AppContext>,
+    payload: RadialInnerEnabledPayload,
+) -> Result<(), String> {
+    state
+        .runtime
+        .set_radial_inner_enabled(payload.enabled)
+        .map_err(error_message)
+}
+
+fn to_pressure_curve_point(value: PressureControlPointDto) -> PressureCurveControlPoint {
+    PressureCurveControlPoint {
+        x: value.x,
+        y: value.y,
+    }
+}
+
+fn parse_key_code(value: &str) -> Result<KeyCode, String> {
+    KeyCode::parse(value).ok_or_else(|| format!("unknown key code: {value}"))
+}
+
+fn set_autostart_enabled(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    let autostart = app.autolaunch();
+    if enabled {
+        autostart.enable().map_err(|error| error.to_string())
+    } else {
+        autostart.disable().map_err(|error| error.to_string())
+    }
+}
+
+fn error_message(error: AppError) -> String {
+    error.to_string()
+}
