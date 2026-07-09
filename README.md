@@ -1,22 +1,25 @@
+<div align="center">
+
+<img src="icons/icon.png" alt="AirSlate PC Server" width="96" height="96">
+
 # AirSlate PC Server
 
-AirSlate PC Server 是 **AirSlate** 的 Windows 端配套程序，用于接收鸿蒙设备传来的笔输入与手势操作，让鸿蒙平板可以作为 Windows 电脑的手写输入面板使用。
+将你的鸿蒙平板/手机转换为电脑的数位板
 
 [![华为应用市场](https://img.shields.io/badge/华为应用市场-下载%20AirSlate-CF0A2C?style=for-the-badge&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
 [![GitHub Release](https://img.shields.io/badge/GitHub%20Release-下载%20PC%20Server-24292F?style=for-the-badge&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/releases)
 
-> [!NOTE]
-> 鸿蒙端应用名为 **AirSlate**。PC 端程序用于 Windows 电脑，两端需要配合使用。
+[![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA)
+[![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-24292F?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues)
+[![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-24292F?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
 
-![AirSlate PC Server 主界面总览](images/01-overview.jpg)
+</div>
 
-## 软件介绍
+遇到 Bug 或异常行为，请在 [GitHub Issues](https://github.com/2doright/airslate-pc-server/issues) 提交问题。想交流想法、提出建议、关注开发动态、提出问题或查找解决方案，可以前往 [GitHub Discussions](https://github.com/2doright/airslate-pc-server/discussions)。
 
-AirSlate 的目标是把鸿蒙设备变成电脑上的无线手写输入端。连接成功后，鸿蒙端负责采集笔、触控和手势，PC Server 负责把这些输入转换为 Windows 上的笔输入、点击、快捷键和径向菜单操作。
+## 主要功能
 
-适合这些场景：
-
-- 在 Windows 绘画软件中使用鸿蒙平板进行手写或绘制
+- 在 Windows 绘画软件中使用鸿蒙平板/手机进行手写或绘制
 - 将平板作为无线数位板使用
 - 通过手势触发常用快捷键
 - 在多显示器环境中指定输入映射到某一块屏幕
@@ -33,6 +36,8 @@ AirSlate 的目标是把鸿蒙设备变成电脑上的无线手写输入端。�
 | 手势映射 | 支持点击、平移、捏合、旋转、速划、长按等映射 |
 | 径向菜单 | 通过手势呼出快捷操作菜单，减少键盘依赖 |
 | 开机启动 | 可随 Windows 启动并驻留托盘 |
+
+![AirSlate PC Server 主界面总览](images/01-overview.jpg)
 
 ## 开始使用指南
 
@@ -224,3 +229,6 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 - 鸿蒙端下载：[华为应用市场](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
 - PC 端下载：[GitHub Releases](https://github.com/2doright/airslate-pc-server/releases)
+- 介绍讲解视频：[Bilibili](https://www.bilibili.com/video/BV1nkMi6fEXA)
+- Bug 反馈：[GitHub Issues](https://github.com/2doright/airslate-pc-server/issues)
+- 交流讨论：[GitHub Discussions](https://github.com/2doright/airslate-pc-server/discussions)
