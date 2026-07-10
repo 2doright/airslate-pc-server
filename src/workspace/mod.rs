@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
+#[cfg(target_os = "macos")]
+mod macos;
 mod model;
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "macos")))]
 mod portable;
 mod service;
 #[cfg(windows)]

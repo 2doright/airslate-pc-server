@@ -6,7 +6,9 @@ use crate::{
     workspace::model::{ActiveWorkspace, MonitorInfo, WorkspaceSnapshot},
 };
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+use crate::workspace::macos::enumerate_monitors;
+#[cfg(all(not(windows), not(target_os = "macos")))]
 use crate::workspace::portable::enumerate_monitors;
 #[cfg(windows)]
 use crate::workspace::windows::enumerate_monitors;
