@@ -2,6 +2,11 @@
 use std::ffi::c_void;
 #[cfg(windows)]
 use std::{mem::size_of, sync::Mutex};
+#[cfg(target_os = "macos")]
+use std::{
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 
 #[cfg(windows)]
 use windows::Win32::{
@@ -43,6 +48,8 @@ use crate::{
 };
 
 #[cfg(target_os = "macos")]
+use crate::input_pipeline::PenInjectionCommandKind;
+#[cfg(target_os = "macos")]
 use crate::shortcut::{KeyCode, MouseButton};
 #[cfg(windows)]
 use crate::{
@@ -51,8 +58,6 @@ use crate::{
 };
 
 #[cfg(all(not(windows), not(target_os = "macos")))]
-use tracing::{debug, warn};
-#[cfg(target_os = "macos")]
 use tracing::{debug, warn};
 
 #[cfg(windows)]
@@ -65,7 +70,10 @@ pub struct WindowsPenInjector {
 }
 
 #[cfg(not(windows))]
-pub struct WindowsPenInjector;
+pub struct WindowsPenInjector {
+    #[cfg(target_os = "macos")]
+    tablet: Mutex<MacosTabletState>,
+}
 
 pub struct WindowsShortcutExecutor;
 
@@ -88,8 +96,17 @@ impl WindowsPenInjector {
 #[cfg(not(windows))]
 impl WindowsPenInjector {
     pub fn new() -> Result<Self, AppError> {
-        warn!("native pen injection is not implemented on this platform");
-        Ok(Self)
+        #[cfg(target_os = "macos")]
+        {
+            Ok(Self {
+                tablet: Mutex::new(MacosTabletState::new()),
+            })
+        }
+        #[cfg(all(not(windows), not(target_os = "macos")))]
+        {
+            warn!("native pen injection is not implemented on this platform");
+            Ok(Self {})
+        }
     }
 }
 
@@ -123,7 +140,17 @@ impl PenInjector for WindowsPenInjector {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+impl PenInjector for WindowsPenInjector {
+    fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError> {
+        self.tablet
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("macos_tablet_injector"))?
+            .inject(command)
+    }
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
 impl PenInjector for WindowsPenInjector {
     fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError> {
         debug!(?command, "skipping pen injection on this platform");
@@ -432,22 +459,80 @@ struct CGPoint {
 #[cfg(target_os = "macos")]
 const K_CG_HID_EVENT_TAP: u32 = 0;
 #[cfg(target_os = "macos")]
+const K_CG_EVENT_LEFT_MOUSE_DOWN: u32 = 1;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_LEFT_MOUSE_UP: u32 = 2;
+#[cfg(target_os = "macos")]
 const K_CG_EVENT_RIGHT_MOUSE_DOWN: u32 = 3;
 #[cfg(target_os = "macos")]
 const K_CG_EVENT_RIGHT_MOUSE_UP: u32 = 4;
 #[cfg(target_os = "macos")]
 const K_CG_EVENT_MOUSE_MOVED: u32 = 5;
 #[cfg(target_os = "macos")]
+const K_CG_EVENT_LEFT_MOUSE_DRAGGED: u32 = 6;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_TABLET_PROXIMITY: u32 = 24;
+#[cfg(target_os = "macos")]
 const K_CG_SCROLL_EVENT_UNIT_LINE: u32 = 1;
 #[cfg(target_os = "macos")]
 const K_CG_MOUSE_BUTTON_LEFT: u32 = 0;
 #[cfg(target_os = "macos")]
 const K_CG_MOUSE_BUTTON_RIGHT: u32 = 1;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_SOURCE_STATE_PRIVATE: i32 = -1;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_SOURCE_STATE_HID_SYSTEM_STATE: i32 = 1;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_MOUSE_EVENT_PRESSURE: u32 = 2;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_MOUSE_EVENT_BUTTON_NUMBER: u32 = 3;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_MOUSE_EVENT_DELTA_X: u32 = 4;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_MOUSE_EVENT_DELTA_Y: u32 = 5;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_MOUSE_EVENT_SUBTYPE: u32 = 7;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_TABLET_POINT_BUTTONS: u32 = 18;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_TABLET_POINT_PRESSURE: u32 = 19;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_TABLET_TILT_X: u32 = 20;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_TABLET_TILT_Y: u32 = 21;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_TABLET_DEVICE_ID: u32 = 24;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_TABLET_PROXIMITY_DEVICE_ID: u32 = 31;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_TABLET_PROXIMITY_VENDOR_POINTER_TYPE: u32 = 33;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_TABLET_PROXIMITY_CAPABILITY_MASK: u32 = 36;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_TABLET_PROXIMITY_POINTER_TYPE: u32 = 37;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_FIELD_TABLET_PROXIMITY_ENTER_PROXIMITY: u32 = 38;
+#[cfg(target_os = "macos")]
+const K_CG_MOUSE_EVENT_SUBTYPE_TABLET_POINT: i64 = 1;
+#[cfg(target_os = "macos")]
+const K_CG_MOUSE_EVENT_SUBTYPE_TABLET_PROXIMITY: i64 = 2;
+#[cfg(target_os = "macos")]
+const NS_POINTING_DEVICE_TYPE_PEN: i64 = 1;
+#[cfg(target_os = "macos")]
+const WACOM_CAPABILITY_MASK: i64 = 0x001 | 0x002 | 0x004 | 0x040 | 0x080 | 0x100 | 0x400;
+#[cfg(target_os = "macos")]
+const WACOM_VENDOR_POINTER_TYPE_GENERAL_STYLUS: i64 = 0x802;
+#[cfg(target_os = "macos")]
+const MACOS_TABLET_DEVICE_ID: i64 = 5_303_613_955_435_230_461;
+#[cfg(target_os = "macos")]
+const PROXIMITY_REFRESH_INTERVAL: Duration = Duration::from_millis(200);
 
 #[cfg(target_os = "macos")]
 #[link(name = "CoreGraphics", kind = "framework")]
 unsafe extern "C" {
     fn CGEventCreate(source: CGEventSourceRef) -> CGEventRef;
+    fn CGEventSourceCreate(state_id: i32) -> CGEventSourceRef;
+    fn CGEventSourceFlagsState(state_id: i32) -> u64;
     fn CGEventCreateKeyboardEvent(
         source: CGEventSourceRef,
         virtual_key: CGKeyCode,
@@ -466,6 +551,11 @@ unsafe extern "C" {
         wheel1: i32,
     ) -> CGEventRef;
     fn CGEventGetLocation(event: CGEventRef) -> CGPoint;
+    fn CGEventSetType(event: CGEventRef, event_type: u32) -> CGEventRef;
+    fn CGEventSetLocation(event: CGEventRef, location: CGPoint);
+    fn CGEventSetIntegerValueField(event: CGEventRef, field: u32, value: i64) -> CGEventRef;
+    fn CGEventSetDoubleValueField(event: CGEventRef, field: u32, value: f64);
+    fn CGEventSetFlags(event: CGEventRef, flags: u64);
     fn CGEventPost(tap: u32, event: CGEventRef);
 }
 
@@ -557,6 +647,215 @@ fn post_event(event: CGEventRef) -> Result<(), AppError> {
         CFRelease(event);
     }
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+struct MacosTabletState {
+    event_source: CGEventSourceRef,
+    is_contact: bool,
+    last_point: Option<CGPoint>,
+    last_proximity: Option<Instant>,
+}
+
+#[cfg(target_os = "macos")]
+unsafe impl Send for MacosTabletState {}
+
+#[cfg(target_os = "macos")]
+impl MacosTabletState {
+    fn new() -> Self {
+        Self {
+            event_source: unsafe { CGEventSourceCreate(K_CG_EVENT_SOURCE_STATE_PRIVATE) },
+            is_contact: false,
+            last_point: None,
+            last_proximity: None,
+        }
+    }
+
+    fn inject(&mut self, command: PenInjectionCommand) -> Result<(), AppError> {
+        let point = CGPoint {
+            x: f64::from(command.x),
+            y: f64::from(command.y),
+        };
+        if command.in_range {
+            self.ensure_proximity()?;
+        }
+
+        let event_type = self.event_type(&command);
+        let event = unsafe {
+            CGEventCreateMouseEvent(self.event_source, event_type, point, K_CG_MOUSE_BUTTON_LEFT)
+        };
+        if event.is_null() {
+            return Err(AppError::DesktopShell(
+                "failed to create macOS tablet event".to_string(),
+            ));
+        }
+
+        unsafe {
+            CGEventSetLocation(event, point);
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_MOUSE_EVENT_BUTTON_NUMBER,
+                i64::from(K_CG_MOUSE_BUTTON_LEFT),
+            );
+        }
+
+        if let Some(last_point) = self.last_point {
+            unsafe {
+                CGEventSetDoubleValueField(
+                    event,
+                    K_CG_EVENT_FIELD_MOUSE_EVENT_DELTA_X,
+                    point.x - last_point.x,
+                );
+                CGEventSetDoubleValueField(
+                    event,
+                    K_CG_EVENT_FIELD_MOUSE_EVENT_DELTA_Y,
+                    point.y - last_point.y,
+                );
+            }
+        }
+
+        self.apply_tablet_values(event, &command);
+        unsafe {
+            CGEventPost(K_CG_HID_EVENT_TAP, event);
+            CFRelease(event);
+        }
+
+        self.is_contact = command.is_contact
+            && !matches!(
+                command.kind,
+                PenInjectionCommandKind::Up | PenInjectionCommandKind::Cancel
+            );
+        self.last_point = Some(point);
+        if matches!(command.kind, PenInjectionCommandKind::Cancel) || !command.in_range {
+            self.is_contact = false;
+            self.last_point = None;
+            self.last_proximity = None;
+        }
+
+        Ok(())
+    }
+
+    fn event_type(&self, command: &PenInjectionCommand) -> u32 {
+        match command.kind {
+            PenInjectionCommandKind::Down => K_CG_EVENT_LEFT_MOUSE_DOWN,
+            PenInjectionCommandKind::Up | PenInjectionCommandKind::Cancel => {
+                K_CG_EVENT_LEFT_MOUSE_UP
+            }
+            PenInjectionCommandKind::Update if self.is_contact || command.is_contact => {
+                K_CG_EVENT_LEFT_MOUSE_DRAGGED
+            }
+            PenInjectionCommandKind::Update => K_CG_EVENT_MOUSE_MOVED,
+        }
+    }
+
+    fn ensure_proximity(&mut self) -> Result<(), AppError> {
+        let should_post = self
+            .last_proximity
+            .map(|instant| instant.elapsed() > PROXIMITY_REFRESH_INTERVAL)
+            .unwrap_or(true);
+        if !should_post {
+            return Ok(());
+        }
+
+        self.post_proximity_event()?;
+        self.last_proximity = Some(Instant::now());
+        Ok(())
+    }
+
+    fn post_proximity_event(&self) -> Result<(), AppError> {
+        let event = unsafe { CGEventCreate(self.event_source) };
+        if event.is_null() {
+            return Err(AppError::DesktopShell(
+                "failed to create macOS tablet proximity event".to_string(),
+            ));
+        }
+
+        unsafe {
+            CGEventSetType(event, K_CG_EVENT_TABLET_PROXIMITY);
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_MOUSE_EVENT_SUBTYPE,
+                K_CG_MOUSE_EVENT_SUBTYPE_TABLET_PROXIMITY,
+            );
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_TABLET_PROXIMITY_ENTER_PROXIMITY,
+                1,
+            );
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_TABLET_PROXIMITY_POINTER_TYPE,
+                NS_POINTING_DEVICE_TYPE_PEN,
+            );
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_TABLET_PROXIMITY_CAPABILITY_MASK,
+                WACOM_CAPABILITY_MASK,
+            );
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_TABLET_PROXIMITY_DEVICE_ID,
+                MACOS_TABLET_DEVICE_ID,
+            );
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_TABLET_PROXIMITY_VENDOR_POINTER_TYPE,
+                WACOM_VENDOR_POINTER_TYPE_GENERAL_STYLUS,
+            );
+            CGEventPost(K_CG_HID_EVENT_TAP, event);
+            CFRelease(event);
+        }
+
+        Ok(())
+    }
+
+    fn apply_tablet_values(&self, event: CGEventRef, command: &PenInjectionCommand) {
+        let pressure = if command.is_contact {
+            (f64::from(command.pressure) / 1024.0).clamp(0.001, 1.0)
+        } else {
+            0.0
+        };
+        let buttons = if command.is_contact { 1 } else { 0 };
+
+        unsafe {
+            CGEventSetDoubleValueField(event, K_CG_EVENT_FIELD_MOUSE_EVENT_PRESSURE, pressure);
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_MOUSE_EVENT_SUBTYPE,
+                K_CG_MOUSE_EVENT_SUBTYPE_TABLET_POINT,
+            );
+            CGEventSetIntegerValueField(event, K_CG_EVENT_FIELD_TABLET_POINT_BUTTONS, buttons);
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_TABLET_DEVICE_ID,
+                MACOS_TABLET_DEVICE_ID,
+            );
+            CGEventSetDoubleValueField(event, K_CG_EVENT_FIELD_TABLET_POINT_PRESSURE, pressure);
+            CGEventSetDoubleValueField(
+                event,
+                K_CG_EVENT_FIELD_TABLET_TILT_X,
+                f64::from(command.tilt_x) / 90.0,
+            );
+            CGEventSetDoubleValueField(
+                event,
+                K_CG_EVENT_FIELD_TABLET_TILT_Y,
+                -f64::from(command.tilt_y) / 90.0,
+            );
+            CGEventSetFlags(
+                event,
+                CGEventSourceFlagsState(K_CG_EVENT_SOURCE_STATE_HID_SYSTEM_STATE),
+            );
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl Drop for MacosTabletState {
+    fn drop(&mut self) {
+        if !self.event_source.is_null() {
+            unsafe { CFRelease(self.event_source) };
+        }
+    }
 }
 
 #[cfg(target_os = "macos")]
