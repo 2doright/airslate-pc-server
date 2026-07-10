@@ -18,8 +18,8 @@ pub enum AppError {
     },
     #[error("failed to serialize config: {0}")]
     ConfigSerialize(#[from] toml::ser::Error),
-    #[error("LOCALAPPDATA is not set")]
-    MissingLocalAppData,
+    #[error("{0} is not set")]
+    MissingConfigBase(&'static str),
     #[error("startup invariant failed: {0}")]
     Startup(&'static str),
     #[error("workspace invariant failed: {0}")]
