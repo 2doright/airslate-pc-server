@@ -1,5 +1,7 @@
+#[cfg(any(windows, target_os = "macos"))]
+use std::ffi::c_void;
 #[cfg(windows)]
-use std::{ffi::c_void, mem::size_of, sync::Mutex};
+use std::{mem::size_of, sync::Mutex};
 
 #[cfg(windows)]
 use windows::Win32::{
@@ -40,13 +42,17 @@ use crate::{
     shortcut::{ShortcutCommand, ShortcutExecutor},
 };
 
+#[cfg(target_os = "macos")]
+use crate::shortcut::{KeyCode, MouseButton};
 #[cfg(windows)]
 use crate::{
     input_pipeline::PenInjectionCommandKind,
     shortcut::{KeyCode, MouseButton},
 };
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "macos")))]
+use tracing::{debug, warn};
+#[cfg(target_os = "macos")]
 use tracing::{debug, warn};
 
 #[cfg(windows)]
@@ -150,7 +156,39 @@ impl ShortcutExecutor for WindowsShortcutExecutor {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+impl ShortcutExecutor for WindowsShortcutExecutor {
+    fn execute(&self, command: ShortcutCommand) -> Result<(), AppError> {
+        match command {
+            ShortcutCommand::KeyDown(key) => post_key_event(key, false),
+            ShortcutCommand::KeyUp(key) => post_key_event(key, true),
+            ShortcutCommand::PressChord(keys) => {
+                for &key in &keys {
+                    post_key_event(key, false)?;
+                }
+                for &key in keys.iter().rev() {
+                    post_key_event(key, true)?;
+                }
+                Ok(())
+            }
+            ShortcutCommand::MouseMoveRelative { dx, dy } => post_mouse_move_relative(dx, dy),
+            ShortcutCommand::MouseWheel { delta } => post_mouse_wheel(delta),
+            ShortcutCommand::MouseButtonDown(button) => post_mouse_button(button, true),
+            ShortcutCommand::MouseButtonUp(button) => post_mouse_button(button, false),
+            ShortcutCommand::RightClickAt { x, y } => {
+                let point = CGPoint {
+                    x: f64::from(x),
+                    y: f64::from(y),
+                };
+                post_mouse_event(K_CG_EVENT_MOUSE_MOVED, K_CG_MOUSE_BUTTON_LEFT, point)?;
+                post_mouse_event(K_CG_EVENT_RIGHT_MOUSE_DOWN, K_CG_MOUSE_BUTTON_RIGHT, point)?;
+                post_mouse_event(K_CG_EVENT_RIGHT_MOUSE_UP, K_CG_MOUSE_BUTTON_RIGHT, point)
+            }
+        }
+    }
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
 impl ShortcutExecutor for WindowsShortcutExecutor {
     fn execute(&self, command: ShortcutCommand) -> Result<(), AppError> {
         debug!(?command, "skipping shortcut execution on this platform");
@@ -373,6 +411,204 @@ fn virtual_key(key: KeyCode) -> VIRTUAL_KEY {
         KeyCode::Digit9 => VK_9,
         KeyCode::BracketLeft => VK_OEM_4,
         KeyCode::BracketRight => VK_OEM_6,
+    }
+}
+
+#[cfg(target_os = "macos")]
+type CGEventRef = *mut c_void;
+#[cfg(target_os = "macos")]
+type CGEventSourceRef = *mut c_void;
+#[cfg(target_os = "macos")]
+type CGKeyCode = u16;
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct CGPoint {
+    x: f64,
+    y: f64,
+}
+
+#[cfg(target_os = "macos")]
+const K_CG_HID_EVENT_TAP: u32 = 0;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_RIGHT_MOUSE_DOWN: u32 = 3;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_RIGHT_MOUSE_UP: u32 = 4;
+#[cfg(target_os = "macos")]
+const K_CG_EVENT_MOUSE_MOVED: u32 = 5;
+#[cfg(target_os = "macos")]
+const K_CG_SCROLL_EVENT_UNIT_LINE: u32 = 1;
+#[cfg(target_os = "macos")]
+const K_CG_MOUSE_BUTTON_LEFT: u32 = 0;
+#[cfg(target_os = "macos")]
+const K_CG_MOUSE_BUTTON_RIGHT: u32 = 1;
+
+#[cfg(target_os = "macos")]
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    fn CGEventCreate(source: CGEventSourceRef) -> CGEventRef;
+    fn CGEventCreateKeyboardEvent(
+        source: CGEventSourceRef,
+        virtual_key: CGKeyCode,
+        key_down: bool,
+    ) -> CGEventRef;
+    fn CGEventCreateMouseEvent(
+        source: CGEventSourceRef,
+        mouse_type: u32,
+        mouse_cursor_position: CGPoint,
+        mouse_button: u32,
+    ) -> CGEventRef;
+    fn CGEventCreateScrollWheelEvent(
+        source: CGEventSourceRef,
+        units: u32,
+        wheel_count: u32,
+        wheel1: i32,
+    ) -> CGEventRef;
+    fn CGEventGetLocation(event: CGEventRef) -> CGPoint;
+    fn CGEventPost(tap: u32, event: CGEventRef);
+}
+
+#[cfg(target_os = "macos")]
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    fn CFRelease(cf: *const c_void);
+}
+
+#[cfg(target_os = "macos")]
+fn post_key_event(key: KeyCode, key_up: bool) -> Result<(), AppError> {
+    let event =
+        unsafe { CGEventCreateKeyboardEvent(std::ptr::null_mut(), macos_key_code(key), !key_up) };
+    post_event(event)
+}
+
+#[cfg(target_os = "macos")]
+fn post_mouse_move_relative(dx: i32, dy: i32) -> Result<(), AppError> {
+    let current = current_mouse_location()?;
+    post_mouse_event(
+        K_CG_EVENT_MOUSE_MOVED,
+        K_CG_MOUSE_BUTTON_LEFT,
+        CGPoint {
+            x: current.x + f64::from(dx),
+            y: current.y + f64::from(dy),
+        },
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn post_mouse_wheel(delta: i32) -> Result<(), AppError> {
+    let event = unsafe {
+        CGEventCreateScrollWheelEvent(
+            std::ptr::null_mut(),
+            K_CG_SCROLL_EVENT_UNIT_LINE,
+            1,
+            delta / 120,
+        )
+    };
+    post_event(event)
+}
+
+#[cfg(target_os = "macos")]
+fn post_mouse_button(button: MouseButton, down: bool) -> Result<(), AppError> {
+    let point = current_mouse_location()?;
+    match button {
+        MouseButton::Right => post_mouse_event(
+            if down {
+                K_CG_EVENT_RIGHT_MOUSE_DOWN
+            } else {
+                K_CG_EVENT_RIGHT_MOUSE_UP
+            },
+            K_CG_MOUSE_BUTTON_RIGHT,
+            point,
+        ),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn post_mouse_event(event_type: u32, button: u32, point: CGPoint) -> Result<(), AppError> {
+    let event = unsafe { CGEventCreateMouseEvent(std::ptr::null_mut(), event_type, point, button) };
+    post_event(event)
+}
+
+#[cfg(target_os = "macos")]
+fn current_mouse_location() -> Result<CGPoint, AppError> {
+    let event = unsafe { CGEventCreate(std::ptr::null_mut()) };
+    if event.is_null() {
+        return Err(AppError::DesktopShell(
+            "failed to create CoreGraphics event".to_string(),
+        ));
+    }
+
+    let point = unsafe { CGEventGetLocation(event) };
+    unsafe { CFRelease(event) };
+    Ok(point)
+}
+
+#[cfg(target_os = "macos")]
+fn post_event(event: CGEventRef) -> Result<(), AppError> {
+    if event.is_null() {
+        return Err(AppError::DesktopShell(
+            "failed to create CoreGraphics event".to_string(),
+        ));
+    }
+
+    unsafe {
+        CGEventPost(K_CG_HID_EVENT_TAP, event);
+        CFRelease(event);
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn macos_key_code(key: KeyCode) -> CGKeyCode {
+    match key {
+        KeyCode::Alt => 58,
+        KeyCode::Space => 49,
+        KeyCode::Shift => 56,
+        KeyCode::Control => 59,
+        KeyCode::Enter => 36,
+        KeyCode::Tab => 48,
+        KeyCode::Escape => 53,
+        KeyCode::Backspace => 51,
+        KeyCode::Delete => 117,
+        KeyCode::A => 0,
+        KeyCode::B => 11,
+        KeyCode::C => 8,
+        KeyCode::D => 2,
+        KeyCode::E => 14,
+        KeyCode::F => 3,
+        KeyCode::G => 5,
+        KeyCode::H => 4,
+        KeyCode::I => 34,
+        KeyCode::J => 38,
+        KeyCode::K => 40,
+        KeyCode::L => 37,
+        KeyCode::M => 46,
+        KeyCode::N => 45,
+        KeyCode::O => 31,
+        KeyCode::P => 35,
+        KeyCode::Q => 12,
+        KeyCode::R => 15,
+        KeyCode::S => 1,
+        KeyCode::T => 17,
+        KeyCode::U => 32,
+        KeyCode::V => 9,
+        KeyCode::W => 13,
+        KeyCode::X => 7,
+        KeyCode::Y => 16,
+        KeyCode::Z => 6,
+        KeyCode::Digit0 => 29,
+        KeyCode::Digit1 => 18,
+        KeyCode::Digit2 => 19,
+        KeyCode::Digit3 => 20,
+        KeyCode::Digit4 => 21,
+        KeyCode::Digit5 => 23,
+        KeyCode::Digit6 => 22,
+        KeyCode::Digit7 => 26,
+        KeyCode::Digit8 => 28,
+        KeyCode::Digit9 => 25,
+        KeyCode::BracketLeft => 33,
+        KeyCode::BracketRight => 30,
     }
 }
 
