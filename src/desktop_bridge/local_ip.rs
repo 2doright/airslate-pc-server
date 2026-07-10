@@ -29,7 +29,10 @@ fn collect_lan_ipv4_values(
 
     if let Some(primary_ipv4) = primary_ipv4 {
         let primary = primary_ipv4.to_string();
-        if let Some(index) = candidates.iter().position(|candidate| candidate == &primary) {
+        if let Some(index) = candidates
+            .iter()
+            .position(|candidate| candidate == &primary)
+        {
             let primary = candidates.remove(index);
             candidates.insert(0, primary);
         }

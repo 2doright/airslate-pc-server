@@ -1,4 +1,7 @@
-use std::{env, sync::atomic::{AtomicBool, Ordering}};
+use std::{
+    env,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use tauri::{
     AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,

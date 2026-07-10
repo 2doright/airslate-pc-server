@@ -1,5 +1,7 @@
+#[cfg(windows)]
 use std::{ffi::c_void, mem::size_of, sync::Mutex};
 
+#[cfg(windows)]
 use windows::Win32::{
     Foundation::{HANDLE, HWND, POINT},
     UI::{
@@ -34,19 +36,34 @@ use windows::Win32::{
 
 use crate::{
     error::AppError,
-    input_pipeline::{PenInjectionCommand, PenInjectionCommandKind, PenInjector},
-    shortcut::{KeyCode, MouseButton, ShortcutCommand, ShortcutExecutor},
+    input_pipeline::{PenInjectionCommand, PenInjector},
+    shortcut::{ShortcutCommand, ShortcutExecutor},
 };
 
+#[cfg(windows)]
+use crate::{
+    input_pipeline::PenInjectionCommandKind,
+    shortcut::{KeyCode, MouseButton},
+};
+
+#[cfg(not(windows))]
+use tracing::{debug, warn};
+
+#[cfg(windows)]
 const POINTER_ID: u32 = 1;
 
+#[cfg(windows)]
 pub struct WindowsPenInjector {
     device: usize,
     frame_id: Mutex<u32>,
 }
 
+#[cfg(not(windows))]
+pub struct WindowsPenInjector;
+
 pub struct WindowsShortcutExecutor;
 
+#[cfg(windows)]
 impl WindowsPenInjector {
     pub fn new() -> Result<Self, AppError> {
         let device = unsafe { CreateSyntheticPointerDevice(PT_PEN, 1, POINTER_FEEDBACK_DEFAULT) }?;
@@ -62,12 +79,21 @@ impl WindowsPenInjector {
     }
 }
 
+#[cfg(not(windows))]
+impl WindowsPenInjector {
+    pub fn new() -> Result<Self, AppError> {
+        warn!("native pen injection is not implemented on this platform");
+        Ok(Self)
+    }
+}
+
 impl WindowsShortcutExecutor {
     pub fn new() -> Self {
         Self
     }
 }
 
+#[cfg(windows)]
 impl Drop for WindowsPenInjector {
     fn drop(&mut self) {
         unsafe {
@@ -76,6 +102,7 @@ impl Drop for WindowsPenInjector {
     }
 }
 
+#[cfg(windows)]
 impl PenInjector for WindowsPenInjector {
     fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError> {
         let mut frame_id = self
@@ -90,6 +117,15 @@ impl PenInjector for WindowsPenInjector {
     }
 }
 
+#[cfg(not(windows))]
+impl PenInjector for WindowsPenInjector {
+    fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError> {
+        debug!(?command, "skipping pen injection on this platform");
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
 impl ShortcutExecutor for WindowsShortcutExecutor {
     fn execute(&self, command: ShortcutCommand) -> Result<(), AppError> {
         let inputs = match command {
@@ -114,6 +150,15 @@ impl ShortcutExecutor for WindowsShortcutExecutor {
     }
 }
 
+#[cfg(not(windows))]
+impl ShortcutExecutor for WindowsShortcutExecutor {
+    fn execute(&self, command: ShortcutCommand) -> Result<(), AppError> {
+        debug!(?command, "skipping shortcut execution on this platform");
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
 fn build_pointer_type_info(frame_id: u32, command: &PenInjectionCommand) -> POINTER_TYPE_INFO {
     let point = POINT {
         x: command.x,
@@ -155,6 +200,7 @@ fn build_pointer_type_info(frame_id: u32, command: &PenInjectionCommand) -> POIN
     }
 }
 
+#[cfg(windows)]
 fn build_pointer_flags(command: &PenInjectionCommand) -> POINTER_FLAGS {
     let mut bits = POINTER_FLAG_PRIMARY.0;
 
@@ -176,6 +222,7 @@ fn build_pointer_flags(command: &PenInjectionCommand) -> POINTER_FLAGS {
     POINTER_FLAGS(bits)
 }
 
+#[cfg(windows)]
 fn build_chord_inputs(keys: &[KeyCode]) -> Vec<INPUT> {
     let mut inputs = Vec::with_capacity(keys.len() * 2);
     for &key in keys {
@@ -187,6 +234,7 @@ fn build_chord_inputs(keys: &[KeyCode]) -> Vec<INPUT> {
     inputs
 }
 
+#[cfg(windows)]
 fn keyboard_input(key: KeyCode, key_up: bool) -> INPUT {
     let mut flags = Default::default();
     if key_up {
@@ -207,14 +255,17 @@ fn keyboard_input(key: KeyCode, key_up: bool) -> INPUT {
     }
 }
 
+#[cfg(windows)]
 fn mouse_move_relative_input(dx: i32, dy: i32) -> INPUT {
     mouse_input(dx, dy, 0, MOUSEEVENTF_MOVE)
 }
 
+#[cfg(windows)]
 fn mouse_wheel_input(delta: i32) -> INPUT {
     mouse_input(0, 0, delta, MOUSEEVENTF_WHEEL)
 }
 
+#[cfg(windows)]
 fn mouse_button_input(button: MouseButton, down: bool) -> INPUT {
     let flags = match (button, down) {
         (MouseButton::Right, true) => MOUSEEVENTF_RIGHTDOWN,
@@ -223,6 +274,7 @@ fn mouse_button_input(button: MouseButton, down: bool) -> INPUT {
     mouse_input(0, 0, 0, flags)
 }
 
+#[cfg(windows)]
 fn build_right_click_at_inputs(x: i32, y: i32) -> Vec<INPUT> {
     let (dx, dy) = absolute_mouse_coords(x, y);
     vec![
@@ -237,6 +289,7 @@ fn build_right_click_at_inputs(x: i32, y: i32) -> Vec<INPUT> {
     ]
 }
 
+#[cfg(windows)]
 fn mouse_input(
     dx: i32,
     dy: i32,
@@ -258,6 +311,7 @@ fn mouse_input(
     }
 }
 
+#[cfg(windows)]
 fn absolute_mouse_coords(x: i32, y: i32) -> (i32, i32) {
     let left = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
     let top = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
@@ -269,6 +323,7 @@ fn absolute_mouse_coords(x: i32, y: i32) -> (i32, i32) {
     (normalized_x, normalized_y)
 }
 
+#[cfg(windows)]
 fn virtual_key(key: KeyCode) -> VIRTUAL_KEY {
     match key {
         KeyCode::Alt => VK_MENU,
@@ -321,7 +376,7 @@ fn virtual_key(key: KeyCode) -> VIRTUAL_KEY {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod tests {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL,

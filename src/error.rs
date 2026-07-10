@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use thiserror::Error;
+#[cfg(windows)]
 use windows::core::Error as WindowsError;
 
 use crate::protocol::ProtocolError;
@@ -31,6 +32,7 @@ pub enum AppError {
     StatePoisoned(&'static str),
     #[error("protocol operation failed: {0}")]
     Protocol(#[from] ProtocolError),
+    #[cfg(windows)]
     #[error("Windows API call failed: {0}")]
     Windows(#[from] WindowsError),
     #[error("desktop shell failed: {0}")]
