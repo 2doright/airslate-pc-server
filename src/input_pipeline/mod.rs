@@ -1,9 +1,6 @@
 use std::{
-    collections::HashSet,
-    sync::{
-        Arc, Mutex,
-        mpsc::{self, Receiver, Sender},
-    },
+    collections::{HashSet, VecDeque},
+    sync::{Arc, Condvar, Mutex},
     thread::{self, JoinHandle},
 };
 
@@ -93,9 +90,74 @@ enum ShortcutWorkerEvent {
     Stop,
 }
 
+struct RealtimeQueue<T> {
+    state: Mutex<RealtimeQueueState<T>>,
+    ready: Condvar,
+}
+
+struct RealtimeQueueState<T> {
+    events: VecDeque<T>,
+    closed: bool,
+}
+
+impl<T> RealtimeQueue<T> {
+    fn new() -> Self {
+        Self {
+            state: Mutex::new(RealtimeQueueState {
+                events: VecDeque::new(),
+                closed: false,
+            }),
+            ready: Condvar::new(),
+        }
+    }
+
+    fn push(&self, event: T) -> Result<(), ()> {
+        self.push_with(event, |_, _| false)
+    }
+
+    fn push_with(&self, event: T, replace_tail: impl FnOnce(&T, &T) -> bool) -> Result<(), ()> {
+        let mut state = self.state.lock().map_err(|_| ())?;
+        if state.closed {
+            return Err(());
+        }
+
+        if state
+            .events
+            .back()
+            .is_some_and(|queued| replace_tail(queued, &event))
+        {
+            *state.events.back_mut().expect("queue tail exists") = event;
+        } else {
+            state.events.push_back(event);
+        }
+        self.ready.notify_one();
+        Ok(())
+    }
+
+    fn recv(&self) -> Option<T> {
+        let mut state = self.state.lock().ok()?;
+        loop {
+            if let Some(event) = state.events.pop_front() {
+                return Some(event);
+            }
+            if state.closed {
+                return None;
+            }
+            state = self.ready.wait(state).ok()?;
+        }
+    }
+
+    fn close(&self) {
+        if let Ok(mut state) = self.state.lock() {
+            state.closed = true;
+            self.ready.notify_all();
+        }
+    }
+}
+
 pub struct StylusInputPipeline {
-    stylus_sender: Sender<StylusWorkerEvent>,
-    shortcut_sender: Sender<ShortcutWorkerEvent>,
+    stylus_queue: Arc<RealtimeQueue<StylusWorkerEvent>>,
+    shortcut_queue: Arc<RealtimeQueue<ShortcutWorkerEvent>>,
     stylus_worker: Mutex<Option<JoinHandle<()>>>,
     shortcut_worker: Mutex<Option<JoinHandle<()>>>,
     workspace: WorkspaceService,
@@ -111,16 +173,18 @@ impl StylusInputPipeline {
         shortcut_profile: SharedShortcutProfile,
         radial_overlay: SharedRadialMenuOverlay,
     ) -> Self {
-        let (stylus_sender, stylus_receiver) = mpsc::channel();
-        let (shortcut_sender, shortcut_receiver) = mpsc::channel();
+        let stylus_queue = Arc::new(RealtimeQueue::new());
+        let shortcut_queue = Arc::new(RealtimeQueue::new());
 
         let stylus_workspace = workspace.clone();
         let stylus_pressure_settings = pressure_settings.clone();
+        let stylus_worker_queue = stylus_queue.clone();
         let stylus_worker = thread::spawn(move || {
             StylusWorker::new(stylus_workspace, injector, stylus_pressure_settings)
-                .run(stylus_receiver);
+                .run(stylus_worker_queue);
         });
         let shortcut_workspace = workspace.clone();
+        let shortcut_worker_queue = shortcut_queue.clone();
         let shortcut_worker = thread::spawn(move || {
             ShortcutWorker::new(
                 shortcut_executor,
@@ -128,12 +192,12 @@ impl StylusInputPipeline {
                 radial_overlay,
                 shortcut_workspace,
             )
-            .run(shortcut_receiver);
+            .run(shortcut_worker_queue);
         });
 
         Self {
-            stylus_sender,
-            shortcut_sender,
+            stylus_queue,
+            shortcut_queue,
             stylus_worker: Mutex::new(Some(stylus_worker)),
             shortcut_worker: Mutex::new(Some(shortcut_worker)),
             workspace,
@@ -142,13 +206,15 @@ impl StylusInputPipeline {
     }
 
     fn send_stylus(&self, event: StylusWorkerEvent) {
-        if self.stylus_sender.send(event).is_err() {
+        let result = self.stylus_queue.push_with(event, can_coalesce_stylus);
+        if result.is_err() {
             warn!("stylus worker queue is unavailable");
         }
     }
 
     fn send_shortcut(&self, event: ShortcutWorkerEvent) {
-        if self.shortcut_sender.send(event).is_err() {
+        let result = self.shortcut_queue.push_with(event, can_coalesce_shortcut);
+        if result.is_err() {
             warn!("shortcut worker queue is unavailable");
         }
     }
@@ -158,6 +224,40 @@ impl StylusInputPipeline {
             .current_workspace()
             .map(|workspace| workspace.monitor)
     }
+}
+
+fn can_coalesce_stylus(queued: &StylusWorkerEvent, incoming: &StylusWorkerEvent) -> bool {
+    matches!(
+        (queued, incoming),
+        (
+            StylusWorkerEvent::Stylus {
+                session_id: queued_session,
+                frame: queued_frame,
+            },
+            StylusWorkerEvent::Stylus {
+                session_id: incoming_session,
+                frame: incoming_frame,
+            },
+        ) if queued_session == incoming_session
+            && queued_frame.event_type == StylusEventType::Move
+            && incoming_frame.event_type == StylusEventType::Move
+    )
+}
+
+fn can_coalesce_shortcut(queued: &ShortcutWorkerEvent, incoming: &ShortcutWorkerEvent) -> bool {
+    matches!(
+        (queued, incoming),
+        (
+            ShortcutWorkerEvent::PointerContextUpdated {
+                session_id: queued_session,
+                ..
+            },
+            ShortcutWorkerEvent::PointerContextUpdated {
+                session_id: incoming_session,
+                ..
+            },
+        ) if queued_session == incoming_session
+    )
 }
 
 impl IncomingEventSink for StylusInputPipeline {
@@ -225,8 +325,10 @@ impl IncomingEventSink for StylusInputPipeline {
 
 impl Drop for StylusInputPipeline {
     fn drop(&mut self) {
-        let _ = self.stylus_sender.send(StylusWorkerEvent::Stop);
-        let _ = self.shortcut_sender.send(ShortcutWorkerEvent::Stop);
+        let _ = self.stylus_queue.push(StylusWorkerEvent::Stop);
+        let _ = self.shortcut_queue.push(ShortcutWorkerEvent::Stop);
+        self.stylus_queue.close();
+        self.shortcut_queue.close();
 
         join_worker(&self.stylus_worker, "stylus queue worker");
         join_worker(&self.shortcut_worker, "shortcut queue worker");
@@ -256,8 +358,8 @@ impl StylusWorker {
         }
     }
 
-    fn run(mut self, receiver: Receiver<StylusWorkerEvent>) {
-        while let Ok(event) = receiver.recv() {
+    fn run(mut self, queue: Arc<RealtimeQueue<StylusWorkerEvent>>) {
+        while let Some(event) = queue.recv() {
             match event {
                 StylusWorkerEvent::Stylus { session_id, frame } => {
                     self.handle_stylus(session_id, frame)
@@ -301,17 +403,6 @@ impl StylusWorker {
             );
             return;
         }
-
-        info!(
-            session_id = %session_id,
-            seq = frame.seq,
-            x = command.x,
-            y = command.y,
-            kind = ?command.kind,
-            in_range = command.in_range,
-            is_contact = command.is_contact,
-            "stage 6 stylus frame injected"
-        );
     }
 
     fn handle_session_end(&mut self, session_id: String) {
@@ -385,8 +476,8 @@ impl ShortcutWorker {
         }
     }
 
-    fn run(mut self, receiver: Receiver<ShortcutWorkerEvent>) {
-        while let Ok(event) = receiver.recv() {
+    fn run(mut self, queue: Arc<RealtimeQueue<ShortcutWorkerEvent>>) {
+        while let Some(event) = queue.recv() {
             match event {
                 ShortcutWorkerEvent::PointerContextUpdated {
                     session_id,
@@ -719,6 +810,65 @@ mod tests {
         }
 
         assert!(condition(), "condition was not met before timeout");
+    }
+
+    fn stylus_worker_event(seq: u32, event_type: StylusEventType) -> StylusWorkerEvent {
+        let mut frame = stylus_frame(event_type, 0b0000_0001, seq as u16, seq as u16);
+        frame.seq = seq;
+        StylusWorkerEvent::Stylus {
+            session_id: "session-a".to_string(),
+            frame,
+        }
+    }
+
+    #[test]
+    fn realtime_queue_keeps_only_latest_consecutive_stylus_move() {
+        let queue = RealtimeQueue::new();
+
+        queue
+            .push_with(
+                stylus_worker_event(1, StylusEventType::Move),
+                can_coalesce_stylus,
+            )
+            .expect("first move should queue");
+        queue
+            .push_with(
+                stylus_worker_event(2, StylusEventType::Move),
+                can_coalesce_stylus,
+            )
+            .expect("latest move should replace queued move");
+
+        assert!(matches!(
+            queue.recv(),
+            Some(StylusWorkerEvent::Stylus { frame, .. }) if frame.seq == 2
+        ));
+    }
+
+    #[test]
+    fn realtime_queue_preserves_key_events_between_stylus_moves() {
+        let queue = RealtimeQueue::new();
+        for (seq, event_type) in [
+            (1, StylusEventType::Move),
+            (2, StylusEventType::Up),
+            (3, StylusEventType::Move),
+            (4, StylusEventType::Move),
+        ] {
+            queue
+                .push_with(stylus_worker_event(seq, event_type), can_coalesce_stylus)
+                .expect("stylus event should queue");
+        }
+
+        for (expected_seq, expected_type) in [
+            (1, StylusEventType::Move),
+            (2, StylusEventType::Up),
+            (4, StylusEventType::Move),
+        ] {
+            assert!(matches!(
+                queue.recv(),
+                Some(StylusWorkerEvent::Stylus { frame, .. })
+                    if frame.seq == expected_seq && frame.event_type == expected_type
+            ));
+        }
     }
 
     #[test]

@@ -73,6 +73,7 @@ pub struct ShortcutEngine {
     last_trigger_seq: HashMap<BindingId, u32>,
     pointer_context: PointerContext,
     toggled_keys: HashSet<KeyCode>,
+    last_hold_indicator_point: Option<ScreenPoint>,
 }
 
 #[cfg(test)]
@@ -127,6 +128,7 @@ impl ShortcutEngine {
             last_trigger_seq: HashMap::new(),
             pointer_context: PointerContext::default(),
             toggled_keys: HashSet::new(),
+            last_hold_indicator_point: None,
         }
     }
 
@@ -722,9 +724,13 @@ impl ShortcutEngine {
             .flatten()
     }
 
-    fn sync_hold_indicator(&self) {
-        self.overlay
-            .sync_hold_indicator(self.hold_indicator_point());
+    fn sync_hold_indicator(&mut self) {
+        let point = self.hold_indicator_point();
+        if point == self.last_hold_indicator_point {
+            return;
+        }
+        self.overlay.sync_hold_indicator(point);
+        self.last_hold_indicator_point = point;
     }
 
     fn action_for(&self, binding: BindingId) -> ShortcutAction {
