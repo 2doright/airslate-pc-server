@@ -1,6 +1,9 @@
 # CHANGELOG
 
 ## Unreleased
+- added a GitHub Actions workflow that builds universal Intel and Apple Silicon macOS `.app` and `.dmg` artifacts on a real macOS runner
+- corrected the local Tauri configuration schema path to resolve the CLI schema from `frontend/node_modules`, and confirmed Tauri build hooks already execute from the frontend directory
+- verified `npm --prefix ./frontend run build` and `cargo tauri build`, producing the Windows `.msi` and NSIS setup `.exe`
 - integrated macOS platform support from PR #6 while preserving the expanded shortcut model, including generic left/right click execution on both desktop platforms
 - fixed Retina/HiDPI pen mapping to use CoreGraphics event-coordinate display bounds, corrected CoreGraphics setter FFI signatures, and preserved non-zero fine wheel deltas
 - removed fabricated monitor and no-op input implementations for unsupported platforms; the server now explicitly compiles only for Windows and macOS

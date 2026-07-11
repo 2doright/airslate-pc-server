@@ -21,7 +21,7 @@
 [`actionbook/rust-skills`](https://github.com/actionbook/rust-skills)。所有 Rust 问题、设计、实现、
 调试和代码审查任务都必须使用该 Skill 系统。
 
-### Rust 开发
+#### Rust 开发
 
 所有 Rust 开发任务必须：
 
@@ -39,12 +39,15 @@
 - 测试必须验证运行时事实，不得使用占位实现、伪造状态或仅为通过编译而添加的开关。
 - 修复失败的根因，并检查相邻调用路径是否具有相同问题。
 
-### 标准命令
+### 命令
 
-```powershell
+## 前端检查
+
 npm --prefix ./frontend run build
-cargo build
-```
+
+## 打包Release
+
+cargo tauri build
 
 ## 版本与交付
 

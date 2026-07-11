@@ -9,6 +9,9 @@
 !.gitignore
 !.gitmodules
 !.rust-skills
+!.github/
+!.github/workflows/
+!.github/workflows/**
 !AGENTS.md
 !README.md
 !LICENSE
