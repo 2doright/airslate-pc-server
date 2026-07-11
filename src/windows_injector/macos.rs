@@ -156,8 +156,8 @@ unsafe extern "C" {
 }
 
 fn post_key_event(key: KeyCode, key_up: bool) -> Result<(), AppError> {
-    let event =
-        unsafe { CGEventCreateKeyboardEvent(std::ptr::null_mut(), macos_key_code(key), !key_up) };
+    let virtual_key = macos_key_code(key)?;
+    let event = unsafe { CGEventCreateKeyboardEvent(std::ptr::null_mut(), virtual_key, !key_up) };
     post_event(event)
 }
 
@@ -450,17 +450,33 @@ impl Drop for MacosTabletState {
     }
 }
 
-fn macos_key_code(key: KeyCode) -> CGKeyCode {
-    match key {
-        KeyCode::Alt => 58,
+fn macos_key_code(key: KeyCode) -> Result<CGKeyCode, AppError> {
+    let key_code = match key {
+        KeyCode::Alt | KeyCode::AltLeft => 58,
+        KeyCode::AltRight => 61,
         KeyCode::Space => 49,
-        KeyCode::Shift => 56,
-        KeyCode::Control => 59,
+        KeyCode::Shift | KeyCode::ShiftLeft => 56,
+        KeyCode::ShiftRight => 60,
+        KeyCode::Control | KeyCode::ControlLeft => 59,
+        KeyCode::ControlRight => 62,
+        KeyCode::MetaLeft => 55,
+        KeyCode::MetaRight => 54,
         KeyCode::Enter => 36,
         KeyCode::Tab => 48,
         KeyCode::Escape => 53,
         KeyCode::Backspace => 51,
         KeyCode::Delete => 117,
+        KeyCode::Insert => 114,
+        KeyCode::Home => 115,
+        KeyCode::End => 119,
+        KeyCode::PageUp => 116,
+        KeyCode::PageDown => 121,
+        KeyCode::ArrowUp => 126,
+        KeyCode::ArrowDown => 125,
+        KeyCode::ArrowLeft => 123,
+        KeyCode::ArrowRight => 124,
+        KeyCode::CapsLock => 57,
+        KeyCode::NumLock => 71,
         KeyCode::A => 0,
         KeyCode::B => 11,
         KeyCode::C => 8,
@@ -499,5 +515,78 @@ fn macos_key_code(key: KeyCode) -> CGKeyCode {
         KeyCode::Digit9 => 25,
         KeyCode::BracketLeft => 33,
         KeyCode::BracketRight => 30,
-    }
+        KeyCode::Backquote => 50,
+        KeyCode::Minus => 27,
+        KeyCode::Equal => 24,
+        KeyCode::Backslash => 42,
+        KeyCode::Semicolon => 41,
+        KeyCode::Quote => 39,
+        KeyCode::Comma => 43,
+        KeyCode::Period => 47,
+        KeyCode::Slash => 44,
+        KeyCode::F1 => 122,
+        KeyCode::F2 => 120,
+        KeyCode::F3 => 99,
+        KeyCode::F4 => 118,
+        KeyCode::F5 => 96,
+        KeyCode::F6 => 97,
+        KeyCode::F7 => 98,
+        KeyCode::F8 => 100,
+        KeyCode::F9 => 101,
+        KeyCode::F10 => 109,
+        KeyCode::F11 => 103,
+        KeyCode::F12 => 111,
+        KeyCode::F13 => 105,
+        KeyCode::F14 => 107,
+        KeyCode::F15 => 113,
+        KeyCode::F16 => 106,
+        KeyCode::F17 => 64,
+        KeyCode::F18 => 79,
+        KeyCode::F19 => 80,
+        KeyCode::F20 => 90,
+        KeyCode::Numpad0 => 82,
+        KeyCode::Numpad1 => 83,
+        KeyCode::Numpad2 => 84,
+        KeyCode::Numpad3 => 85,
+        KeyCode::Numpad4 => 86,
+        KeyCode::Numpad5 => 87,
+        KeyCode::Numpad6 => 88,
+        KeyCode::Numpad7 => 89,
+        KeyCode::Numpad8 => 91,
+        KeyCode::Numpad9 => 92,
+        KeyCode::NumpadAdd => 69,
+        KeyCode::NumpadSubtract => 78,
+        KeyCode::NumpadMultiply => 67,
+        KeyCode::NumpadDivide => 75,
+        KeyCode::NumpadDecimal => 65,
+        KeyCode::NumpadEnter => 76,
+        KeyCode::VolumeMute => 74,
+        KeyCode::VolumeDown => 73,
+        KeyCode::VolumeUp => 72,
+        KeyCode::ScrollLock
+        | KeyCode::PrintScreen
+        | KeyCode::Pause
+        | KeyCode::ContextMenu
+        | KeyCode::F21
+        | KeyCode::F22
+        | KeyCode::F23
+        | KeyCode::F24
+        | KeyCode::MediaPreviousTrack
+        | KeyCode::MediaNextTrack
+        | KeyCode::MediaPlayPause
+        | KeyCode::MediaStop
+        | KeyCode::BrowserBack
+        | KeyCode::BrowserForward
+        | KeyCode::BrowserRefresh
+        | KeyCode::BrowserStop
+        | KeyCode::BrowserSearch
+        | KeyCode::BrowserFavorites
+        | KeyCode::BrowserHome => {
+            return Err(AppError::UnsupportedShortcutKey {
+                platform: "macOS",
+                key: key.label(),
+            });
+        }
+    };
+    Ok(key_code)
 }

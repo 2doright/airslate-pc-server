@@ -39,4 +39,10 @@ pub enum AppError {
     DesktopShell(String),
     #[error("shortcut preset failed: {0}")]
     ShortcutPreset(String),
+    #[cfg(target_os = "macos")]
+    #[error("shortcut key {key} is not supported on {platform}")]
+    UnsupportedShortcutKey {
+        platform: &'static str,
+        key: &'static str,
+    },
 }
