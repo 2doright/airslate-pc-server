@@ -97,6 +97,15 @@ pub struct BindingDto {
     pub current_action: ActionDto,
     pub uses_preset: bool,
     pub editable_keys: Option<Vec<String>>,
+    pub special_actions: Vec<SpecialActionOptionDto>,
+    pub active_special_action: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecialActionOptionDto {
+    pub id: String,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -252,6 +261,8 @@ pub fn binding_dtos(profile: &ShortcutProfile, preset_only: bool) -> Vec<Binding
                 current_action: action_dto(&current_action, profile),
                 uses_preset: if preset_only { true } else { uses_preset },
                 editable_keys: editable_keys(&current_action),
+                special_actions: special_action_options(binding),
+                active_special_action: active_special_action(&current_action).to_string(),
             }
         })
         .collect()
@@ -340,8 +351,10 @@ fn editable_keys(action: &ShortcutAction) -> Option<Vec<String>> {
                 .map(|key| key.label().to_string())
                 .collect(),
         ),
-        ShortcutAction::Advanced(AdvancedAction::SecondaryClick { .. })
-        | ShortcutAction::Advanced(AdvancedAction::ReleaseActiveKeys)
+        ShortcutAction::Advanced(AdvancedAction::PointerClick { keys, .. }) => {
+            Some(keys.iter().map(|key| key.label().to_string()).collect())
+        }
+        ShortcutAction::Advanced(AdvancedAction::ReleaseActiveKeys)
         | ShortcutAction::Advanced(AdvancedAction::ReservedRadialMenu)
         | ShortcutAction::Disabled => None,
     }
@@ -349,10 +362,16 @@ fn editable_keys(action: &ShortcutAction) -> Option<Vec<String>> {
 
 fn advanced_label(action: &AdvancedAction) -> &'static str {
     match action {
-        AdvancedAction::PointerDrag { .. } => "指针拖拽",
+        AdvancedAction::PointerDrag { button: None, .. } => "按手势坐标移动",
+        AdvancedAction::PointerDrag {
+            button: Some(_), ..
+        } => "指针拖拽",
         AdvancedAction::PointerWheel { .. } => "滚轮缩放",
         AdvancedAction::PointerRotate { .. } => "旋转控制",
-        AdvancedAction::SecondaryClick { .. } => "右键单击",
+        AdvancedAction::PointerClick { button, .. } => match button {
+            MouseButton::Left => "左键单击",
+            MouseButton::Right => "右键单击",
+        },
         AdvancedAction::ReleaseActiveKeys => "释放KeyDown状态键",
         AdvancedAction::ReservedRadialMenu => "径向菜单",
     }
@@ -360,17 +379,27 @@ fn advanced_label(action: &AdvancedAction) -> &'static str {
 
 fn advanced_detail(action: &AdvancedAction, profile: &ShortcutProfile) -> String {
     match action {
-        AdvancedAction::PointerDrag { modifiers, button } => {
-            format!("{} + {}", join_keys(modifiers), mouse_button_label(*button))
-        }
+        AdvancedAction::PointerDrag { modifiers, button } => match button {
+            Some(button) => format!("{} + {}", join_keys(modifiers), mouse_button_label(*button)),
+            None => format!("{} + 按手势坐标移动", join_keys(modifiers)),
+        },
         AdvancedAction::PointerWheel { modifiers } => {
             format!("{} + 鼠标滚轮", join_keys(modifiers))
         }
         AdvancedAction::PointerRotate { modifiers } => {
             format!("{} + 鼠标旋转", join_keys(modifiers))
         }
-        AdvancedAction::SecondaryClick { anchor } => {
-            format!("锚点：{}", pointer_anchor_label(*anchor))
+        AdvancedAction::PointerClick {
+            keys,
+            button,
+            anchor,
+        } => {
+            format!(
+                "{} + {}；锚点：{}",
+                join_keys(keys),
+                mouse_button_label(*button),
+                pointer_anchor_label(*anchor)
+            )
         }
         AdvancedAction::ReleaseActiveKeys => "释放所有当前按下或切换保持的按键状态".to_string(),
         AdvancedAction::ReservedRadialMenu => {
@@ -493,8 +522,69 @@ fn join_keys(keys: &[KeyCode]) -> String {
 
 fn mouse_button_label(button: MouseButton) -> &'static str {
     match button {
+        MouseButton::Left => "左键",
         MouseButton::Right => "右键",
     }
+}
+
+fn active_special_action(action: &ShortcutAction) -> &'static str {
+    match action {
+        ShortcutAction::Advanced(AdvancedAction::PointerClick {
+            button: MouseButton::Left,
+            ..
+        }) => "pointerClickLeft",
+        ShortcutAction::Advanced(AdvancedAction::PointerClick {
+            button: MouseButton::Right,
+            ..
+        }) => "pointerClickRight",
+        ShortcutAction::Advanced(AdvancedAction::PointerDrag { button: None, .. }) => "pointerMove",
+        ShortcutAction::Advanced(AdvancedAction::PointerDrag {
+            button: Some(MouseButton::Left),
+            ..
+        }) => "pointerDragLeft",
+        ShortcutAction::Advanced(AdvancedAction::PointerDrag {
+            button: Some(MouseButton::Right),
+            ..
+        }) => "pointerDragRight",
+        ShortcutAction::Advanced(AdvancedAction::PointerWheel { .. }) => "pointerWheel",
+        ShortcutAction::Advanced(AdvancedAction::PointerRotate { .. }) => "pointerRotate",
+        _ => "none",
+    }
+}
+
+fn special_action_options(binding: BindingId) -> Vec<SpecialActionOptionDto> {
+    let options: &[(&str, &str)] = match binding {
+        BindingId::StylusTrigger(
+            StylusTrigger::Squeeze
+            | StylusTrigger::DoubleTap
+            | StylusTrigger::TwoTap
+            | StylusTrigger::ThreeTap,
+        ) => &[
+            ("none", "无特殊动作"),
+            ("pointerClickLeft", "鼠标左键"),
+            ("pointerClickRight", "鼠标右键"),
+        ],
+        BindingId::Gesture(GestureBinding::ThreePan) => &[
+            ("none", "无特殊动作"),
+            ("pointerMove", "按手势坐标移动"),
+            ("pointerDragLeft", "按住左键移动"),
+            ("pointerDragRight", "按住右键移动"),
+        ],
+        BindingId::Gesture(GestureBinding::TwoPinch) => {
+            &[("none", "无特殊动作"), ("pointerWheel", "鼠标滚轮")]
+        }
+        BindingId::Gesture(GestureBinding::TwoRotate) => {
+            &[("none", "无特殊动作"), ("pointerRotate", "按旋转角度移动")]
+        }
+        _ => &[],
+    };
+    options
+        .iter()
+        .map(|(id, label)| SpecialActionOptionDto {
+            id: (*id).to_string(),
+            label: (*label).to_string(),
+        })
+        .collect()
 }
 
 fn pointer_anchor_label(anchor: PointerAnchor) -> &'static str {

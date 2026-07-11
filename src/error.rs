@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use thiserror::Error;
+#[cfg(windows)]
 use windows::core::Error as WindowsError;
 
 use crate::protocol::ProtocolError;
@@ -17,8 +18,8 @@ pub enum AppError {
     },
     #[error("failed to serialize config: {0}")]
     ConfigSerialize(#[from] toml::ser::Error),
-    #[error("LOCALAPPDATA is not set")]
-    MissingLocalAppData,
+    #[error("{0} is not set")]
+    MissingConfigBase(&'static str),
     #[error("startup invariant failed: {0}")]
     Startup(&'static str),
     #[error("workspace invariant failed: {0}")]
@@ -31,6 +32,7 @@ pub enum AppError {
     StatePoisoned(&'static str),
     #[error("protocol operation failed: {0}")]
     Protocol(#[from] ProtocolError),
+    #[cfg(windows)]
     #[error("Windows API call failed: {0}")]
     Windows(#[from] WindowsError),
     #[error("desktop shell failed: {0}")]

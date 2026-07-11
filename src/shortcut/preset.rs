@@ -10,12 +10,16 @@ impl DefaultPreset {
     pub fn action_for(&self, binding: BindingId) -> ShortcutAction {
         match binding {
             BindingId::StylusTrigger(StylusTrigger::Squeeze) => {
-                ShortcutAction::Advanced(AdvancedAction::SecondaryClick {
+                ShortcutAction::Advanced(AdvancedAction::PointerClick {
+                    keys: Vec::new(),
+                    button: MouseButton::Right,
                     anchor: PointerAnchor::CurrentHoverOrLastInRange,
                 })
             }
             BindingId::StylusTrigger(StylusTrigger::DoubleTap) => {
-                ShortcutAction::Advanced(AdvancedAction::SecondaryClick {
+                ShortcutAction::Advanced(AdvancedAction::PointerClick {
+                    keys: Vec::new(),
+                    button: MouseButton::Right,
                     anchor: PointerAnchor::CurrentHoverOrLastInRange,
                 })
             }
@@ -34,7 +38,7 @@ impl DefaultPreset {
             BindingId::Gesture(GestureBinding::ThreePan) => {
                 ShortcutAction::Advanced(AdvancedAction::PointerDrag {
                     modifiers: vec![KeyCode::Alt],
-                    button: MouseButton::Right,
+                    button: Some(MouseButton::Right),
                 })
             }
             BindingId::Gesture(GestureBinding::TwoPinch) => {
@@ -99,13 +103,17 @@ mod tests {
     fn maps_current_default_bindings() {
         assert_eq!(
             DefaultPreset.action_for(BindingId::StylusTrigger(StylusTrigger::Squeeze)),
-            ShortcutAction::Advanced(AdvancedAction::SecondaryClick {
+            ShortcutAction::Advanced(AdvancedAction::PointerClick {
+                keys: Vec::new(),
+                button: MouseButton::Right,
                 anchor: PointerAnchor::CurrentHoverOrLastInRange,
             })
         );
         assert_eq!(
             DefaultPreset.action_for(BindingId::StylusTrigger(StylusTrigger::DoubleTap)),
-            ShortcutAction::Advanced(AdvancedAction::SecondaryClick {
+            ShortcutAction::Advanced(AdvancedAction::PointerClick {
+                keys: Vec::new(),
+                button: MouseButton::Right,
                 anchor: PointerAnchor::CurrentHoverOrLastInRange,
             })
         );
@@ -113,7 +121,7 @@ mod tests {
             DefaultPreset.action_for(BindingId::Gesture(GestureBinding::ThreePan)),
             ShortcutAction::Advanced(AdvancedAction::PointerDrag {
                 modifiers: vec![KeyCode::Alt],
-                button: MouseButton::Right,
+                button: Some(MouseButton::Right),
             })
         );
         assert_eq!(

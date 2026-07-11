@@ -6,6 +6,7 @@ import {
   resetShortcutPreset,
   selectShortcutPreset,
   setBindingKeys,
+  setBindingSpecialAction,
   setRadialInnerBindings,
   setRadialInnerEnabled,
   setRadialOuterSlot,
@@ -203,7 +204,7 @@ function RadialMenuPanel(props: {
                   {isRecording ? (
                     <>
                       <KeyToken>等待按键…</KeyToken>
-                      <KeyToken soft>Esc 取消</KeyToken>
+                      <KeyToken soft>再次点击取消</KeyToken>
                     </>
                   ) : slot.keys.length > 0 ? (
                     slot.keys.map((key) => <KeyToken key={`${slot.index}:${key}`}>{key}</KeyToken>)
@@ -281,7 +282,7 @@ function BindingItem(props: {
           {isRecording ? (
             <>
               <KeyToken>等待按键…</KeyToken>
-              <KeyToken soft>Esc 取消</KeyToken>
+              <KeyToken soft>再次点击取消</KeyToken>
             </>
           ) : displayTokens.length > 0 ? (
             displayTokens.map((token, index) => (
@@ -292,6 +293,40 @@ function BindingItem(props: {
           )}
         </span>
       </button>
+      {isRecording ? (
+        <div className="special-action-popover" role="dialog" aria-label={`${bindingDisplayLabel(props.row)} 特殊动作`}>
+          {props.row.specialActions.length > 0 ? (
+            <>
+              <div className="special-action-popover__title">特殊动作</div>
+              <div className="special-action-popover__options">
+                {props.row.specialActions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={option.id === props.row.activeSpecialAction ? 'special-action-option special-action-option--active' : 'special-action-option'}
+                onClick={() => {
+                  props.setRecordingTarget(null);
+                  void props.runAction(`binding:special:${props.row.id}`, () => setBindingSpecialAction(props.row.id, option.id));
+                }}
+              >
+                {option.label}
+              </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+          <button
+            type="button"
+            className="special-action-clear"
+            onClick={() => {
+              props.setRecordingTarget(null);
+              void props.runAction(`binding:keys:${props.row.id}`, () => setBindingKeys(props.row.id, []));
+            }}
+          >
+            清空键盘按键
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -342,21 +377,10 @@ function actionKeys(action: ActionDto) {
 type DisplayToken = { label: string; soft?: boolean };
 
 function gestureDisplayTokens(row: BindingDto, tokens: string[]): DisplayToken[] {
-  if (row.id === 'gesture:three_pan') {
-    const keyTokens = tokens.length > 0 ? tokens.map((label) => ({ label })) : [{ label: 'Alt' }];
-    return [
-      ...keyTokens,
-      { label: '右键' },
-      { label: '按坐标移动', soft: true },
-    ];
-  }
-  if (row.id === 'gesture:two_pinch') {
-    return [
-      ...tokens.map((label) => ({ label })),
-      { label: '滚轮', soft: true },
-    ];
-  }
-  return tokens.map((label) => ({ label }));
+  const result: DisplayToken[] = tokens.map((label) => ({ label }));
+  const special = row.specialActions.find((option) => option.id === row.activeSpecialAction);
+  if (special && special.id !== 'none') result.push({ label: special.label, soft: true });
+  return result;
 }
 
 function actionTitle(action: ActionDto) {

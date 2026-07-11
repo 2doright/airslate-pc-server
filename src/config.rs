@@ -138,8 +138,22 @@ impl Config {
 }
 
 pub fn config_path() -> Result<PathBuf, AppError> {
-    let base = env::var_os("LOCALAPPDATA").ok_or(AppError::MissingLocalAppData)?;
-    Ok(PathBuf::from(base).join(APP_DIR).join(CONFIG_FILE))
+    Ok(config_base_dir()?.join(APP_DIR).join(CONFIG_FILE))
+}
+
+#[cfg(windows)]
+fn config_base_dir() -> Result<PathBuf, AppError> {
+    env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .ok_or(AppError::MissingConfigBase("LOCALAPPDATA"))
+}
+
+#[cfg(target_os = "macos")]
+fn config_base_dir() -> Result<PathBuf, AppError> {
+    let home = env::var_os("HOME").ok_or(AppError::MissingConfigBase("HOME"))?;
+    Ok(PathBuf::from(home)
+        .join("Library")
+        .join("Application Support"))
 }
 
 #[cfg(test)]

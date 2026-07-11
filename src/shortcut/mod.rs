@@ -26,7 +26,7 @@ pub use self::{
     domain::{
         AdvancedAction, BindingId, GestureBinding, KeyCode, MouseButton, PointerAnchor,
         RadialInnerBindings, RadialInnerSlot, RadialMenuConfig, ScreenPoint, ShortcutAction,
-        ShortcutCommand, StylusTrigger, SwipeAxis,
+        ShortcutCommand, SpecialAction, StylusTrigger, SwipeAxis,
     },
     profile::{
         SharedShortcutProfile, ShortcutPreset, ShortcutPresetLibrary, ShortcutProfile, all_bindings,

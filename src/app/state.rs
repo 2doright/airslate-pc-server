@@ -8,8 +8,9 @@ use crate::{
     error::AppError,
     session::SharedSessionService,
     shortcut::{
-        AdvancedAction, BindingId, KeyCode, RadialInnerBindings, SharedShortcutProfile,
-        ShortcutAction, ShortcutPreset, ShortcutPresetLibrary, ShortcutProfile,
+        AdvancedAction, BindingId, GestureBinding, KeyCode, MouseButton, PointerAnchor,
+        RadialInnerBindings, SharedShortcutProfile, ShortcutAction, ShortcutPreset,
+        ShortcutPresetLibrary, ShortcutProfile, SpecialAction, StylusTrigger,
     },
     workspace::WorkspaceService,
 };
@@ -401,6 +402,55 @@ mod tests {
         assert!(result.is_err());
         let _ = fs::remove_file(config_path);
     }
+
+    #[test]
+    fn keyboard_keys_and_special_action_are_updated_independently() {
+        let config_path = test_config_path("combined_keyboard_and_special_action");
+        let runtime = AppRuntime::new(
+            config_path.clone(),
+            Config::default(),
+            test_workspace(),
+            SessionService::shared(),
+        );
+        let binding = BindingId::StylusTrigger(StylusTrigger::TwoTap);
+
+        runtime
+            .set_binding_keys(binding, vec![KeyCode::Control, KeyCode::K])
+            .expect("keyboard keys should save");
+        runtime
+            .set_binding_special_action(binding, SpecialAction::PointerClickLeft)
+            .expect("special action should save");
+        assert_eq!(
+            runtime
+                .config_snapshot()
+                .expect("config snapshot")
+                .shortcut_profile
+                .action_for(binding),
+            ShortcutAction::Advanced(AdvancedAction::PointerClick {
+                keys: vec![KeyCode::Control, KeyCode::K],
+                button: MouseButton::Left,
+                anchor: PointerAnchor::CurrentHoverOrLastInRange,
+            })
+        );
+
+        runtime
+            .set_binding_keys(binding, Vec::new())
+            .expect("keyboard keys may be cleared");
+        assert_eq!(
+            runtime
+                .config_snapshot()
+                .expect("config snapshot")
+                .shortcut_profile
+                .action_for(binding),
+            ShortcutAction::Advanced(AdvancedAction::PointerClick {
+                keys: Vec::new(),
+                button: MouseButton::Left,
+                anchor: PointerAnchor::CurrentHoverOrLastInRange,
+            })
+        );
+
+        let _ = fs::remove_file(config_path);
+    }
 }
 
 #[derive(Clone)]
@@ -563,9 +613,21 @@ impl AppRuntime {
     }
 
     pub fn set_binding_keys(&self, binding: BindingId, keys: Vec<KeyCode>) -> Result<(), AppError> {
-        let keys = normalize_keys(keys)?;
+        let keys = normalize_binding_keys(keys);
         self.mutate_active_profile(|profile| {
-            let action = editable_action_from_keys(profile, binding, &keys)?;
+            let action = keyboard_action_from_keys(profile, binding, keys)?;
+            profile.set_custom_binding(binding, action);
+            Ok(())
+        })
+    }
+
+    pub fn set_binding_special_action(
+        &self,
+        binding: BindingId,
+        special_action: SpecialAction,
+    ) -> Result<(), AppError> {
+        self.mutate_active_profile(|profile| {
+            let action = special_action_for_binding(profile, binding, special_action)?;
             profile.set_custom_binding(binding, action);
             Ok(())
         })
@@ -665,6 +727,12 @@ fn normalize_keys(mut keys: Vec<KeyCode>) -> Result<Vec<KeyCode>, AppError> {
     Ok(keys)
 }
 
+fn normalize_binding_keys(mut keys: Vec<KeyCode>) -> Vec<KeyCode> {
+    keys.sort_by_key(|key| key.sort_rank());
+    keys.dedup();
+    keys
+}
+
 fn validate_radial_inner_bindings(inner: &RadialInnerBindings) -> Result<(), AppError> {
     let mut keys = vec![inner.top, inner.right, inner.bottom, inner.left];
     keys.sort_by_key(|key| key.sort_rank());
@@ -677,47 +745,147 @@ fn validate_radial_inner_bindings(inner: &RadialInnerBindings) -> Result<(), App
     Ok(())
 }
 
-fn editable_action_from_keys(
+fn keyboard_action_from_keys(
     profile: &ShortcutProfile,
     binding: BindingId,
-    keys: &[KeyCode],
+    keys: Vec<KeyCode>,
 ) -> Result<ShortcutAction, AppError> {
-    let template = profile
-        .custom_bindings
-        .get(&binding)
-        .cloned()
-        .unwrap_or_else(|| profile.preset_action_for(binding));
-
-    match template {
-        ShortcutAction::HoldKeys(_) => Ok(ShortcutAction::HoldKeys(keys.to_vec())),
-        ShortcutAction::TriggerChord(_) => Ok(ShortcutAction::TriggerChord(keys.to_vec())),
-        ShortcutAction::Advanced(AdvancedAction::PointerDrag { button, .. }) => {
-            Ok(ShortcutAction::Advanced(AdvancedAction::PointerDrag {
-                modifiers: keys.to_vec(),
+    match profile.action_for(binding) {
+        ShortcutAction::Advanced(AdvancedAction::PointerClick { button, anchor, .. }) => {
+            return Ok(ShortcutAction::Advanced(AdvancedAction::PointerClick {
+                keys,
                 button,
-            }))
+                anchor,
+            }));
+        }
+        ShortcutAction::Advanced(AdvancedAction::PointerDrag { button, .. }) => {
+            return Ok(ShortcutAction::Advanced(AdvancedAction::PointerDrag {
+                modifiers: keys,
+                button,
+            }));
         }
         ShortcutAction::Advanced(AdvancedAction::PointerWheel { .. }) => {
-            Ok(ShortcutAction::Advanced(AdvancedAction::PointerWheel {
-                modifiers: keys.to_vec(),
-            }))
+            return Ok(ShortcutAction::Advanced(AdvancedAction::PointerWheel {
+                modifiers: keys,
+            }));
         }
         ShortcutAction::Advanced(AdvancedAction::PointerRotate { .. }) => {
-            Ok(ShortcutAction::Advanced(AdvancedAction::PointerRotate {
-                modifiers: keys.to_vec(),
-            }))
+            return Ok(ShortcutAction::Advanced(AdvancedAction::PointerRotate {
+                modifiers: keys,
+            }));
         }
-        ShortcutAction::Advanced(AdvancedAction::SecondaryClick { .. })
-        | ShortcutAction::Advanced(AdvancedAction::ReleaseActiveKeys) => Err(
-            AppError::DesktopShell("this binding does not accept keyboard input".to_string()),
-        ),
-        ShortcutAction::Advanced(AdvancedAction::ReservedRadialMenu) => {
-            Err(AppError::DesktopShell(
-                "edit radial menu slots instead of the radial trigger binding".to_string(),
-            ))
-        }
-        ShortcutAction::Disabled => Err(AppError::DesktopShell(
-            "cannot edit a disabled binding template".to_string(),
+        _ => {}
+    }
+    match binding {
+        BindingId::StylusTrigger(StylusTrigger::FourTap)
+        | BindingId::Gesture(GestureBinding::TwoPan) => Err(AppError::DesktopShell(
+            "this binding has a fixed system action".to_string(),
         )),
+        BindingId::Gesture(GestureBinding::LongPress { .. })
+        | BindingId::Gesture(GestureBinding::ThreePan)
+        | BindingId::Gesture(GestureBinding::TwoPinch)
+        | BindingId::Gesture(GestureBinding::TwoRotate) => Ok(ShortcutAction::HoldKeys(keys)),
+        BindingId::StylusTrigger(_) | BindingId::Gesture(GestureBinding::Swipe { .. }) => {
+            Ok(ShortcutAction::TriggerChord(keys))
+        }
+    }
+}
+
+fn special_action_for_binding(
+    profile: &ShortcutProfile,
+    binding: BindingId,
+    special_action: SpecialAction,
+) -> Result<ShortcutAction, AppError> {
+    let keys = current_keys(profile, binding);
+    if special_action == SpecialAction::None {
+        return keyboard_action_without_special(binding, keys);
+    }
+    let action = match (binding, special_action) {
+        (
+            BindingId::StylusTrigger(
+                StylusTrigger::Squeeze
+                | StylusTrigger::DoubleTap
+                | StylusTrigger::TwoTap
+                | StylusTrigger::ThreeTap,
+            ),
+            SpecialAction::PointerClickLeft,
+        ) => AdvancedAction::PointerClick {
+            keys,
+            button: MouseButton::Left,
+            anchor: PointerAnchor::CurrentHoverOrLastInRange,
+        },
+        (
+            BindingId::StylusTrigger(
+                StylusTrigger::Squeeze
+                | StylusTrigger::DoubleTap
+                | StylusTrigger::TwoTap
+                | StylusTrigger::ThreeTap,
+            ),
+            SpecialAction::PointerClickRight,
+        ) => AdvancedAction::PointerClick {
+            keys,
+            button: MouseButton::Right,
+            anchor: PointerAnchor::CurrentHoverOrLastInRange,
+        },
+        (BindingId::Gesture(GestureBinding::ThreePan), SpecialAction::PointerMove) => {
+            AdvancedAction::PointerDrag {
+                modifiers: keys,
+                button: None,
+            }
+        }
+        (BindingId::Gesture(GestureBinding::ThreePan), SpecialAction::PointerDragLeft) => {
+            AdvancedAction::PointerDrag {
+                modifiers: keys,
+                button: Some(MouseButton::Left),
+            }
+        }
+        (BindingId::Gesture(GestureBinding::ThreePan), SpecialAction::PointerDragRight) => {
+            AdvancedAction::PointerDrag {
+                modifiers: keys,
+                button: Some(MouseButton::Right),
+            }
+        }
+        (BindingId::Gesture(GestureBinding::TwoPinch), SpecialAction::PointerWheel) => {
+            AdvancedAction::PointerWheel { modifiers: keys }
+        }
+        (BindingId::Gesture(GestureBinding::TwoRotate), SpecialAction::PointerRotate) => {
+            AdvancedAction::PointerRotate { modifiers: keys }
+        }
+        _ => {
+            return Err(AppError::DesktopShell(format!(
+                "special action {special_action:?} is not supported by {binding:?}"
+            )));
+        }
+    };
+    Ok(ShortcutAction::Advanced(action))
+}
+
+fn current_keys(profile: &ShortcutProfile, binding: BindingId) -> Vec<KeyCode> {
+    match profile.action_for(binding) {
+        ShortcutAction::HoldKeys(keys) | ShortcutAction::TriggerChord(keys) => keys,
+        ShortcutAction::Advanced(AdvancedAction::PointerClick { keys, .. }) => keys,
+        ShortcutAction::Advanced(AdvancedAction::PointerDrag { modifiers, .. })
+        | ShortcutAction::Advanced(AdvancedAction::PointerWheel { modifiers })
+        | ShortcutAction::Advanced(AdvancedAction::PointerRotate { modifiers }) => modifiers,
+        _ => Vec::new(),
+    }
+}
+
+fn keyboard_action_without_special(
+    binding: BindingId,
+    keys: Vec<KeyCode>,
+) -> Result<ShortcutAction, AppError> {
+    match binding {
+        BindingId::StylusTrigger(StylusTrigger::FourTap)
+        | BindingId::Gesture(GestureBinding::TwoPan) => Err(AppError::DesktopShell(
+            "this binding has a fixed system action".to_string(),
+        )),
+        BindingId::Gesture(GestureBinding::LongPress { .. })
+        | BindingId::Gesture(GestureBinding::ThreePan)
+        | BindingId::Gesture(GestureBinding::TwoPinch)
+        | BindingId::Gesture(GestureBinding::TwoRotate) => Ok(ShortcutAction::HoldKeys(keys)),
+        BindingId::StylusTrigger(_) | BindingId::Gesture(GestureBinding::Swipe { .. }) => {
+            Ok(ShortcutAction::TriggerChord(keys))
+        }
     }
 }

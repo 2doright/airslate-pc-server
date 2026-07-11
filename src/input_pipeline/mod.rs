@@ -997,8 +997,16 @@ mod tests {
         assert_eq!(
             *commands,
             vec![
-                ShortcutCommand::RightClickAt { x: 217, y: 332 },
-                ShortcutCommand::RightClickAt { x: 276, y: 365 },
+                ShortcutCommand::ClickAt {
+                    button: crate::shortcut::MouseButton::Right,
+                    x: 217,
+                    y: 332
+                },
+                ShortcutCommand::ClickAt {
+                    button: crate::shortcut::MouseButton::Right,
+                    x: 276,
+                    y: 365
+                },
             ]
         );
     }

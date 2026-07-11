@@ -9,7 +9,7 @@ use crate::{
     app::AppContext,
     config::{PressureCurve, PressureCurveControlPoint},
     error::AppError,
-    shortcut::{KeyCode, RadialInnerBindings},
+    shortcut::{KeyCode, RadialInnerBindings, SpecialAction},
 };
 
 #[derive(Debug, Deserialize)]
@@ -17,6 +17,13 @@ use crate::{
 pub struct BindingKeysPayload {
     pub binding_id: String,
     pub keys: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BindingSpecialActionPayload {
+    pub binding_id: String,
+    pub special_action: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -181,6 +188,20 @@ pub fn set_binding_keys(
     state
         .runtime
         .set_binding_keys(binding, keys)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_binding_special_action(
+    state: State<'_, AppContext>,
+    payload: BindingSpecialActionPayload,
+) -> Result<(), String> {
+    let binding = parse_binding_id(&payload.binding_id).map_err(error_message)?;
+    let special_action = SpecialAction::parse(&payload.special_action)
+        .ok_or_else(|| format!("unknown special action: {}", payload.special_action))?;
+    state
+        .runtime
+        .set_binding_special_action(binding, special_action)
         .map_err(error_message)
 }
 

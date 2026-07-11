@@ -13,6 +13,9 @@ use crate::{
     shortcut::{RadialMenuOverlay, RadialMenuOverlayState, ScreenPoint, SharedRadialMenuOverlay},
 };
 
+#[cfg(target_os = "macos")]
+mod portable;
+#[cfg(windows)]
 mod windows;
 
 #[derive(Clone)]
@@ -52,7 +55,12 @@ impl RadialOverlayService {
         let (sender, receiver) = mpsc::channel();
         let controller: SharedRadialMenuOverlay = Arc::new(RadialOverlayController { sender });
         let worker = thread::spawn(move || {
-            if let Err(error) = windows::run_overlay_thread(receiver) {
+            #[cfg(target_os = "macos")]
+            let result = portable::run_overlay_thread(receiver);
+            #[cfg(windows)]
+            let result = windows::run_overlay_thread(receiver);
+
+            if let Err(error) = result {
                 warn!(error = %error, "radial overlay thread stopped");
             }
         });

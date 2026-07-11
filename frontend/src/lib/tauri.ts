@@ -46,6 +46,8 @@ export interface BindingDto {
   currentAction: ActionDto;
   usesPreset: boolean;
   editableKeys: string[] | null;
+  specialActions: { id: string; label: string }[];
+  activeSpecialAction: string;
 }
 
 export interface PressureControlPointDto {
@@ -108,6 +110,10 @@ export async function resetShortcutPreset(presetId: string) {
 
 export async function setBindingKeys(bindingId: string, keys: string[]) {
   return invoke('set_binding_keys', { payload: { bindingId, keys } });
+}
+
+export async function setBindingSpecialAction(bindingId: string, specialAction: string) {
+  return invoke('set_binding_special_action', { payload: { bindingId, specialAction } });
 }
 
 export async function setRadialOuterSlot(index: number, keys: string[]) {

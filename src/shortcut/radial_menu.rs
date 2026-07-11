@@ -68,8 +68,14 @@ mod tests {
 
     #[test]
     fn small_radius_hits_center() {
-        assert_eq!(selection_from_offset(10.0, 12.0, true), RadialSelection::Center);
-        assert_eq!(selection_from_offset(10.0, 12.0, false), RadialSelection::Center);
+        assert_eq!(
+            selection_from_offset(10.0, 12.0, true),
+            RadialSelection::Center
+        );
+        assert_eq!(
+            selection_from_offset(10.0, 12.0, false),
+            RadialSelection::Center
+        );
     }
 
     #[test]
@@ -118,15 +124,30 @@ mod tests {
 
     #[test]
     fn disabled_inner_ring_maps_inner_radius_to_outer_sector() {
-        assert_eq!(selection_from_offset(110.0, 0.0, false), RadialSelection::Outer(2));
-        assert_eq!(selection_from_offset(0.0, -110.0, false), RadialSelection::Outer(0));
-        assert_eq!(selection_from_offset(-110.0, 0.0, false), RadialSelection::Outer(6));
-        assert_eq!(selection_from_offset(0.0, 110.0, false), RadialSelection::Outer(4));
+        assert_eq!(
+            selection_from_offset(110.0, 0.0, false),
+            RadialSelection::Outer(2)
+        );
+        assert_eq!(
+            selection_from_offset(0.0, -110.0, false),
+            RadialSelection::Outer(0)
+        );
+        assert_eq!(
+            selection_from_offset(-110.0, 0.0, false),
+            RadialSelection::Outer(6)
+        );
+        assert_eq!(
+            selection_from_offset(0.0, 110.0, false),
+            RadialSelection::Outer(4)
+        );
     }
 
     #[test]
     fn horizontal_and_vertical_axes_hit_outer_sector_centers() {
-        assert_eq!(selection_from_offset(160.0, 0.0, true), RadialSelection::Outer(2));
+        assert_eq!(
+            selection_from_offset(160.0, 0.0, true),
+            RadialSelection::Outer(2)
+        );
         assert_eq!(
             selection_from_offset(0.0, -160.0, true),
             RadialSelection::Outer(0)
@@ -135,6 +156,9 @@ mod tests {
             selection_from_offset(-160.0, 0.0, true),
             RadialSelection::Outer(6)
         );
-        assert_eq!(selection_from_offset(0.0, 160.0, true), RadialSelection::Outer(4));
+        assert_eq!(
+            selection_from_offset(0.0, 160.0, true),
+            RadialSelection::Outer(4)
+        );
     }
 }

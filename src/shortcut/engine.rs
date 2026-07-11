@@ -40,7 +40,7 @@ struct ActiveAdvancedAction {
 enum ActiveAdvancedState {
     PointerDrag {
         modifiers: Vec<KeyCode>,
-        button: MouseButton,
+        button: Option<MouseButton>,
         last_offset_x: f32,
         last_offset_y: f32,
     },
@@ -155,15 +155,17 @@ impl ShortcutEngine {
 
         match action {
             ShortcutAction::HoldKeys(keys) => {
-                commands.extend(self.handle_hold(
-                    binding,
-                    key_down_commands(&keys),
-                    frame.state,
-                    now,
-                ));
+                if !keys.is_empty() {
+                    commands.extend(self.handle_hold(
+                        binding,
+                        key_down_commands(&keys),
+                        frame.state,
+                        now,
+                    ));
+                }
             }
             ShortcutAction::TriggerChord(keys) => {
-                if matches!(frame.state, GestureState::Begin) {
+                if !keys.is_empty() && matches!(frame.state, GestureState::Begin) {
                     commands.extend(self.handle_trigger(
                         binding,
                         frame.seq,
@@ -196,22 +198,31 @@ impl ShortcutEngine {
             let binding = BindingId::StylusTrigger(trigger);
             match self.action_for(binding) {
                 ShortcutAction::TriggerChord(keys) => {
-                    commands.extend(self.handle_trigger(
-                        binding,
-                        seq,
-                        ShortcutCommand::PressChord(keys),
-                    ));
-                }
-                ShortcutAction::Advanced(AdvancedAction::SecondaryClick { anchor }) => {
-                    if let Some(point) = self.resolve_pointer_anchor(anchor) {
+                    if !keys.is_empty() {
                         commands.extend(self.handle_trigger(
                             binding,
                             seq,
-                            ShortcutCommand::RightClickAt {
+                            ShortcutCommand::PressChord(keys),
+                        ));
+                    }
+                }
+                ShortcutAction::Advanced(AdvancedAction::PointerClick {
+                    keys,
+                    button,
+                    anchor,
+                }) => {
+                    if self.last_trigger_seq.get(&binding) != Some(&seq) {
+                        if !keys.is_empty() {
+                            commands.push(ShortcutCommand::PressChord(keys));
+                        }
+                        if let Some(point) = self.resolve_pointer_anchor(anchor) {
+                            commands.push(ShortcutCommand::ClickAt {
+                                button,
                                 x: point.x,
                                 y: point.y,
-                            },
-                        ));
+                            });
+                        }
+                        self.last_trigger_seq.insert(binding, seq);
                     }
                 }
                 ShortcutAction::Advanced(AdvancedAction::ReleaseActiveKeys) => {
@@ -345,7 +356,7 @@ impl ShortcutEngine {
             AdvancedAction::PointerRotate { modifiers } => {
                 self.handle_pointer_rotate(binding, modifiers, frame, now)
             }
-            AdvancedAction::SecondaryClick { .. } | AdvancedAction::ReleaseActiveKeys => Vec::new(),
+            AdvancedAction::PointerClick { .. } | AdvancedAction::ReleaseActiveKeys => Vec::new(),
             AdvancedAction::ReservedRadialMenu => self.handle_radial_menu(binding, frame, now),
         }
     }
@@ -354,7 +365,7 @@ impl ShortcutEngine {
         &mut self,
         binding: BindingId,
         modifiers: Vec<KeyCode>,
-        button: MouseButton,
+        button: Option<MouseButton>,
         frame: &GestureFrame,
         now: Instant,
     ) -> Vec<ShortcutCommand> {
@@ -380,7 +391,9 @@ impl ShortcutEngine {
                 );
 
                 let mut commands = key_down_commands(&modifiers);
-                commands.push(ShortcutCommand::MouseButtonDown(button));
+                if let Some(button) = button {
+                    commands.push(ShortcutCommand::MouseButtonDown(button));
+                }
                 commands
             }
             GestureState::Update => {
@@ -726,7 +739,10 @@ impl ShortcutEngine {
             ActiveAdvancedState::PointerDrag {
                 modifiers, button, ..
             } => {
-                let mut commands = vec![ShortcutCommand::MouseButtonUp(button)];
+                let mut commands = button
+                    .map(ShortcutCommand::MouseButtonUp)
+                    .into_iter()
+                    .collect::<Vec<_>>();
                 commands.extend(key_up_commands(&modifiers));
                 commands
             }
@@ -781,7 +797,7 @@ fn binding_sort_key(binding: &BindingId) -> (u8, u8, u8) {
     }
 }
 
-fn toggle_sort_key(key: &KeyCode) -> u8 {
+fn toggle_sort_key(key: &KeyCode) -> u16 {
     key.sort_rank()
 }
 
@@ -1100,7 +1116,11 @@ mod tests {
         engine.update_pointer_context(ScreenPoint { x: 640, y: 480 }, true, false);
         assert_eq!(
             engine.process_stylus_flags(1, StylusFlags(0b0000_0100), now),
-            vec![ShortcutCommand::RightClickAt { x: 640, y: 480 }]
+            vec![ShortcutCommand::ClickAt {
+                button: MouseButton::Right,
+                x: 640,
+                y: 480
+            }]
         );
 
         engine.update_pointer_context(ScreenPoint { x: 700, y: 520 }, true, true);
@@ -1110,7 +1130,67 @@ mod tests {
                 StylusFlags(0b0000_0100),
                 now + Duration::from_millis(1)
             ),
-            vec![ShortcutCommand::RightClickAt { x: 700, y: 520 }]
+            vec![ShortcutCommand::ClickAt {
+                button: MouseButton::Right,
+                x: 700,
+                y: 520
+            }]
+        );
+    }
+
+    #[test]
+    fn stylus_trigger_executes_keyboard_and_pointer_click_components_together() {
+        let mut engine = ShortcutEngine::default();
+        let binding = BindingId::StylusTrigger(StylusTrigger::Squeeze);
+        engine
+            .profile
+            .write()
+            .expect("profile lock")
+            .set_custom_binding(
+                binding,
+                ShortcutAction::Advanced(AdvancedAction::PointerClick {
+                    keys: vec![KeyCode::Control, KeyCode::K],
+                    button: MouseButton::Left,
+                    anchor: PointerAnchor::CurrentHoverOrLastInRange,
+                }),
+            );
+        engine.update_pointer_context(ScreenPoint { x: 320, y: 240 }, true, false);
+
+        assert_eq!(
+            engine.process_stylus_flags(1, StylusFlags(0b0000_0100), Instant::now()),
+            vec![
+                ShortcutCommand::PressChord(vec![KeyCode::Control, KeyCode::K]),
+                ShortcutCommand::ClickAt {
+                    button: MouseButton::Left,
+                    x: 320,
+                    y: 240,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn empty_keyboard_component_emits_no_keyboard_command() {
+        let mut engine = ShortcutEngine::default();
+        engine
+            .profile
+            .write()
+            .expect("profile lock")
+            .set_custom_binding(
+                BindingId::Gesture(GestureBinding::Swipe {
+                    fingers: 1,
+                    axis: crate::shortcut::SwipeAxis::Horizontal,
+                }),
+                ShortcutAction::TriggerChord(Vec::new()),
+            );
+
+        assert!(
+            engine
+                .process_gesture(
+                    &gesture_frame(GestureType::OneSwipe, GestureState::Begin, 1, 0.0),
+                    Instant::now(),
+                )
+                .is_empty()
         );
     }
 
@@ -1214,7 +1294,11 @@ mod tests {
         engine.update_pointer_context(ScreenPoint { x: 640, y: 480 }, true, false);
         assert_eq!(
             engine.process_stylus_flags(1, StylusFlags(0b0000_1000), now),
-            vec![ShortcutCommand::RightClickAt { x: 640, y: 480 }]
+            vec![ShortcutCommand::ClickAt {
+                button: MouseButton::Right,
+                x: 640,
+                y: 480
+            }]
         );
 
         engine.update_pointer_context(ScreenPoint { x: 700, y: 520 }, true, true);
@@ -1224,7 +1308,11 @@ mod tests {
                 StylusFlags(0b0000_1000),
                 now + Duration::from_millis(1)
             ),
-            vec![ShortcutCommand::RightClickAt { x: 700, y: 520 }]
+            vec![ShortcutCommand::ClickAt {
+                button: MouseButton::Right,
+                x: 700,
+                y: 520
+            }]
         );
     }
 

@@ -1,5 +1,15 @@
-use std::{ffi::c_void, mem::size_of, sync::Mutex};
+#[cfg(target_os = "macos")]
+mod macos;
 
+#[cfg(target_os = "macos")]
+pub use macos::{WindowsPenInjector, WindowsShortcutExecutor};
+
+#[cfg(windows)]
+use std::ffi::c_void;
+#[cfg(windows)]
+use std::{mem::size_of, sync::Mutex};
+
+#[cfg(windows)]
 use windows::Win32::{
     Foundation::{HANDLE, HWND, POINT},
     UI::{
@@ -9,14 +19,10 @@ use windows::Win32::{
         },
         Input::{
             KeyboardAndMouse::{
-                INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_KEYUP,
-                MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
+                INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY,
+                KEYEVENTF_KEYUP, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
+                MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
                 MOUSEEVENTF_VIRTUALDESK, MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput, VIRTUAL_KEY,
-                VK_0, VK_1, VK_2, VK_3, VK_4, VK_5, VK_6, VK_7, VK_8, VK_9, VK_A, VK_B, VK_BACK,
-                VK_C, VK_CONTROL, VK_D, VK_DELETE, VK_E, VK_ESCAPE, VK_F, VK_G, VK_H, VK_I, VK_J,
-                VK_K, VK_L, VK_M, VK_MENU, VK_N, VK_O, VK_OEM_4, VK_OEM_6, VK_P, VK_Q, VK_R,
-                VK_RETURN, VK_S, VK_SHIFT, VK_SPACE, VK_T, VK_TAB, VK_U, VK_V, VK_W, VK_X, VK_Y,
-                VK_Z,
             },
             Pointer::{
                 InjectSyntheticPointerInput, POINTER_FLAG_CANCELED, POINTER_FLAG_DOWN,
@@ -32,21 +38,32 @@ use windows::Win32::{
     },
 };
 
+#[cfg(windows)]
 use crate::{
     error::AppError,
-    input_pipeline::{PenInjectionCommand, PenInjectionCommandKind, PenInjector},
-    shortcut::{KeyCode, MouseButton, ShortcutCommand, ShortcutExecutor},
+    input_pipeline::{PenInjectionCommand, PenInjector},
+    shortcut::{ShortcutCommand, ShortcutExecutor},
 };
 
+#[cfg(windows)]
+use crate::{
+    input_pipeline::PenInjectionCommandKind,
+    shortcut::{KeyCode, MouseButton},
+};
+
+#[cfg(windows)]
 const POINTER_ID: u32 = 1;
 
+#[cfg(windows)]
 pub struct WindowsPenInjector {
     device: usize,
     frame_id: Mutex<u32>,
 }
 
+#[cfg(windows)]
 pub struct WindowsShortcutExecutor;
 
+#[cfg(windows)]
 impl WindowsPenInjector {
     pub fn new() -> Result<Self, AppError> {
         let device = unsafe { CreateSyntheticPointerDevice(PT_PEN, 1, POINTER_FEEDBACK_DEFAULT) }?;
@@ -62,12 +79,14 @@ impl WindowsPenInjector {
     }
 }
 
+#[cfg(windows)]
 impl WindowsShortcutExecutor {
     pub fn new() -> Self {
         Self
     }
 }
 
+#[cfg(windows)]
 impl Drop for WindowsPenInjector {
     fn drop(&mut self) {
         unsafe {
@@ -76,6 +95,7 @@ impl Drop for WindowsPenInjector {
     }
 }
 
+#[cfg(windows)]
 impl PenInjector for WindowsPenInjector {
     fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError> {
         let mut frame_id = self
@@ -90,6 +110,7 @@ impl PenInjector for WindowsPenInjector {
     }
 }
 
+#[cfg(windows)]
 impl ShortcutExecutor for WindowsShortcutExecutor {
     fn execute(&self, command: ShortcutCommand) -> Result<(), AppError> {
         let inputs = match command {
@@ -102,7 +123,7 @@ impl ShortcutExecutor for WindowsShortcutExecutor {
             ShortcutCommand::MouseWheel { delta } => vec![mouse_wheel_input(delta)],
             ShortcutCommand::MouseButtonDown(button) => vec![mouse_button_input(button, true)],
             ShortcutCommand::MouseButtonUp(button) => vec![mouse_button_input(button, false)],
-            ShortcutCommand::RightClickAt { x, y } => build_right_click_at_inputs(x, y),
+            ShortcutCommand::ClickAt { button, x, y } => build_click_at_inputs(button, x, y),
         };
 
         let sent = unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) };
@@ -114,6 +135,7 @@ impl ShortcutExecutor for WindowsShortcutExecutor {
     }
 }
 
+#[cfg(windows)]
 fn build_pointer_type_info(frame_id: u32, command: &PenInjectionCommand) -> POINTER_TYPE_INFO {
     let point = POINT {
         x: command.x,
@@ -155,6 +177,7 @@ fn build_pointer_type_info(frame_id: u32, command: &PenInjectionCommand) -> POIN
     }
 }
 
+#[cfg(windows)]
 fn build_pointer_flags(command: &PenInjectionCommand) -> POINTER_FLAGS {
     let mut bits = POINTER_FLAG_PRIMARY.0;
 
@@ -176,6 +199,7 @@ fn build_pointer_flags(command: &PenInjectionCommand) -> POINTER_FLAGS {
     POINTER_FLAGS(bits)
 }
 
+#[cfg(windows)]
 fn build_chord_inputs(keys: &[KeyCode]) -> Vec<INPUT> {
     let mut inputs = Vec::with_capacity(keys.len() * 2);
     for &key in keys {
@@ -187,8 +211,12 @@ fn build_chord_inputs(keys: &[KeyCode]) -> Vec<INPUT> {
     inputs
 }
 
+#[cfg(windows)]
 fn keyboard_input(key: KeyCode, key_up: bool) -> INPUT {
     let mut flags = Default::default();
+    if key.is_extended() {
+        flags |= KEYEVENTF_EXTENDEDKEY;
+    }
     if key_up {
         flags |= KEYEVENTF_KEYUP;
     }
@@ -207,23 +235,29 @@ fn keyboard_input(key: KeyCode, key_up: bool) -> INPUT {
     }
 }
 
+#[cfg(windows)]
 fn mouse_move_relative_input(dx: i32, dy: i32) -> INPUT {
     mouse_input(dx, dy, 0, MOUSEEVENTF_MOVE)
 }
 
+#[cfg(windows)]
 fn mouse_wheel_input(delta: i32) -> INPUT {
     mouse_input(0, 0, delta, MOUSEEVENTF_WHEEL)
 }
 
+#[cfg(windows)]
 fn mouse_button_input(button: MouseButton, down: bool) -> INPUT {
     let flags = match (button, down) {
+        (MouseButton::Left, true) => MOUSEEVENTF_LEFTDOWN,
+        (MouseButton::Left, false) => MOUSEEVENTF_LEFTUP,
         (MouseButton::Right, true) => MOUSEEVENTF_RIGHTDOWN,
         (MouseButton::Right, false) => MOUSEEVENTF_RIGHTUP,
     };
     mouse_input(0, 0, 0, flags)
 }
 
-fn build_right_click_at_inputs(x: i32, y: i32) -> Vec<INPUT> {
+#[cfg(windows)]
+fn build_click_at_inputs(button: MouseButton, x: i32, y: i32) -> Vec<INPUT> {
     let (dx, dy) = absolute_mouse_coords(x, y);
     vec![
         mouse_input(
@@ -232,11 +266,12 @@ fn build_right_click_at_inputs(x: i32, y: i32) -> Vec<INPUT> {
             0,
             MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
         ),
-        mouse_button_input(MouseButton::Right, true),
-        mouse_button_input(MouseButton::Right, false),
+        mouse_button_input(button, true),
+        mouse_button_input(button, false),
     ]
 }
 
+#[cfg(windows)]
 fn mouse_input(
     dx: i32,
     dy: i32,
@@ -258,6 +293,7 @@ fn mouse_input(
     }
 }
 
+#[cfg(windows)]
 fn absolute_mouse_coords(x: i32, y: i32) -> (i32, i32) {
     let left = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
     let top = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
@@ -269,59 +305,12 @@ fn absolute_mouse_coords(x: i32, y: i32) -> (i32, i32) {
     (normalized_x, normalized_y)
 }
 
+#[cfg(windows)]
 fn virtual_key(key: KeyCode) -> VIRTUAL_KEY {
-    match key {
-        KeyCode::Alt => VK_MENU,
-        KeyCode::Space => VK_SPACE,
-        KeyCode::Shift => VK_SHIFT,
-        KeyCode::Control => VK_CONTROL,
-        KeyCode::Enter => VK_RETURN,
-        KeyCode::Tab => VK_TAB,
-        KeyCode::Escape => VK_ESCAPE,
-        KeyCode::Backspace => VK_BACK,
-        KeyCode::Delete => VK_DELETE,
-        KeyCode::A => VK_A,
-        KeyCode::B => VK_B,
-        KeyCode::C => VK_C,
-        KeyCode::D => VK_D,
-        KeyCode::E => VK_E,
-        KeyCode::F => VK_F,
-        KeyCode::G => VK_G,
-        KeyCode::H => VK_H,
-        KeyCode::I => VK_I,
-        KeyCode::J => VK_J,
-        KeyCode::K => VK_K,
-        KeyCode::L => VK_L,
-        KeyCode::M => VK_M,
-        KeyCode::N => VK_N,
-        KeyCode::O => VK_O,
-        KeyCode::P => VK_P,
-        KeyCode::Q => VK_Q,
-        KeyCode::R => VK_R,
-        KeyCode::S => VK_S,
-        KeyCode::T => VK_T,
-        KeyCode::U => VK_U,
-        KeyCode::V => VK_V,
-        KeyCode::W => VK_W,
-        KeyCode::X => VK_X,
-        KeyCode::Y => VK_Y,
-        KeyCode::Z => VK_Z,
-        KeyCode::Digit0 => VK_0,
-        KeyCode::Digit1 => VK_1,
-        KeyCode::Digit2 => VK_2,
-        KeyCode::Digit3 => VK_3,
-        KeyCode::Digit4 => VK_4,
-        KeyCode::Digit5 => VK_5,
-        KeyCode::Digit6 => VK_6,
-        KeyCode::Digit7 => VK_7,
-        KeyCode::Digit8 => VK_8,
-        KeyCode::Digit9 => VK_9,
-        KeyCode::BracketLeft => VK_OEM_4,
-        KeyCode::BracketRight => VK_OEM_6,
-    }
+    VIRTUAL_KEY(key.virtual_key())
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod tests {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL,
@@ -402,8 +391,18 @@ mod tests {
     }
 
     #[test]
+    fn mouse_button_inputs_use_left_button_flags() {
+        let down = mouse_button_input(MouseButton::Left, true);
+        let up = mouse_button_input(MouseButton::Left, false);
+        unsafe {
+            assert_eq!(down.Anonymous.mi.dwFlags, MOUSEEVENTF_LEFTDOWN);
+            assert_eq!(up.Anonymous.mi.dwFlags, MOUSEEVENTF_LEFTUP);
+        }
+    }
+
+    #[test]
     fn right_click_at_builds_move_down_up_sequence() {
-        let inputs = build_right_click_at_inputs(300, 400);
+        let inputs = build_click_at_inputs(MouseButton::Right, 300, 400);
         assert_eq!(inputs.len(), 3);
         unsafe {
             assert!(inputs[0].Anonymous.mi.dwFlags.contains(MOUSEEVENTF_MOVE));

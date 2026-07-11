@@ -1,4 +1,7 @@
-use std::{env, sync::atomic::{AtomicBool, Ordering}};
+use std::{
+    env,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use tauri::{
     AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
@@ -34,6 +37,7 @@ pub fn run(context: AppContext) -> Result<(), AppError> {
             crate::desktop_bridge::commands::delete_shortcut_preset,
             crate::desktop_bridge::commands::reset_shortcut_preset,
             crate::desktop_bridge::commands::set_binding_keys,
+            crate::desktop_bridge::commands::set_binding_special_action,
             crate::desktop_bridge::commands::set_radial_outer_slot,
             crate::desktop_bridge::commands::set_radial_inner_bindings,
             crate::desktop_bridge::commands::set_radial_inner_enabled

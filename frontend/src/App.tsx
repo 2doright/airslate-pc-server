@@ -114,10 +114,6 @@ export function App() {
       event.preventDefault();
       event.stopPropagation();
       if (event.repeat) return;
-      if (event.key === 'Escape') {
-        setRecordingTarget(null);
-        return;
-      }
       const mapped = mapKeyboardEventToKey(event);
       if (mapped) pressed.add(mapped);
     };
@@ -125,10 +121,6 @@ export function App() {
     const handleKeyUp = (event: KeyboardEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      if (event.key === 'Escape') {
-        setRecordingTarget(null);
-        return;
-      }
       const mapped = mapKeyboardEventToKey(event);
       if (!mapped) return;
       pressed.add(mapped);
@@ -230,41 +222,43 @@ function normalizeRecordedKeys(keys: string[]) {
 function keySortRank(key: string) {
   const rank = new Map([
     ['Ctrl', 0],
-    ['Shift', 1],
-    ['Alt', 2],
-    ['Space', 3],
-    ['Enter', 4],
-    ['Tab', 5],
-    ['Esc', 6],
-    ['Backspace', 7],
-    ['Delete', 8],
+    ['左 Ctrl', 1], ['右 Ctrl', 2],
+    ['Shift', 3], ['左 Shift', 4], ['右 Shift', 5],
+    ['Alt', 6], ['左 Alt', 7], ['右 Alt', 8],
+    ['左 Win', 9], ['右 Win', 10],
   ]);
   return rank.get(key) ?? 100 + key.charCodeAt(0);
 }
 
 function mapKeyboardEventToKey(event: KeyboardEvent): string | null {
-  switch (event.key) {
-    case 'Control':
-      return 'Ctrl';
-    case 'Shift':
-      return 'Shift';
-    case 'Alt':
-      return 'Alt';
-    case ' ':
-      return 'Space';
-    case 'Enter':
-      return 'Enter';
-    case 'Tab':
-      return 'Tab';
-    case 'Escape':
-      return 'Esc';
-    case 'Backspace':
-      return 'Backspace';
-    case 'Delete':
-      return 'Delete';
-    default:
-      if (/^[a-z]$/i.test(event.key)) return event.key.toUpperCase();
-      if (/^[0-9]$/.test(event.key)) return event.key;
-      return null;
-  }
+  const namedCodes: Record<string, string> = {
+    ControlLeft: '左 Ctrl', ControlRight: '右 Ctrl', ShiftLeft: '左 Shift', ShiftRight: '右 Shift',
+    AltLeft: '左 Alt', AltRight: '右 Alt', MetaLeft: '左 Win', MetaRight: '右 Win',
+    Space: 'Space', Enter: 'Enter', NumpadEnter: 'Num Enter', Tab: 'Tab', Escape: 'Esc',
+    Backspace: 'Backspace', Delete: 'Delete', Insert: 'Insert', Home: 'Home', End: 'End',
+    PageUp: 'Page Up', PageDown: 'Page Down', ArrowUp: '↑', ArrowDown: '↓',
+    ArrowLeft: '←', ArrowRight: '→', CapsLock: 'Caps Lock', NumLock: 'Num Lock',
+    ScrollLock: 'Scroll Lock', PrintScreen: 'Print Screen', Pause: 'Pause', ContextMenu: '菜单键',
+    Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']',
+    Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/',
+    NumpadAdd: 'Num +', NumpadSubtract: 'Num -', NumpadMultiply: 'Num *',
+    NumpadDivide: 'Num /', NumpadDecimal: 'Num .',
+    AudioVolumeMute: '静音', AudioVolumeDown: '音量 -', AudioVolumeUp: '音量 +',
+    MediaTrackPrevious: '上一曲', MediaTrackNext: '下一曲', MediaPlayPause: '播放/暂停',
+    MediaStop: '停止', BrowserBack: '浏览器后退', BrowserForward: '浏览器前进',
+    BrowserRefresh: '浏览器刷新', BrowserStop: '浏览器停止', BrowserSearch: '浏览器搜索',
+    BrowserFavorites: '浏览器收藏', BrowserHome: '浏览器主页',
+  };
+  const named = namedCodes[event.code];
+  if (named) return named;
+
+  const letter = event.code.match(/^Key([A-Z])$/);
+  if (letter) return letter[1];
+  const digit = event.code.match(/^Digit([0-9])$/);
+  if (digit) return digit[1];
+  const numpad = event.code.match(/^Numpad([0-9])$/);
+  if (numpad) return `Num ${numpad[1]}`;
+  const functionKey = event.code.match(/^F([1-9]|1[0-9]|2[0-4])$/);
+  if (functionKey) return `F${functionKey[1]}`;
+  return null;
 }

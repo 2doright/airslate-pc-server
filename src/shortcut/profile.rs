@@ -273,14 +273,16 @@ pub fn all_bindings() -> Vec<BindingId> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shortcut::domain::{AdvancedAction, PointerAnchor};
+    use crate::shortcut::domain::{AdvancedAction, MouseButton, PointerAnchor};
 
     #[test]
     fn profile_defaults_to_preset_mapping() {
         let profile = ShortcutProfile::default();
         assert_eq!(
             profile.action_for(BindingId::StylusTrigger(StylusTrigger::DoubleTap)),
-            ShortcutAction::Advanced(AdvancedAction::SecondaryClick {
+            ShortcutAction::Advanced(AdvancedAction::PointerClick {
+                keys: Vec::new(),
+                button: MouseButton::Right,
                 anchor: PointerAnchor::CurrentHoverOrLastInRange,
             })
         );

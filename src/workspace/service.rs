@@ -3,11 +3,13 @@ use std::sync::{Arc, RwLock};
 use crate::{
     config::Config,
     error::AppError,
-    workspace::{
-        model::{ActiveWorkspace, MonitorInfo, WorkspaceSnapshot},
-        windows::enumerate_monitors,
-    },
+    workspace::model::{ActiveWorkspace, MonitorInfo, WorkspaceSnapshot},
 };
+
+#[cfg(target_os = "macos")]
+use crate::workspace::macos::enumerate_monitors;
+#[cfg(windows)]
+use crate::workspace::windows::enumerate_monitors;
 
 #[derive(Debug, Clone)]
 pub struct WorkspaceService {
