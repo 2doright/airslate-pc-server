@@ -7,6 +7,9 @@
 
 # Public repository metadata
 !.gitignore
+!.gitmodules
+!.rust-skills
+!AGENTS.md
 !README.md
 !LICENSE
 
@@ -56,6 +59,8 @@ GEMINI.*.md
 
 # Private docs, plans, generated schemas, and local Tauri outputs
 doc/**
+!doc/winapi/
+!doc/winapi/**
 capabilities/**
 gen/**
 target/**
