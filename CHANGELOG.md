@@ -2,6 +2,7 @@
 
 ## Unreleased
 - completed the macOS CoreGraphics key-code mapping for the expanded shortcut catalog and report keys without a macOS equivalent as unsupported runtime facts
+- fixed Windows pen mapping on extended desktops by deriving each target's mapping extent from its monitor rectangle, preventing DPI-scaled primary-display input from spilling onto a secondary display
 - added a GitHub Actions workflow that builds universal Intel and Apple Silicon macOS `.app` and `.dmg` artifacts on a real macOS runner
 - corrected the local Tauri configuration schema path to resolve the CLI schema from `frontend/node_modules`, and confirmed Tauri build hooks already execute from the frontend directory
 - verified `npm --prefix ./frontend run build` and `cargo tauri build`, producing the Windows `.msi` and NSIS setup `.exe`

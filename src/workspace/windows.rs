@@ -3,13 +3,10 @@ use std::mem::size_of;
 use windows::{
     Win32::{
         Foundation::{LPARAM, RECT},
-        Graphics::Gdi::{
-            DEVMODEW, ENUM_CURRENT_SETTINGS, ENUM_DISPLAY_SETTINGS_FLAGS, EnumDisplayMonitors,
-            EnumDisplaySettingsExW, GetMonitorInfoW, HDC, HMONITOR, MONITORINFOEXW,
-        },
+        Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFOEXW},
         UI::WindowsAndMessaging::MONITORINFOF_PRIMARY,
     },
-    core::{BOOL, PCWSTR},
+    core::BOOL,
 };
 
 use crate::{
@@ -84,8 +81,8 @@ fn load_monitor_info(monitor: HMONITOR) -> Result<MonitorInfo, AppError> {
         ));
     }
 
-    let (pixel_width, pixel_height) = load_current_display_mode(&monitor_info.szDevice)?;
     let rect = monitor_info.monitorInfo.rcMonitor;
+    let (pixel_width, pixel_height) = monitor_extent(rect)?;
 
     Ok(MonitorInfo {
         id: MonitorId::new(device_name.clone()),
@@ -100,41 +97,69 @@ fn load_monitor_info(monitor: HMONITOR) -> Result<MonitorInfo, AppError> {
     })
 }
 
-fn load_current_display_mode(device_name: &[u16]) -> Result<(u32, u32), AppError> {
-    let mut dev_mode = DEVMODEW::default();
-    dev_mode.dmSize = size_of::<DEVMODEW>() as u16;
-
-    // SAFETY: `device_name` points to the null-terminated monitor device name provided by
-    // GetMonitorInfoW, and `dev_mode` is initialized with the required structure size.
-    let result = unsafe {
-        EnumDisplaySettingsExW(
-            PCWSTR(device_name.as_ptr()),
-            ENUM_CURRENT_SETTINGS,
-            &mut dev_mode,
-            ENUM_DISPLAY_SETTINGS_FLAGS(0),
-        )
-    };
-
-    if !result.as_bool() {
-        return Err(AppError::Workspace(format!(
-            "EnumDisplaySettingsExW failed for monitor {}",
-            utf16_to_string(device_name)
-        )));
+fn monitor_extent(rect: RECT) -> Result<(u32, u32), AppError> {
+    let width = rect.right.checked_sub(rect.left);
+    let height = rect.bottom.checked_sub(rect.top);
+    match (
+        width.and_then(|value| u32::try_from(value).ok()),
+        height.and_then(|value| u32::try_from(value).ok()),
+    ) {
+        (Some(width), Some(height)) if width > 0 && height > 0 => Ok((width, height)),
+        _ => Err(AppError::Workspace(format!(
+            "Windows returned invalid monitor bounds ({}, {})-({}, {})",
+            rect.left, rect.top, rect.right, rect.bottom
+        ))),
     }
-
-    let pixel_width = dev_mode.dmPelsWidth;
-    let pixel_height = dev_mode.dmPelsHeight;
-    if pixel_width == 0 || pixel_height == 0 {
-        return Err(AppError::Workspace(format!(
-            "Windows returned an invalid display mode for monitor {}",
-            utf16_to_string(device_name)
-        )));
-    }
-
-    Ok((pixel_width, pixel_height))
 }
 
 fn utf16_to_string(value: &[u16]) -> String {
     let end = value.iter().position(|ch| *ch == 0).unwrap_or(value.len());
     String::from_utf16_lossy(&value[..end])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn monitor_extent_uses_the_selected_monitor_bounds() {
+        let rect = RECT {
+            left: 0,
+            top: 0,
+            right: 2560,
+            bottom: 1440,
+        };
+
+        assert_eq!(
+            monitor_extent(rect).expect("valid monitor bounds"),
+            (2560, 1440)
+        );
+    }
+
+    #[test]
+    fn monitor_extent_supports_monitors_left_of_the_primary_display() {
+        let rect = RECT {
+            left: -1920,
+            top: 120,
+            right: 0,
+            bottom: 1200,
+        };
+
+        assert_eq!(
+            monitor_extent(rect).expect("valid monitor bounds"),
+            (1920, 1080)
+        );
+    }
+
+    #[test]
+    fn monitor_extent_rejects_empty_or_inverted_bounds() {
+        let rect = RECT {
+            left: 1920,
+            top: 0,
+            right: 1920,
+            bottom: 1080,
+        };
+
+        assert!(monitor_extent(rect).is_err());
+    }
 }
