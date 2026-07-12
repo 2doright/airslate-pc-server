@@ -1,4 +1,5 @@
 mod bootstrap;
+pub(crate) mod lifecycle;
 pub(crate) mod state;
 
 use std::{path::PathBuf, sync::Arc, thread};
@@ -11,22 +12,22 @@ use crate::{
     handshake::HandshakeService,
     input_pipeline::{PenInjector, StylusInputPipeline},
     radial_overlay::RadialOverlayService,
-    session::{SessionService, SharedSessionService},
+    session::SessionService,
     shortcut::ShortcutExecutor,
     udp_ingest::{IncomingEventSink, UdpIngestService},
     windows_injector::{WindowsPenInjector, WindowsShortcutExecutor},
     workspace::WorkspaceService,
 };
 
+use self::lifecycle::{SessionLifecycle, SessionStatusBus};
 use self::state::AppRuntime;
 
 #[derive(Clone)]
 pub struct AppContext {
     pub config_path: PathBuf,
     pub workspace: WorkspaceService,
-    pub session: SharedSessionService,
     pub runtime: AppRuntime,
-    pub radial_overlay: Arc<RadialOverlayService>,
+    pub session_lifecycle: Arc<SessionLifecycle>,
 }
 
 pub fn initialize() -> Result<AppContext, AppError> {
@@ -59,29 +60,35 @@ pub fn initialize() -> Result<AppContext, AppError> {
         session.clone(),
     );
     let radial_overlay = Arc::new(RadialOverlayService::new()?);
+    let injector: Arc<dyn PenInjector> = Arc::new(WindowsPenInjector::new()?);
+    let shortcut_executor: Arc<dyn ShortcutExecutor> = Arc::new(WindowsShortcutExecutor::new());
+    let input_sink: Arc<dyn IncomingEventSink> = Arc::new(StylusInputPipeline::new_with_settings(
+        workspace.clone(),
+        injector,
+        shortcut_executor,
+        runtime.pressure_settings(),
+        runtime.shortcut_profile(),
+        radial_overlay.controller(),
+        runtime.input_processing_settings(),
+    ));
+    let session_lifecycle = Arc::new(SessionLifecycle::new(
+        session.clone(),
+        input_sink,
+        SessionStatusBus::shared(),
+    ));
 
     Ok(AppContext {
         config_path: path,
         workspace,
-        session,
         runtime,
-        radial_overlay,
+        session_lifecycle,
     })
 }
 
 pub fn start_services(context: &AppContext) -> Result<(), AppError> {
-    let injector: Arc<dyn PenInjector> = Arc::new(WindowsPenInjector::new()?);
-    let shortcut_executor: Arc<dyn ShortcutExecutor> = Arc::new(WindowsShortcutExecutor::new());
-    let sink: Arc<dyn IncomingEventSink> = Arc::new(StylusInputPipeline::new(
-        context.runtime.workspace(),
-        injector,
-        shortcut_executor,
-        context.runtime.pressure_settings(),
-        context.runtime.shortcut_profile(),
-        context.radial_overlay.controller(),
-    ));
-    let handshake = HandshakeService::new(context.workspace.clone(), context.session.clone());
-    let udp_ingest = UdpIngestService::new(context.session.clone(), sink);
+    let handshake =
+        HandshakeService::new(context.workspace.clone(), context.session_lifecycle.clone());
+    let udp_ingest = UdpIngestService::new(context.session_lifecycle.clone());
 
     let _udp_thread = thread::spawn(move || {
         if let Err(error) = udp_ingest.run() {

@@ -1,30 +1,55 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowUpCircle, Keyboard, Monitor, Power, RefreshCw, Settings } from 'lucide-react';
+import { listen } from '@tauri-apps/api/event';
+import { ArrowUpCircle, Clock3, Keyboard, Monitor, Power, Settings, Unplug } from 'lucide-react';
 import { ConnectionPage } from './components/connection-page';
 import { SettingsPage } from './components/settings-page';
 import { Shell } from './components/shell';
 import { ShortcutsPage, type RecordingTarget } from './components/shortcuts-page';
 import { Button, EmptyState, Panel, Switch } from './components/ui';
 import { useAppUpdater } from './hooks/use-app-updater';
-import { type AppBootstrapDto, getAppBootstrap, openExternal, setBindingKeys, setLaunchAtStartup, setRadialOuterSlot, setShowLaunchAtStartupOnMainPage } from './lib/tauri';
+import {
+  type AppBootstrapDto,
+  type SessionStatusEvent,
+  disconnectActiveSession,
+  getAppBootstrap,
+  getLanIpv4Values,
+  openExternal,
+  setBindingKeys,
+  setLaunchAtStartup,
+  setRadialOuterSlot,
+  setShowLaunchAtStartupOnMainPage,
+} from './lib/tauri';
 
 type PageKey = 'connection' | 'shortcuts' | 'settings';
 type SettingsTab = 'general' | 'advanced' | 'about';
 const GITHUB_URL = 'https://github.com/2doright/airslate-pc-server';
 const RELEASES_URL = `${GITHUB_URL}/releases`;
+const ISSUES_URL = `${GITHUB_URL}/issues`;
+const DISCUSSIONS_URL = `${GITHUB_URL}/discussions`;
 
 export function App() {
   const [page, setPage] = useState<PageKey>('connection');
   const [settingsReturnPage, setSettingsReturnPage] = useState<'connection' | 'shortcuts'>('connection');
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
   const [data, setData] = useState<AppBootstrapDto | null>(null);
+  const [hasActiveSession, setHasActiveSession] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshingIpv4, setRefreshingIpv4] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [newPresetName, setNewPresetName] = useState('');
   const [recordingTarget, setRecordingTarget] = useState<RecordingTarget | null>(null);
   const updater = useAppUpdater(data?.distribution, /Windows/i.test(navigator.userAgent));
+
+  const applySessionStatus = (nextStatus: boolean) => {
+    setHasActiveSession(nextStatus);
+    setData((current) => current ? {
+      ...current,
+      sessionStatus: { ...current.sessionStatus, hasActiveSession: nextStatus },
+    } : current);
+  };
 
   const load = async (options?: { preserveView?: boolean }) => {
     const preserveView = options?.preserveView ?? false;
@@ -37,6 +62,7 @@ export function App() {
     try {
       const next = await getAppBootstrap();
       setData(next);
+      setHasActiveSession(next.sessionStatus.hasActiveSession);
       if (preserveView) setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -78,6 +104,57 @@ export function App() {
       setError(err instanceof Error ? err.message : String(err));
     });
   };
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    try {
+      const status = await disconnectActiveSession();
+      applySessionStatus(status.hasActiveSession);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const handleRefreshIpv4 = async () => {
+    if (refreshingIpv4) return;
+    setRefreshingIpv4(true);
+    try {
+      const ipv4Values = await getLanIpv4Values();
+      setData((current) => (current ? { ...current, ipv4Values } : current));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRefreshingIpv4(false);
+    }
+  };
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+
+    void listen<SessionStatusEvent>('session-status-changed', (event) => {
+      applySessionStatus(event.payload.hasActiveSession);
+    })
+      .then((removeListener) => {
+        if (disposed) {
+          removeListener();
+        } else {
+          unlisten = removeListener;
+        }
+      })
+      .catch((err) => {
+        if (!disposed) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      });
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   useEffect(() => {
     void load();
@@ -180,8 +257,16 @@ export function App() {
       meta={null}
       actions={
         page === 'settings' ? null : (
-          <Button type="button" tone="ghost" onClick={() => void load({ preserveView: Boolean(data) })} disabled={loading || refreshing} aria-label="刷新">
-            <RefreshCw className={refreshing ? 'shell-lucide-icon shell-lucide-icon--spinning' : 'shell-lucide-icon'} />
+          <Button
+            type="button"
+            tone={hasActiveSession ? 'danger' : 'ghost'}
+            className={hasActiveSession ? 'shell-session-button shell-session-button--connected' : 'shell-session-button shell-session-button--awaiting'}
+            onClick={() => void handleDisconnect()}
+            disabled={!data || !hasActiveSession || disconnecting}
+            aria-label={hasActiveSession ? '断开现有/残留连接' : '等待连接'}
+            title={hasActiveSession ? '断开现有/残留连接' : '等待连接'}
+          >
+            {hasActiveSession ? <Unplug className="shell-lucide-icon" /> : <Clock3 className="shell-lucide-icon" />}
           </Button>
         )
       }
@@ -192,7 +277,14 @@ export function App() {
         <div className="page-stack">
           {error ? <ErrorState error={error} onRetry={() => void load({ preserveView: true })} /> : null}
           {page === 'connection' ? (
-            <ConnectionPage data={data} selectedMonitor={selectedMonitor} busyKey={busyKey} runAction={runAction} />
+            <ConnectionPage
+              data={data}
+              selectedMonitor={selectedMonitor}
+              busyKey={busyKey}
+              runAction={runAction}
+              refreshingIpv4={refreshingIpv4}
+              onRefreshIpv4={() => void handleRefreshIpv4()}
+            />
           ) : page === 'shortcuts' ? (
             <ShortcutsPage
               data={data}
@@ -209,6 +301,8 @@ export function App() {
               busyKey={busyKey}
               onOpenGithub={() => handleOpenExternal(GITHUB_URL)}
               onOpenReleases={() => handleOpenExternal(RELEASES_URL)}
+              onOpenIssues={() => handleOpenExternal(ISSUES_URL)}
+              onOpenDiscussions={() => handleOpenExternal(DISCUSSIONS_URL)}
               initialTab={settingsInitialTab}
               updater={updater}
               runAction={runAction}

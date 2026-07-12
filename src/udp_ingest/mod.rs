@@ -6,9 +6,10 @@ use std::{
 use tracing::{info, warn};
 
 use crate::{
+    app::lifecycle::SessionLifecycle,
     error::AppError,
     protocol::{GestureFrame, Packet, SessionDisconnect, StylusFrame, decode_packet},
-    session::{DisconnectDisposition, RealtimeFrameDisposition, SharedSessionService},
+    session::{DisconnectDisposition, RealtimeFrameDisposition},
 };
 
 pub const STYLUS_DATA_PORT: u16 = 48563;
@@ -37,13 +38,12 @@ pub trait IncomingEventSink: Send + Sync {
 }
 
 pub struct UdpIngestService {
-    session: SharedSessionService,
-    sink: Arc<dyn IncomingEventSink>,
+    lifecycle: Arc<SessionLifecycle>,
 }
 
 impl UdpIngestService {
-    pub fn new(session: SharedSessionService, sink: Arc<dyn IncomingEventSink>) -> Self {
-        Self { session, sink }
+    pub fn new(lifecycle: Arc<SessionLifecycle>) -> Self {
+        Self { lifecycle }
     }
 
     pub fn run(&self) -> Result<(), AppError> {
@@ -73,20 +73,24 @@ impl UdpIngestService {
             }
         };
 
-        let event = match packet {
-            Packet::StylusFrame(frame) => self.handle_stylus_frame(source_ip, frame),
-            Packet::GestureFrame(frame) => self.handle_gesture_frame(source_ip, frame),
-            Packet::SessionDisconnect(packet) => self.handle_disconnect_packet(source_ip, packet),
+        let (event, event_emitted) = match packet {
+            Packet::StylusFrame(frame) => (self.handle_stylus_frame(source_ip, frame), false),
+            Packet::GestureFrame(frame) => (self.handle_gesture_frame(source_ip, frame), false),
+            Packet::SessionDisconnect(packet) => {
+                (self.handle_disconnect_packet(source_ip, packet), true)
+            }
             Packet::HandshakeRequest(_)
             | Packet::HandshakeResponse(_)
             | Packet::HandshakeError(_) => {
                 warn!(source = %source_addr, "ignored non-realtime udp packet type");
-                None
+                (None, false)
             }
         };
 
-        if let Some(event) = event.clone() {
-            self.sink.emit(event);
+        if !event_emitted {
+            if let Some(event) = event.clone() {
+                self.lifecycle.emit_incoming(event);
+            }
         }
 
         event
@@ -97,27 +101,20 @@ impl UdpIngestService {
         source_ip: Ipv4Addr,
         frame: StylusFrame,
     ) -> Option<IncomingEvent> {
-        let disposition = self
-            .session
-            .lock()
-            .map_err(|_| AppError::StatePoisoned("session"))
-            .ok()?
-            .accept_realtime_source(source_ip);
+        let disposition = match self.lifecycle.accept_realtime_source(source_ip) {
+            Ok(disposition) => disposition,
+            Err(error) => {
+                warn!(source_ip = %source_ip, error = %error, "failed to inspect stylus session state");
+                return None;
+            }
+        };
 
         match disposition {
-            RealtimeFrameDisposition::Accepted {
+            RealtimeFrameDisposition::Accepted { session_id } => Some(IncomingEvent::Stylus {
                 session_id,
-                newly_bound,
-            } => {
-                if newly_bound {
-                    info!(session_id = %session_id, source_ip = %source_ip, "bound udp source ip to active session");
-                }
-                Some(IncomingEvent::Stylus {
-                    session_id,
-                    source_ip,
-                    frame,
-                })
-            }
+                source_ip,
+                frame,
+            }),
             RealtimeFrameDisposition::IgnoredNoActiveSession => {
                 info!(source_ip = %source_ip, "ignored stylus frame without active session");
                 None
@@ -134,21 +131,16 @@ impl UdpIngestService {
         source_ip: Ipv4Addr,
         frame: GestureFrame,
     ) -> Option<IncomingEvent> {
-        let disposition = self
-            .session
-            .lock()
-            .map_err(|_| AppError::StatePoisoned("session"))
-            .ok()?
-            .accept_realtime_source(source_ip);
+        let disposition = match self.lifecycle.accept_realtime_source(source_ip) {
+            Ok(disposition) => disposition,
+            Err(error) => {
+                warn!(source_ip = %source_ip, error = %error, "failed to inspect gesture session state");
+                return None;
+            }
+        };
 
         match disposition {
-            RealtimeFrameDisposition::Accepted {
-                session_id,
-                newly_bound,
-            } => {
-                if newly_bound {
-                    info!(session_id = %session_id, source_ip = %source_ip, "bound udp source ip to active session");
-                }
+            RealtimeFrameDisposition::Accepted { session_id } => {
                 info!(
                     session_id = %session_id,
                     source_ip = %source_ip,
@@ -183,17 +175,21 @@ impl UdpIngestService {
         source_ip: Ipv4Addr,
         packet: SessionDisconnect,
     ) -> Option<IncomingEvent> {
-        let disposition = self
-            .session
-            .lock()
-            .map_err(|_| AppError::StatePoisoned("session"))
-            .ok()?
-            .handle_udp_disconnect(source_ip, &packet);
+        let disposition = match self.lifecycle.handle_udp_disconnect(source_ip, &packet) {
+            Ok(disposition) => disposition,
+            Err(error) => {
+                warn!(source_ip = %source_ip, error = %error, "failed to inspect disconnect session state");
+                return None;
+            }
+        };
 
         match disposition {
-            DisconnectDisposition::Released { session_id } => Some(IncomingEvent::SessionEnded {
+            DisconnectDisposition::Released {
                 session_id,
-                source_ip,
+                peer_ip,
+            } => Some(IncomingEvent::SessionEnded {
+                session_id,
+                source_ip: peer_ip,
             }),
             DisconnectDisposition::IgnoredNoActiveSession => {
                 info!(source_ip = %source_ip, "ignored session disconnect without active session");
@@ -213,14 +209,15 @@ impl UdpIngestService {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
 
     use crate::{
+        app::lifecycle::{SessionLifecycle, SessionStatusBus},
         protocol::{
             GestureFrame, GestureState, GestureType, HandshakeRequest, Packet, SessionDisconnect,
             StylusEventType, StylusFlags, StylusFrame, encode_packet,
         },
-        session::SessionService,
+        session::{SessionService, SharedSessionService},
     };
 
     use super::*;
@@ -239,8 +236,24 @@ mod tests {
     fn test_service() -> (UdpIngestService, Arc<RecordingSink>, SharedSessionService) {
         let session = SessionService::shared();
         let sink = Arc::new(RecordingSink::default());
-        let service = UdpIngestService::new(session.clone(), sink.clone());
+        let lifecycle = Arc::new(SessionLifecycle::new(
+            session.clone(),
+            sink.clone(),
+            SessionStatusBus::shared(),
+        ));
+        let service = UdpIngestService::new(lifecycle);
         (service, sink, session)
+    }
+
+    fn create_test_session(session: &SharedSessionService) -> String {
+        session
+            .lock()
+            .expect("session should lock")
+            .create_session("client-a", Ipv4Addr::new(192, 168, 0, 10))
+            .expect("session should be created")
+            .session_id()
+            .as_str()
+            .to_owned()
     }
 
     fn test_addr(ip_last: u8, port: u16) -> SocketAddr {
@@ -280,14 +293,7 @@ mod tests {
     #[test]
     fn stylus_packet_emits_event_with_active_session() {
         let (service, sink, session) = test_service();
-        let session_id = session
-            .lock()
-            .expect("session should lock")
-            .create_session("client-a")
-            .expect("session should be created")
-            .session_id()
-            .as_str()
-            .to_string();
+        let session_id = create_test_session(&session);
 
         let event = service.process_datagram(test_addr(10, 9000), &stylus_packet());
 
@@ -305,14 +311,7 @@ mod tests {
     #[test]
     fn gesture_packet_emits_event_with_active_session() {
         let (service, _, session) = test_service();
-        let session_id = session
-            .lock()
-            .expect("session should lock")
-            .create_session("client-a")
-            .expect("session should be created")
-            .session_id()
-            .as_str()
-            .to_string();
+        let session_id = create_test_session(&session);
 
         let event = service.process_datagram(test_addr(10, 9001), &gesture_packet());
 
@@ -337,13 +336,9 @@ mod tests {
     }
 
     #[test]
-    fn realtime_packet_from_different_ip_is_ignored_after_binding() {
+    fn realtime_packet_from_different_ip_is_ignored_after_handshake_binding() {
         let (service, sink, session) = test_service();
-        session
-            .lock()
-            .expect("session should lock")
-            .create_session("client-a")
-            .expect("session should be created");
+        create_test_session(&session);
 
         let first_event = service.process_datagram(test_addr(10, 9000), &stylus_packet());
         let second_event = service.process_datagram(test_addr(11, 9001), &gesture_packet());
@@ -356,11 +351,7 @@ mod tests {
     #[test]
     fn same_ip_different_port_is_accepted() {
         let (service, sink, session) = test_service();
-        session
-            .lock()
-            .expect("session should lock")
-            .create_session("client-a")
-            .expect("session should be created");
+        create_test_session(&session);
 
         let first_event = service.process_datagram(test_addr(10, 9000), &stylus_packet());
         let second_event = service.process_datagram(test_addr(10, 9100), &gesture_packet());
@@ -373,14 +364,7 @@ mod tests {
     #[test]
     fn valid_session_disconnect_releases_session() {
         let (service, sink, session) = test_service();
-        let session_id = session
-            .lock()
-            .expect("session should lock")
-            .create_session("client-a")
-            .expect("session should be created")
-            .session_id()
-            .as_str()
-            .to_string();
+        let session_id = create_test_session(&session);
 
         let _ = service.process_datagram(test_addr(10, 9000), &stylus_packet());
         let packet = encode_packet(&Packet::SessionDisconnect(SessionDisconnect {
@@ -409,11 +393,7 @@ mod tests {
     #[test]
     fn wrong_session_disconnect_is_ignored() {
         let (service, sink, session) = test_service();
-        session
-            .lock()
-            .expect("session should lock")
-            .create_session("client-a")
-            .expect("session should be created");
+        create_test_session(&session);
 
         let packet = encode_packet(&Packet::SessionDisconnect(SessionDisconnect {
             session_id: "wrong-session-id".to_string(),
@@ -439,11 +419,7 @@ mod tests {
     #[test]
     fn handshake_packet_over_udp_is_ignored() {
         let (service, sink, session) = test_service();
-        session
-            .lock()
-            .expect("session should lock")
-            .create_session("client-a")
-            .expect("session should be created");
+        create_test_session(&session);
 
         let packet = encode_packet(&Packet::HandshakeRequest(HandshakeRequest {
             client_id: "client-a".to_string(),

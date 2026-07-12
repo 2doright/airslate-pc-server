@@ -221,6 +221,7 @@ function RadialMenuPanel(props: {
               <div className="radial-editor-center__hint">关闭后双指划动将直接作用于外环</div>
             </div>
             <Switch
+              className="radial-inner-switch"
               checked={props.action.radialInnerEnabled}
               disabled={innerEnabledBusy}
               ariaLabel="切换径向菜单内环"

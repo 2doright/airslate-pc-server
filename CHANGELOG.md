@@ -1,6 +1,38 @@
 # CHANGELOG
 
 ## Unreleased
+
+_No changes yet._
+
+## 1.5.1 - 2026-07-12
+
+### ✨ Features
+
+- added opt-in Advanced input strategies for latest-sample contact prioritization and new-stroke preemption, with a persistent 0–100 ms backlog-tolerance control
+- added main-page session status controls, including a clear waiting state, local disconnect action, shared session cleanup, and live Tauri status events
+- added an independent LAN IPv4 refresh action and bound handshake sessions to the peer's IPv4 address
+- added opt-in `AIRSLATE_INPUT_METRICS=1` pipeline measurements for sequence gaps, queue depth, queue wait, and injection duration
+
+### 🐛 Fixes & performance
+
+- replaced lossy contact-move backlog compaction with an ordered lossless queue, preserving every accepted in-contact Move sample during high-frequency multi-stroke bursts while still coalescing only non-contact hover moves
+- moved normal stylus coordinate and pressure mapping out of the pen worker's duplicate hot path and reduced shortcut-context work for contact moves
+- replaced the Windows pen frame-id mutex with atomic sequencing and corrected synthetic pen history metadata
+- removed the window-size flash when reopening the control panel by restoring persisted geometry before recreating the window
+
+### 🎨 UI & UX
+
+- refreshed the waiting and main-page connection controls with the cc-switch-inspired orange treatment, circular add-action shape, elevated shadow, and color-only hover transition
+- changed the radial-menu inner-ring toggle to a circular switch while preserving the nine-grid editor layout
+- added explicit red fidelity warnings for opt-in lossy input strategies and streamlined the About page with Update, Issues, and Discussions actions
+- changed the default window size to 2064 × 1232 and the minimum window size to 960 × 540 (16:9)
+
+### ⚠️ Upgrade notes
+
+- the new input strategies are opt-in; lossless input remains the default
+- pipeline metrics are disabled unless `AIRSLATE_INPUT_METRICS=1` is set
+
+## 1.5.0 - 2026-07-12
 - added signed stable-version update checks, About-page install/restart flow, portable download fallback, and a clickable main-header update indicator
 - added Windows x64 release automation for the MSI installer, directly runnable portable executable, GitHub Raw update manifest, and Tauri signing artifacts
 - added macOS universal `.dmg` and compressed `.app` assets to the unified GitHub Release workflow

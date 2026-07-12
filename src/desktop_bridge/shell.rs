@@ -1,30 +1,35 @@
 use std::{
     env,
     sync::atomic::{AtomicBool, Ordering},
+    thread,
 };
 
 use tauri::{
-    AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_window_state::{StateFlags, WindowExt};
 
-use crate::{app::AppContext, error::AppError};
+use crate::{
+    app::{AppContext, lifecycle::SESSION_STATUS_CHANGED_EVENT},
+    error::AppError,
+};
 
 const MAIN_WINDOW_LABEL: &str = "main";
 const TRAY_OPEN_ID: &str = "open";
 const TRAY_QUIT_ID: &str = "quit";
 const AUTOSTART_ARG: &str = "--autostart";
-const DEFAULT_WINDOW_WIDTH: f64 = 1000.0;
-const DEFAULT_WINDOW_HEIGHT: f64 = 650.0;
-const MIN_WINDOW_WIDTH: f64 = 900.0;
-const MIN_WINDOW_HEIGHT: f64 = 600.0;
+const DEFAULT_WINDOW_WIDTH: f64 = 2064.0;
+const DEFAULT_WINDOW_HEIGHT: f64 = 1232.0;
+const MIN_WINDOW_WIDTH: f64 = 960.0;
+const MIN_WINDOW_HEIGHT: f64 = 540.0;
 static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 pub fn run(context: AppContext) -> Result<(), AppError> {
     let launched_via_autostart = env::args().any(|arg| arg == AUTOSTART_ARG);
+    let session_status_events = context.session_lifecycle.status_bus().subscribe()?;
     let mut builder = tauri::Builder::default()
         .manage(context)
         .plugin(tauri_plugin_autostart::init(
@@ -47,6 +52,11 @@ pub fn run(context: AppContext) -> Result<(), AppError> {
             crate::desktop_bridge::commands::set_pressure_curve,
             crate::desktop_bridge::commands::set_launch_at_startup,
             crate::desktop_bridge::commands::set_show_launch_at_startup_on_main_page,
+            crate::desktop_bridge::commands::set_latest_contact_move_only,
+            crate::desktop_bridge::commands::set_latest_contact_move_tolerance_ms,
+            crate::desktop_bridge::commands::set_preempt_previous_stroke,
+            crate::desktop_bridge::commands::disconnect_active_session,
+            crate::desktop_bridge::commands::get_lan_ipv4_values,
             crate::desktop_bridge::commands::select_shortcut_preset,
             crate::desktop_bridge::commands::create_shortcut_preset,
             crate::desktop_bridge::commands::rename_shortcut_preset,
@@ -69,11 +79,20 @@ pub fn run(context: AppContext) -> Result<(), AppError> {
     let app = builder
         .setup(move |app| {
             let handle = app.handle();
-            create_tray(&handle)?;
+            let event_handle = handle.clone();
+            thread::spawn(move || {
+                while let Ok(event) = session_status_events.recv() {
+                    if let Err(error) = event_handle.emit(SESSION_STATUS_CHANGED_EVENT, event) {
+                        tracing::warn!(error = %error, "session status event delivery stopped");
+                        break;
+                    }
+                }
+            });
+            create_tray(handle)?;
             if launched_via_autostart {
-                destroy_main_window(&handle)?;
+                destroy_main_window(handle)?;
             } else {
-                show_main_window(&handle)?;
+                show_main_window(handle)?;
             }
             Ok(())
         })
@@ -103,6 +122,7 @@ fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
         .min_inner_size(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
         .resizable(true)
         .center()
+        .visible(false)
         .build()?;
 
     Ok(())

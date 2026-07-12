@@ -11,7 +11,8 @@ use crate::{
     shortcut::{ShortcutPresetLibrary, ShortcutProfile},
 };
 
-const CONFIG_VERSION: u32 = 7;
+const CONFIG_VERSION: u32 = 9;
+pub const MAX_LATEST_CONTACT_MOVE_TOLERANCE_MS: u32 = 100;
 const APP_DIR: &str = "AirSlatePcServer";
 const CONFIG_FILE: &str = "config.toml";
 
@@ -70,6 +71,9 @@ pub struct Config {
     pub launch_at_startup: bool,
     #[serde(default = "default_show_launch_at_startup_on_main_page")]
     pub show_launch_at_startup_on_main_page: bool,
+    pub latest_contact_move_only: bool,
+    pub latest_contact_move_tolerance_ms: u32,
+    pub preempt_previous_stroke: bool,
     pub selected_monitor_id: Option<String>,
     pub pressure_curve: PressureCurve,
     pub shortcut_profile: ShortcutProfile,
@@ -87,6 +91,9 @@ impl Default for Config {
             app_name: "airslate_pc_server".to_string(),
             launch_at_startup: false,
             show_launch_at_startup_on_main_page: true,
+            latest_contact_move_only: false,
+            latest_contact_move_tolerance_ms: 0,
+            preempt_previous_stroke: false,
             selected_monitor_id: None,
             pressure_curve: PressureCurve::default(),
             shortcut_profile: default_profile,
@@ -130,6 +137,9 @@ impl Config {
     pub fn normalize(&mut self) {
         self.config_version = CONFIG_VERSION;
         self.pressure_curve.normalize();
+        self.latest_contact_move_tolerance_ms = self
+            .latest_contact_move_tolerance_ms
+            .min(MAX_LATEST_CONTACT_MOVE_TOLERANCE_MS);
         self.shortcut_profile.remove_disabled_overrides();
         self.shortcut_profile.remove_fixed_binding_overrides();
         self.shortcut_presets
@@ -224,6 +234,23 @@ mod tests {
         let restored = toml::from_str::<Config>(&old_raw).expect("old config should deserialize");
 
         assert!(restored.show_launch_at_startup_on_main_page);
+    }
+
+    #[test]
+    fn lossy_input_policies_default_off_and_round_trip() {
+        let defaults = Config::default();
+        assert!(!defaults.latest_contact_move_only);
+        assert!(!defaults.preempt_previous_stroke);
+
+        let mut configured = defaults;
+        configured.latest_contact_move_only = true;
+        configured.latest_contact_move_tolerance_ms = 24;
+        configured.preempt_previous_stroke = true;
+        let raw = toml::to_string(&configured).expect("config should serialize");
+        let restored = toml::from_str::<Config>(&raw).expect("config should deserialize");
+        assert!(restored.latest_contact_move_only);
+        assert_eq!(restored.latest_contact_move_tolerance_ms, 24);
+        assert!(restored.preempt_previous_stroke);
     }
 
     #[test]

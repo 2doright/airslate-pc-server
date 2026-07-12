@@ -78,13 +78,12 @@ fn resolve_active_monitor<'a>(
     monitors: &'a [MonitorInfo],
     selected_monitor_id: Option<&str>,
 ) -> Option<&'a MonitorInfo> {
-    if let Some(selected_monitor_id) = selected_monitor_id {
-        if let Some(monitor) = monitors
+    if let Some(selected_monitor_id) = selected_monitor_id
+        && let Some(monitor) = monitors
             .iter()
             .find(|monitor| monitor.id.as_str() == selected_monitor_id)
-        {
-            return Some(monitor);
-        }
+    {
+        return Some(monitor);
     }
 
     monitors

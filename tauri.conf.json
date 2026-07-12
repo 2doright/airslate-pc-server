@@ -1,7 +1,7 @@
 {
   "$schema": "./frontend/node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "AirSlate PC Server",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "identifier": "com.airslate.pcserver",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -14,10 +14,10 @@
       {
         "label": "main",
         "title": "AirSlate 控制台",
-        "width": 1000,
-        "height": 650,
-        "minWidth": 900,
-        "minHeight": 600,
+        "width": 2064,
+        "height": 1232,
+        "minWidth": 960,
+        "minHeight": 540,
         "visible": false,
         "resizable": true,
         "fullscreen": false,

@@ -6,6 +6,7 @@ use tauri_plugin_opener::OpenerExt;
 use super::dto::{
     AppBootstrapDto, PressureControlPointDto, PressureCurvePayload, app_bootstrap, parse_binding_id,
 };
+use super::local_ip::lan_ipv4_values;
 use crate::{
     app::AppContext,
     config::{PressureCurve, PressureCurveControlPoint},
@@ -74,6 +75,21 @@ pub fn get_app_bootstrap(state: State<'_, AppContext>) -> Result<AppBootstrapDto
 }
 
 #[tauri::command]
+pub fn disconnect_active_session(
+    state: State<'_, AppContext>,
+) -> Result<crate::app::lifecycle::SessionStatusEvent, String> {
+    state
+        .session_lifecycle
+        .disconnect_locally()
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn get_lan_ipv4_values() -> Vec<String> {
+    lan_ipv4_values()
+}
+
+#[tauri::command]
 pub fn open_external(app: AppHandle, url: String) -> Result<(), String> {
     if !url.starts_with("https://") {
         return Err("仅支持打开 HTTPS 外部链接".to_string());
@@ -138,6 +154,39 @@ pub fn set_show_launch_at_startup_on_main_page(
     state
         .runtime
         .set_show_launch_at_startup_on_main_page(enabled)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_latest_contact_move_only(
+    state: State<'_, AppContext>,
+    enabled: bool,
+) -> Result<(), String> {
+    state
+        .runtime
+        .set_latest_contact_move_only(enabled)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_latest_contact_move_tolerance_ms(
+    state: State<'_, AppContext>,
+    tolerance_ms: u32,
+) -> Result<(), String> {
+    state
+        .runtime
+        .set_latest_contact_move_tolerance_ms(tolerance_ms)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_preempt_previous_stroke(
+    state: State<'_, AppContext>,
+    enabled: bool,
+) -> Result<(), String> {
+    state
+        .runtime
+        .set_preempt_previous_stroke(enabled)
         .map_err(error_message)
 }
 

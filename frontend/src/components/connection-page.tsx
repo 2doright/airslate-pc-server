@@ -1,13 +1,16 @@
 import type { AppBootstrapDto } from '../lib/tauri';
+import { RefreshCw } from 'lucide-react';
 import { setSelectedMonitor } from '../lib/tauri';
 import { PressureCurveCard } from './pressure-curve-card';
-import { Badge, EmptyState, Panel, PanelHeader, SelectField } from './ui';
+import { Badge, Button, EmptyState, Panel, PanelHeader, SelectField } from './ui';
 
 export function ConnectionPage(props: {
   data: AppBootstrapDto;
   selectedMonitor: AppBootstrapDto['monitors'][number] | null;
   busyKey: string | null;
   runAction: (key: string, action: () => Promise<unknown>) => Promise<void>;
+  refreshingIpv4: boolean;
+  onRefreshIpv4: () => void;
 }) {
   const primaryAddress = props.data.ipv4Values[0] ?? null;
   const secondaryAddresses = props.data.ipv4Values.slice(1);
@@ -15,7 +18,22 @@ export function ConnectionPage(props: {
   return (
     <div className="connection-grid">
       <Panel variant="hero" className="connect-hero">
-        <PanelHeader title="局域网 IPv4 地址" />
+        <PanelHeader
+          title="局域网 IPv4 地址"
+          action={(
+            <Button
+              type="button"
+              tone="ghost"
+              className="ipv4-refresh-button"
+              onClick={props.onRefreshIpv4}
+              disabled={props.refreshingIpv4}
+              aria-label="刷新局域网 IPv4 地址"
+              title="刷新局域网 IPv4 地址"
+            >
+              <RefreshCw className={props.refreshingIpv4 ? 'shell-lucide-icon shell-lucide-icon--small shell-lucide-icon--spinning' : 'shell-lucide-icon shell-lucide-icon--small'} />
+            </Button>
+          )}
+        />
         {primaryAddress ? (
           <div className="ip-showcase">
             <div className="ip-showcase__value">{primaryAddress}</div>

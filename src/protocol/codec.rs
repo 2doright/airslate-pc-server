@@ -835,7 +835,7 @@ mod tests {
         let value = "你你你你你你你你你你你你你你你你你你你你你你你";
         let encoded = encode_fixed_utf8::<10>(value);
         let decoded = decode_fixed_utf8("field", &encoded).unwrap();
-        assert_eq!(decoded.as_bytes().len(), 9);
+        assert_eq!(decoded.len(), 9);
         assert_eq!(decoded, "你你你");
     }
 

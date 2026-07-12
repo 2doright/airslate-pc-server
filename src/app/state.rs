@@ -1,6 +1,9 @@
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex, RwLock},
+    sync::{
+        Arc, Mutex, RwLock,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
 };
 
 use crate::{
@@ -17,6 +20,26 @@ use crate::{
 
 pub type SharedConfigState = Arc<Mutex<Config>>;
 pub type SharedPressureSettings = Arc<RwLock<PressureSettings>>;
+pub type SharedInputProcessingSettings = Arc<InputProcessingSettings>;
+
+#[derive(Default)]
+pub struct InputProcessingSettings {
+    pub latest_contact_move_only: AtomicBool,
+    pub latest_contact_move_tolerance_ms: AtomicU64,
+    pub preempt_previous_stroke: AtomicBool,
+}
+
+impl InputProcessingSettings {
+    fn from_config(config: &Config) -> Self {
+        Self {
+            latest_contact_move_only: AtomicBool::new(config.latest_contact_move_only),
+            latest_contact_move_tolerance_ms: AtomicU64::new(u64::from(
+                config.latest_contact_move_tolerance_ms,
+            )),
+            preempt_previous_stroke: AtomicBool::new(config.preempt_previous_stroke),
+        }
+    }
+}
 
 pub const PRESSURE_LUT_SIZE: usize = 1025;
 
@@ -460,6 +483,7 @@ pub struct AppRuntime {
     workspace: WorkspaceService,
     pressure_settings: SharedPressureSettings,
     shortcut_profile: SharedShortcutProfile,
+    input_processing_settings: SharedInputProcessingSettings,
     session: SharedSessionService,
 }
 
@@ -473,12 +497,14 @@ impl AppRuntime {
         let pressure_settings = Arc::new(RwLock::new(PressureSettings::from_config(&config)));
         let shortcut_profile = config.shortcut_profile.clone().shared();
 
+        let input_processing_settings = Arc::new(InputProcessingSettings::from_config(&config));
         Self {
             config_path,
             config: Arc::new(Mutex::new(config)),
             workspace,
             pressure_settings,
             shortcut_profile,
+            input_processing_settings,
             session,
         }
     }
@@ -493,6 +519,10 @@ impl AppRuntime {
 
     pub fn shortcut_profile(&self) -> SharedShortcutProfile {
         self.shortcut_profile.clone()
+    }
+
+    pub fn input_processing_settings(&self) -> SharedInputProcessingSettings {
+        self.input_processing_settings.clone()
     }
 
     pub fn has_active_session(&self) -> Result<bool, AppError> {
@@ -560,6 +590,51 @@ impl AppRuntime {
         config.show_launch_at_startup_on_main_page = enabled;
         config.normalize();
         config.save(&self.config_path)
+    }
+
+    pub fn set_latest_contact_move_only(&self, enabled: bool) -> Result<(), AppError> {
+        let mut config = self
+            .config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))?;
+        config.latest_contact_move_only = enabled;
+        config.normalize();
+        config.save(&self.config_path)?;
+        self.input_processing_settings
+            .latest_contact_move_only
+            .store(enabled, Ordering::Release);
+        Ok(())
+    }
+
+    pub fn set_latest_contact_move_tolerance_ms(&self, tolerance_ms: u32) -> Result<(), AppError> {
+        let mut config = self
+            .config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))?;
+        config.latest_contact_move_tolerance_ms = tolerance_ms;
+        config.normalize();
+        config.save(&self.config_path)?;
+        self.input_processing_settings
+            .latest_contact_move_tolerance_ms
+            .store(
+                u64::from(config.latest_contact_move_tolerance_ms),
+                Ordering::Release,
+            );
+        Ok(())
+    }
+
+    pub fn set_preempt_previous_stroke(&self, enabled: bool) -> Result<(), AppError> {
+        let mut config = self
+            .config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))?;
+        config.preempt_previous_stroke = enabled;
+        config.normalize();
+        config.save(&self.config_path)?;
+        self.input_processing_settings
+            .preempt_previous_stroke
+            .store(enabled, Ordering::Release);
+        Ok(())
     }
 
     pub fn select_shortcut_preset(&self, preset_id: &str) -> Result<(), AppError> {

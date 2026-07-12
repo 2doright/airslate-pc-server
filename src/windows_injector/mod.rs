@@ -7,7 +7,10 @@ pub use macos::{WindowsPenInjector, WindowsShortcutExecutor};
 #[cfg(windows)]
 use std::ffi::c_void;
 #[cfg(windows)]
-use std::{mem::size_of, sync::Mutex};
+use std::{
+    mem::size_of,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 #[cfg(windows)]
 use windows::Win32::{
@@ -57,7 +60,7 @@ const POINTER_ID: u32 = 1;
 #[cfg(windows)]
 pub struct WindowsPenInjector {
     device: usize,
-    frame_id: Mutex<u32>,
+    frame_id: AtomicU32,
 }
 
 #[cfg(windows)]
@@ -66,11 +69,12 @@ pub struct WindowsShortcutExecutor;
 #[cfg(windows)]
 impl WindowsPenInjector {
     pub fn new() -> Result<Self, AppError> {
+        // SAFETY: PT_PEN with a maximum count of one and the feedback mode are valid API values.
         let device = unsafe { CreateSyntheticPointerDevice(PT_PEN, 1, POINTER_FEEDBACK_DEFAULT) }?;
 
         Ok(Self {
             device: device.0 as usize,
-            frame_id: Mutex::new(0),
+            frame_id: AtomicU32::new(0),
         })
     }
 
@@ -89,6 +93,7 @@ impl WindowsShortcutExecutor {
 #[cfg(windows)]
 impl Drop for WindowsPenInjector {
     fn drop(&mut self) {
+        // SAFETY: `device` came from a successful creation call and is destroyed exactly once.
         unsafe {
             DestroySyntheticPointerDevice(self.device_handle());
         }
@@ -98,13 +103,14 @@ impl Drop for WindowsPenInjector {
 #[cfg(windows)]
 impl PenInjector for WindowsPenInjector {
     fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError> {
-        let mut frame_id = self
+        let frame_id = self
             .frame_id
-            .lock()
-            .map_err(|_| AppError::StatePoisoned("windows_pen_injector"))?;
-        *frame_id = frame_id.wrapping_add(1);
+            .fetch_add(1, Ordering::Relaxed)
+            .wrapping_add(1);
 
-        let pointer_info = build_pointer_type_info(*frame_id, &command);
+        let pointer_info = build_pointer_type_info(frame_id, &command);
+        // SAFETY: the device handle is valid for `self` and the slice contains one initialized
+        // PT_PEN value, matching the device's configured pointer type and count.
         unsafe { InjectSyntheticPointerInput(self.device_handle(), &[pointer_info]) }?;
         Ok(())
     }
@@ -126,6 +132,7 @@ impl ShortcutExecutor for WindowsShortcutExecutor {
             ShortcutCommand::ClickAt { button, x, y } => build_click_at_inputs(button, x, y),
         };
 
+        // SAFETY: `inputs` is an initialized contiguous slice and the element size matches INPUT.
         let sent = unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) };
         if sent != inputs.len() as u32 {
             return Err(AppError::Io(std::io::Error::last_os_error()));
@@ -154,7 +161,7 @@ fn build_pointer_type_info(frame_id: u32, command: &PenInjectionCommand) -> POIN
         ptPixelLocationRaw: point,
         ptHimetricLocationRaw: POINT::default(),
         dwTime: 0,
-        historyCount: 0,
+        historyCount: 1,
         InputData: 0,
         dwKeyStates: 0,
         PerformanceCount: 0,
@@ -295,9 +302,13 @@ fn mouse_input(
 
 #[cfg(windows)]
 fn absolute_mouse_coords(x: i32, y: i32) -> (i32, i32) {
+    // SAFETY: GetSystemMetrics only reads process-wide system metrics and receives valid constants.
     let left = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
+    // SAFETY: GetSystemMetrics only reads process-wide system metrics and receives valid constants.
     let top = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
+    // SAFETY: GetSystemMetrics only reads process-wide system metrics and receives valid constants.
     let width = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) }.max(1);
+    // SAFETY: GetSystemMetrics only reads process-wide system metrics and receives valid constants.
     let height = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) }.max(1);
 
     let normalized_x = (((x - left) as i64) * 65_535 / i64::from(width - 1).max(1)) as i32;
@@ -343,6 +354,29 @@ mod tests {
     }
 
     #[test]
+    fn pointer_info_reports_one_input_history_entry() {
+        let info = build_pointer_type_info(
+            1,
+            &PenInjectionCommand {
+                x: 100,
+                y: 200,
+                kind: PenInjectionCommandKind::Down,
+                in_range: true,
+                is_contact: true,
+                pressure: 512,
+                tilt_x: 0,
+                tilt_y: 0,
+            },
+        );
+
+        // SAFETY: `info` was built as a PT_PEN value, so reading its active penInfo union
+        // variant is valid.
+        unsafe {
+            assert_eq!(info.Anonymous.penInfo.pointerInfo.historyCount, 1);
+        }
+    }
+
+    #[test]
     fn cancel_command_sets_cancel_and_up_flags() {
         let flags = build_pointer_flags(&PenInjectionCommand {
             x: 100,
@@ -364,6 +398,7 @@ mod tests {
     #[test]
     fn mouse_move_input_uses_move_flag() {
         let input = mouse_move_relative_input(12, -6);
+        // SAFETY: `input` was constructed with the mouse union variant by this module.
         unsafe {
             assert_eq!(input.Anonymous.mi.dwFlags, MOUSEEVENTF_MOVE);
             assert_eq!(input.Anonymous.mi.dx, 12);
@@ -374,6 +409,7 @@ mod tests {
     #[test]
     fn mouse_wheel_input_uses_wheel_flag() {
         let input = mouse_wheel_input(120);
+        // SAFETY: `input` was constructed with the mouse union variant by this module.
         unsafe {
             assert_eq!(input.Anonymous.mi.dwFlags, MOUSEEVENTF_WHEEL);
             assert_eq!(input.Anonymous.mi.mouseData, 120);
@@ -384,6 +420,7 @@ mod tests {
     fn mouse_button_inputs_use_right_button_flags() {
         let down = mouse_button_input(MouseButton::Right, true);
         let up = mouse_button_input(MouseButton::Right, false);
+        // SAFETY: both values were constructed with the mouse union variant by this module.
         unsafe {
             assert_eq!(down.Anonymous.mi.dwFlags, MOUSEEVENTF_RIGHTDOWN);
             assert_eq!(up.Anonymous.mi.dwFlags, MOUSEEVENTF_RIGHTUP);
@@ -394,6 +431,7 @@ mod tests {
     fn mouse_button_inputs_use_left_button_flags() {
         let down = mouse_button_input(MouseButton::Left, true);
         let up = mouse_button_input(MouseButton::Left, false);
+        // SAFETY: both values were constructed with the mouse union variant by this module.
         unsafe {
             assert_eq!(down.Anonymous.mi.dwFlags, MOUSEEVENTF_LEFTDOWN);
             assert_eq!(up.Anonymous.mi.dwFlags, MOUSEEVENTF_LEFTUP);
@@ -404,6 +442,7 @@ mod tests {
     fn right_click_at_builds_move_down_up_sequence() {
         let inputs = build_click_at_inputs(MouseButton::Right, 300, 400);
         assert_eq!(inputs.len(), 3);
+        // SAFETY: all values were constructed with the mouse union variant by this module.
         unsafe {
             assert!(inputs[0].Anonymous.mi.dwFlags.contains(MOUSEEVENTF_MOVE));
             assert_eq!(inputs[1].Anonymous.mi.dwFlags, MOUSEEVENTF_RIGHTDOWN);

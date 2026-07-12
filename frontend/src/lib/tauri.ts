@@ -65,6 +65,9 @@ export interface AppBootstrapDto {
   configVersion: number;
   launchAtStartup: boolean;
   showLaunchAtStartupOnMainPage: boolean;
+  latestContactMoveOnly: boolean;
+  latestContactMoveToleranceMs: number;
+  preemptPreviousStroke: boolean;
   ipv4Values: string[];
   pressureCurve: PressureCurveDto;
   monitors: MonitorDto[];
@@ -74,8 +77,20 @@ export interface AppBootstrapDto {
   sessionStatus: { hasActiveSession: boolean };
 }
 
+export interface SessionStatusEvent {
+  hasActiveSession: boolean;
+}
+
 export async function getAppBootstrap() {
   return invoke<AppBootstrapDto>('get_app_bootstrap');
+}
+
+export async function disconnectActiveSession() {
+  return invoke<SessionStatusEvent>('disconnect_active_session');
+}
+
+export async function getLanIpv4Values() {
+  return invoke<string[]>('get_lan_ipv4_values');
 }
 
 export async function openExternal(url: string) {
@@ -96,6 +111,18 @@ export async function setLaunchAtStartup(enabled: boolean) {
 
 export async function setShowLaunchAtStartupOnMainPage(enabled: boolean) {
   return invoke('set_show_launch_at_startup_on_main_page', { enabled });
+}
+
+export async function setLatestContactMoveOnly(enabled: boolean) {
+  return invoke('set_latest_contact_move_only', { enabled });
+}
+
+export async function setLatestContactMoveToleranceMs(toleranceMs: number) {
+  return invoke('set_latest_contact_move_tolerance_ms', { toleranceMs });
+}
+
+export async function setPreemptPreviousStroke(enabled: boolean) {
+  return invoke('set_preempt_previous_stroke', { enabled });
 }
 
 export async function selectShortcutPreset(presetId: string) {

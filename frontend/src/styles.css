@@ -384,6 +384,61 @@ select:disabled {
   transform: none;
 }
 
+.shell-actions .ui-button.shell-session-button {
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  color: #ffffff;
+  padding: 6px;
+  transition: background-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
+}
+
+.shell-actions .ui-button.shell-session-button--awaiting {
+  background: #f97316;
+  color: #ffffff;
+  cursor: not-allowed;
+  opacity: 0.82;
+  box-shadow: 0 10px 15px -3px rgba(249, 115, 22, 0.3), 0 4px 6px -4px rgba(249, 115, 22, 0.3);
+}
+
+.shell-actions .ui-button.shell-session-button--awaiting:hover {
+  background: #ea580c;
+  color: #ffffff;
+  transform: none;
+}
+
+.shell-actions .ui-button.shell-session-button--connected {
+  background: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.3), 0 4px 6px -4px rgba(239, 68, 68, 0.3);
+}
+
+.shell-actions .ui-button.shell-session-button--connected:hover {
+  background: #dc2626;
+  color: #ffffff;
+  transform: none;
+}
+
+.panel-action .ui-button.ipv4-refresh-button {
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  box-shadow: none;
+}
+
+.panel-action .ui-button.ipv4-refresh-button:hover {
+  background: #f5f5f7;
+  color: var(--ink);
+  transform: none;
+}
+
 .shell-lucide-icon {
   width: 20px;
   height: 20px;
@@ -1512,6 +1567,31 @@ select:disabled {
   min-width: 0;
 }
 
+.radial-inner-switch {
+  width: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  flex: 0 0 32px;
+}
+
+.radial-inner-switch .ui-switch__track {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.radial-inner-switch .ui-switch__thumb,
+.radial-inner-switch.ui-switch--checked .ui-switch__thumb {
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+}
+
 .radial-editor-center__label {
   color: var(--ink);
   font-size: 0.86rem;
@@ -1859,6 +1939,7 @@ select:disabled {
 }
 
 .settings-toggle-row__title {
+  margin: 0;
   color: var(--ink);
   font-size: 0.875rem;
   font-weight: 500;
@@ -1869,6 +1950,112 @@ select:disabled {
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 1.4;
+}
+
+.settings-advanced-stack {
+  display: grid;
+  gap: 24px;
+}
+
+.settings-policy-card {
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.settings-policy-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 24px 18px;
+}
+
+.settings-policy-card__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+  background: #f3f4f6;
+  color: var(--blue);
+}
+
+.settings-policy-card__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.settings-policy-card__header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.settings-policy-card__header p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.settings-policy-card__body {
+  border-top: 1px solid var(--line);
+}
+
+.settings-policy-card__body .settings-toggle-row {
+  min-height: 82px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-inline: 24px;
+}
+
+.settings-policy-card__body .settings-toggle-row + .settings-toggle-row,
+.settings-policy-card__body .settings-range-row + .settings-toggle-row {
+  border-top: 1px solid var(--line);
+}
+
+.settings-policy-card__body .settings-range-row {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.settings-toggle-row__copy .settings-toggle-row__consequence {
+  color: #dc2626;
+}
+
+.settings-range-row {
+  padding: 14px 18px 16px 62px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-range-row__copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 0.8rem;
+}
+
+.settings-range-row__copy strong {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-range-row input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.settings-range-row p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
 .settings-note {
@@ -1933,6 +2120,85 @@ select:disabled {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.72));
   padding: 24px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.settings-about__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-about-community {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-about-community__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 14px 16px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-about-community__item:hover {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: var(--accent-soft);
+}
+
+.settings-about-community__item > svg {
+  width: 18px;
+  height: 18px;
+  color: var(--blue);
+}
+
+.settings-about-community__item > svg:last-child {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+
+.settings-about-community__item span {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-about-community__item strong {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.settings-about-community__item small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .settings-about-community {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-update-status--error {
+  color: #dc2626;
+}
+
+.settings-update-status--success {
+  color: #15803d;
+}
+
+.settings-update-status--available {
+  color: var(--blue);
+  font-weight: 600;
 }
 
 .settings-about-update {

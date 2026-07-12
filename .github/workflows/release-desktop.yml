@@ -164,7 +164,7 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               "${release_assets[@]}" \
               --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
-              --generate-notes
+              --notes-from-tag
           fi
 
       - name: Generate Windows update manifest

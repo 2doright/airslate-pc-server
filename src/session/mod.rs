@@ -43,7 +43,7 @@ impl SessionId {
 pub struct ActiveSession {
     session_id: SessionId,
     client_id: String,
-    udp_peer_ip: Option<Ipv4Addr>,
+    peer_ip: Ipv4Addr,
 }
 
 impl ActiveSession {
@@ -54,22 +54,31 @@ impl ActiveSession {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RealtimeFrameDisposition {
-    Accepted {
+    Accepted { session_id: String },
+    IgnoredNoActiveSession,
+    IgnoredSourceIpMismatch { bound_ip: Ipv4Addr },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DisconnectDisposition {
+    Released {
         session_id: String,
-        newly_bound: bool,
+        peer_ip: Ipv4Addr,
     },
     IgnoredNoActiveSession,
+    IgnoredSessionIdMismatch,
     IgnoredSourceIpMismatch {
         bound_ip: Ipv4Addr,
     },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DisconnectDisposition {
-    Released { session_id: String },
-    IgnoredNoActiveSession,
-    IgnoredSessionIdMismatch,
-    IgnoredSourceIpMismatch { bound_ip: Ipv4Addr },
+pub enum LocalDisconnectDisposition {
+    Released {
+        session_id: String,
+        peer_ip: Ipv4Addr,
+    },
+    AlreadyInactive,
 }
 
 #[derive(Debug, Default)]
@@ -93,6 +102,7 @@ impl SessionService {
     pub fn create_session(
         &mut self,
         client_id: impl Into<String>,
+        peer_ip: Ipv4Addr,
     ) -> Result<&ActiveSession, AppError> {
         if self.active.is_some() {
             return Err(AppError::SessionAlreadyActive);
@@ -101,7 +111,7 @@ impl SessionService {
         let active = ActiveSession {
             session_id: SessionId::generate()?,
             client_id: client_id.into(),
-            udp_peer_ip: None,
+            peer_ip,
         };
 
         self.active = Some(active);
@@ -113,21 +123,14 @@ impl SessionService {
             return RealtimeFrameDisposition::IgnoredNoActiveSession;
         };
 
-        match active.udp_peer_ip {
-            Some(bound_ip) if bound_ip != source_ip => {
-                RealtimeFrameDisposition::IgnoredSourceIpMismatch { bound_ip }
-            }
-            Some(_) => RealtimeFrameDisposition::Accepted {
-                session_id: active.session_id.as_str().to_string(),
-                newly_bound: false,
-            },
-            None => {
-                active.udp_peer_ip = Some(source_ip);
-                RealtimeFrameDisposition::Accepted {
-                    session_id: active.session_id.as_str().to_string(),
-                    newly_bound: true,
-                }
-            }
+        if active.peer_ip != source_ip {
+            return RealtimeFrameDisposition::IgnoredSourceIpMismatch {
+                bound_ip: active.peer_ip,
+            };
+        }
+
+        RealtimeFrameDisposition::Accepted {
+            session_id: active.session_id.as_str().to_string(),
         }
     }
 
@@ -144,15 +147,30 @@ impl SessionService {
             return DisconnectDisposition::IgnoredSessionIdMismatch;
         }
 
-        if let Some(bound_ip) = active.udp_peer_ip
-            && bound_ip != source_ip
-        {
-            return DisconnectDisposition::IgnoredSourceIpMismatch { bound_ip };
+        if active.peer_ip != source_ip {
+            return DisconnectDisposition::IgnoredSourceIpMismatch {
+                bound_ip: active.peer_ip,
+            };
         }
 
         let session_id = active.session_id.as_str().to_string();
+        let peer_ip = active.peer_ip;
         self.active = None;
-        DisconnectDisposition::Released { session_id }
+        DisconnectDisposition::Released {
+            session_id,
+            peer_ip,
+        }
+    }
+
+    pub fn disconnect_locally(&mut self) -> LocalDisconnectDisposition {
+        let Some(active) = self.active.take() else {
+            return LocalDisconnectDisposition::AlreadyInactive;
+        };
+
+        LocalDisconnectDisposition::Released {
+            session_id: active.session_id.as_str().to_string(),
+            peer_ip: active.peer_ip,
+        }
     }
 }
 
@@ -164,16 +182,20 @@ mod tests {
         Ipv4Addr::new(192, 168, 0, a)
     }
 
+    fn create_test_session(service: &mut SessionService, client_id: &str, ip_last: u8) -> String {
+        service
+            .create_session(client_id, test_ip(ip_last))
+            .expect("session should be created")
+            .session_id()
+            .as_str()
+            .to_owned()
+    }
+
     #[test]
     fn create_first_session_succeeds() {
         let mut service = SessionService::new();
 
-        let session_id = service
-            .create_session("client-a")
-            .expect("session should be created")
-            .session_id()
-            .as_str()
-            .to_owned();
+        let session_id = create_test_session(&mut service, "client-a", 10);
 
         assert!(!session_id.is_empty());
         assert!(service.has_active_session());
@@ -182,15 +204,10 @@ mod tests {
     #[test]
     fn second_concurrent_session_is_rejected() {
         let mut service = SessionService::new();
-        let first_session_id = service
-            .create_session("client-a")
-            .expect("first session should be created")
-            .session_id()
-            .as_str()
-            .to_owned();
+        let first_session_id = create_test_session(&mut service, "client-a", 10);
 
         let error = service
-            .create_session("client-b")
+            .create_session("client-b", test_ip(10))
             .expect_err("second session should be rejected");
 
         assert!(matches!(error, AppError::SessionAlreadyActive));
@@ -201,12 +218,7 @@ mod tests {
     #[test]
     fn session_can_be_created_again_after_udp_release() {
         let mut service = SessionService::new();
-        let first_session_id = service
-            .create_session("client-a")
-            .expect("first session should be created")
-            .session_id()
-            .as_str()
-            .to_owned();
+        let first_session_id = create_test_session(&mut service, "client-a", 10);
 
         let disposition = service.handle_udp_disconnect(
             test_ip(10),
@@ -219,12 +231,7 @@ mod tests {
             DisconnectDisposition::Released { .. }
         ));
 
-        let second_session_id = service
-            .create_session("client-b")
-            .expect("second session should be created after release")
-            .session_id()
-            .as_str()
-            .to_owned();
+        let second_session_id = create_test_session(&mut service, "client-b", 10);
 
         assert!(!second_session_id.is_empty());
     }
@@ -232,26 +239,16 @@ mod tests {
     #[test]
     fn generated_session_id_stays_within_protocol_limit() {
         let mut service = SessionService::new();
-        let session_id = service
-            .create_session("client-a")
-            .expect("session should be created")
-            .session_id()
-            .as_str()
-            .to_owned();
+        let session_id = create_test_session(&mut service, "client-a", 10);
 
         assert!(!session_id.is_empty());
         assert!(session_id.len() <= SESSION_ID_LEN);
     }
 
     #[test]
-    fn first_realtime_frame_binds_udp_source_ip() {
+    fn realtime_frame_from_handshake_ip_is_accepted() {
         let mut service = SessionService::new();
-        let session_id = service
-            .create_session("client-a")
-            .expect("session should be created")
-            .session_id()
-            .as_str()
-            .to_string();
+        let session_id = create_test_session(&mut service, "client-a", 10);
 
         let disposition = service.accept_realtime_source(test_ip(10));
 
@@ -259,58 +256,38 @@ mod tests {
             disposition,
             RealtimeFrameDisposition::Accepted {
                 session_id: session_id.clone(),
-                newly_bound: true,
             }
         );
         assert_eq!(
             service.accept_realtime_source(test_ip(10)),
-            RealtimeFrameDisposition::Accepted {
-                session_id,
-                newly_bound: false,
-            }
+            RealtimeFrameDisposition::Accepted { session_id }
         );
     }
 
     #[test]
-    fn realtime_frame_from_same_ip_is_accepted_after_binding() {
+    fn realtime_frame_from_handshake_ip_is_accepted_repeatedly() {
         let mut service = SessionService::new();
-        let session_id = service
-            .create_session("client-a")
-            .expect("session should be created")
-            .session_id()
-            .as_str()
-            .to_string();
+        let session_id = create_test_session(&mut service, "client-a", 10);
 
         assert!(matches!(
             service.accept_realtime_source(test_ip(10)),
-            RealtimeFrameDisposition::Accepted {
-                newly_bound: true,
-                ..
-            }
+            RealtimeFrameDisposition::Accepted { .. }
         ));
 
         assert_eq!(
             service.accept_realtime_source(test_ip(10)),
-            RealtimeFrameDisposition::Accepted {
-                session_id,
-                newly_bound: false,
-            }
+            RealtimeFrameDisposition::Accepted { session_id }
         );
     }
 
     #[test]
-    fn realtime_frame_from_different_ip_is_ignored_after_binding() {
+    fn realtime_frame_from_different_ip_is_ignored() {
         let mut service = SessionService::new();
-        service
-            .create_session("client-a")
-            .expect("session should be created");
+        create_test_session(&mut service, "client-a", 10);
 
         assert!(matches!(
             service.accept_realtime_source(test_ip(10)),
-            RealtimeFrameDisposition::Accepted {
-                newly_bound: true,
-                ..
-            }
+            RealtimeFrameDisposition::Accepted { .. }
         ));
 
         assert_eq!(
@@ -332,14 +309,9 @@ mod tests {
     }
 
     #[test]
-    fn udp_disconnect_releases_matching_unbound_session() {
+    fn udp_disconnect_releases_matching_handshake_peer() {
         let mut service = SessionService::new();
-        let session_id = service
-            .create_session("client-a")
-            .expect("session should be created")
-            .session_id()
-            .as_str()
-            .to_string();
+        let session_id = create_test_session(&mut service, "client-a", 10);
 
         let disposition = service.handle_udp_disconnect(
             test_ip(10),
@@ -348,19 +320,20 @@ mod tests {
             },
         );
 
-        assert_eq!(disposition, DisconnectDisposition::Released { session_id });
+        assert_eq!(
+            disposition,
+            DisconnectDisposition::Released {
+                session_id,
+                peer_ip: test_ip(10),
+            }
+        );
         assert!(!service.has_active_session());
     }
 
     #[test]
-    fn udp_disconnect_releases_matching_bound_session_from_same_ip() {
+    fn udp_disconnect_releases_matching_handshake_peer_after_realtime() {
         let mut service = SessionService::new();
-        let session_id = service
-            .create_session("client-a")
-            .expect("session should be created")
-            .session_id()
-            .as_str()
-            .to_string();
+        let session_id = create_test_session(&mut service, "client-a", 10);
 
         let _ = service.accept_realtime_source(test_ip(10));
 
@@ -371,19 +344,20 @@ mod tests {
             },
         );
 
-        assert_eq!(disposition, DisconnectDisposition::Released { session_id });
+        assert_eq!(
+            disposition,
+            DisconnectDisposition::Released {
+                session_id,
+                peer_ip: test_ip(10),
+            }
+        );
         assert!(!service.has_active_session());
     }
 
     #[test]
-    fn udp_disconnect_from_wrong_ip_is_ignored_after_binding() {
+    fn udp_disconnect_from_wrong_ip_is_ignored() {
         let mut service = SessionService::new();
-        let session_id = service
-            .create_session("client-a")
-            .expect("session should be created")
-            .session_id()
-            .as_str()
-            .to_string();
+        let session_id = create_test_session(&mut service, "client-a", 10);
 
         let _ = service.accept_realtime_source(test_ip(10));
 
@@ -402,9 +376,7 @@ mod tests {
     #[test]
     fn udp_disconnect_with_wrong_session_id_is_ignored() {
         let mut service = SessionService::new();
-        service
-            .create_session("client-a")
-            .expect("session should be created");
+        create_test_session(&mut service, "client-a", 10);
 
         let disposition = service.handle_udp_disconnect(
             test_ip(10),

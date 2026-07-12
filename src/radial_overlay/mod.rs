@@ -80,10 +80,10 @@ impl Drop for RadialOverlayService {
     fn drop(&mut self) {
         self.controller.shutdown();
 
-        if let Some(handle) = self.worker.take() {
-            if handle.join().is_err() {
-                warn!("radial overlay worker panicked during shutdown");
-            }
+        if let Some(handle) = self.worker.take()
+            && handle.join().is_err()
+        {
+            warn!("radial overlay worker panicked during shutdown");
         }
     }
 }
