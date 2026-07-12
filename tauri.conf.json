@@ -1,7 +1,7 @@
 {
   "$schema": "./frontend/node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "AirSlate PC Server",
-  "version": "1.4.10",
+  "version": "1.5.0",
   "identifier": "com.airslate.pcserver",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -10,18 +10,29 @@
     "frontendDist": "./frontend/dist"
   },
   "app": {
-    "windows": [],
+    "windows": [
+      {
+        "label": "main",
+        "title": "AirSlate 控制台",
+        "width": 1000,
+        "height": 650,
+        "minWidth": 900,
+        "minHeight": 600,
+        "visible": false,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
     "security": {
       "csp": null
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi"],
+    "createUpdaterArtifacts": "v1Compatible",
     "windows": {
-      "nsis": {
-        "template": "./windows/tauri-installer.nsi"
-      },
       "wix": {
         "template": "./windows/tauri-main.wxs"
       }
@@ -32,5 +43,13 @@
       "icons/icon.ico",
       "icons/icon.icns"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE2QThCMkI3ODIyQjgyQUYKUldTdmdpdUN0N0tvRmdMZ3VIcWRlMnlMYzZQdktFUEdaWlA5ci9CSHBjVE1idmRoRzJjV09sbUIK",
+      "endpoints": [
+        "https://raw.githubusercontent.com/2doright/airslate-pc-server/update-manifest/latest.json"
+      ]
+    }
   }
 }

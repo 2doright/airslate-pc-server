@@ -1,8 +1,24 @@
 # CHANGELOG
 
 ## Unreleased
-- coalesced consecutive stale pen-move and pointer-context events while preserving ordered down, up, cancel, gesture, and shortcut facts; removed per-frame injection logs and redundant hold-indicator redraws to prevent intermittent input backlog
-- completed the macOS CoreGraphics key-code mapping for the expanded shortcut catalog and report keys without a macOS equivalent as unsupported runtime facts
+- added signed stable-version update checks, About-page install/restart flow, portable download fallback, and a clickable main-header update indicator
+- added Windows x64 release automation for the MSI installer, directly runnable portable executable, GitHub Raw update manifest, and Tauri signing artifacts
+- added macOS universal `.dmg` and compressed `.app` assets to the unified GitHub Release workflow
+- standardized release filenames with explicit version, platform, architecture, and portable markers
+- moved autostart into General settings and added a persisted option to show its toggle on the main page
+- hid the UI scrollbar while preserving scrolling, and removed the refresh action from the Settings page
+- matched cc-switch's native Lucide icon treatment for Settings, navigation, startup, and refresh; placed the Power-icon autostart switch in the main header control row with a 44 × 24 green switch
+- replaced the refresh action's misleading plus icon with a Lucide RefreshCw icon and a loading rotation state
+- made Settings a dedicated secondary page with a back affordance instead of rendering it below the main navigation tabs; removed the duplicate autostart control from the Settings page
+- matched the cc-switch settings TabList with a translucent rounded surface and blue active tab, and rebuilt About as an application information card
+- routed the AirSlate title and About GitHub actions through Tauri's opener plugin so both open in the system browser
+- reduced the AirSlate wordmark weight to match the lighter cc-switch header treatment
+- aligned the Tauri window mechanism with cc-switch: 1000 × 650 default size, 900 × 600 minimum size, hidden startup window, persisted position/size/maximized state, and content-owned scrolling
+- realigned the AirSlate shell against the local cc-switch frontend source: a 64 px toolbar, 20 px navigation icons, text-sm medium tab labels, muted rounded tab groups, and lightweight white active states
+- rebuilt Settings as a full-height tab workspace with cc-switch sizing and card treatment
+- made the AirSlate title link to the project GitHub page and added General, Advanced, and About settings tabs
+- bounded queued contact moves to the newest eight samples within a 16 ms ordered window, coalesced stale hover moves, and preserved down, up, cancel, gesture, and shortcut boundaries; removed per-frame injection logs and redundant hold-indicator redraws to prevent intermittent input backlog without flattening pen pressure
+- completed the macOS CoreGraphics key-code mapping for the expanded shortcut catalog
 - fixed Windows pen mapping on extended desktops by deriving each target's mapping extent from its monitor rectangle, preventing DPI-scaled primary-display input from spilling onto a secondary display
 - added a GitHub Actions workflow that builds universal Intel and Apple Silicon macOS `.app` and `.dmg` artifacts on a real macOS runner
 - integrated macOS platform support from PR #6 while preserving the expanded shortcut model, including generic left/right click execution on both desktop platforms
@@ -14,14 +30,13 @@
 - expanded shortcut recording and Windows injection from the original limited key set to cover left/right modifiers, Windows keys, navigation and arrow keys, F1-F24, punctuation, the numeric keypad, lock keys, media controls, and browser controls
 - switched desktop key capture to physical `KeyboardEvent.code` values so main-keyboard and numpad keys, plus left/right modifiers, remain distinct in saved presets; Escape can now be recorded instead of being consumed as an implicit cancel command
 - marked Win32 extended keys during `SendInput`, preserving the runtime identity of right-side modifiers, navigation keys, numpad Enter/divide, and multimedia keys
-- verified `cargo test`, `cargo build`, and `npm --prefix ./frontend run build`
 
 ## 1.4.10 - 2026-04-30
 - added a navigation-bar launch-at-startup toggle to the Tauri desktop UI and persisted the setting through the existing config/bootstrap bridge so the shell can render the current autostart state on load
 - wired Tauri's autostart plugin through the Rust desktop shell, passing `--autostart` on login launch and skipping initial main-window creation in that startup path so the app stays tray-only until the user opens the UI
 - removed the connection-status badge from the LAN IPv4 hero card header so the address panel shows only the IP information surface
 - fixed the Tauri bundle build hooks to run frontend commands from the actual frontend working directory, so release packaging resolves the correct `package.json` and succeeds again
-- verified `npm --prefix ./frontend run build`, `cargo build --release`, and `cargo tauri build`, producing the Windows `.msi`, NSIS setup `.exe`, and x64 portable `.zip`
+- verified `npm --prefix ./frontend run build`, `cargo build --release`, and `cargo tauri build`, producing the Windows installer and standalone executable
 
 ## 1.4.9 - 2026-04-29
 - made the radial menu inner ring configurable from the shortcut UI by dragging one inner key onto another to swap their positions

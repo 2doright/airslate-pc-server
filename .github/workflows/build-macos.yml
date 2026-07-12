@@ -2,9 +2,6 @@ name: Build macOS
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
 
 permissions:
   contents: read
@@ -41,12 +38,20 @@ jobs:
           ./frontend/node_modules/.bin/tauri build
           --target universal-apple-darwin
           --bundles app,dmg
+          --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Prepare macOS build assets
+        run: |
+          version="$(node -p "require('./tauri.conf.json').version")"
+          mkdir -p release-assets
+          dmg_path=$(find target/universal-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)
+          app_path=$(find target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)
+          cp "$dmg_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.dmg"
+          ditto -c -k --sequesterRsrc --keepParent "$app_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.app.zip"
 
       - name: Upload macOS packages
         uses: actions/upload-artifact@v4
         with:
-          name: airslate-pc-server-macos-universal
-          path: |
-            target/universal-apple-darwin/release/bundle/macos/*.app
-            target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          name: airslate-macos-universal-release-assets
+          path: release-assets/*
           if-no-files-found: error

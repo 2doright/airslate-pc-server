@@ -1,0 +1,188 @@
+name: Release Desktop
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows x64 packages
+    runs-on: windows-latest
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Verify release version
+        shell: pwsh
+        run: |
+          $tagVersion = $env:GITHUB_REF_NAME.Substring(1)
+          $configVersion = (Get-Content 'tauri.conf.json' -Raw | ConvertFrom-Json).version
+          if ($tagVersion -ne $configVersion) {
+            throw "Release tag $tagVersion does not match tauri.conf.json version $configVersion"
+          }
+
+      - name: Build signed MSI
+        run: .\frontend\node_modules\.bin\tauri.cmd build --bundles msi --ci
+
+      - name: Build portable executable
+        run: .\frontend\node_modules\.bin\tauri.cmd build --no-bundle --features portable --ci
+
+      - name: Prepare Windows release assets
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          $msiSource = Get-ChildItem "target/release/bundle/msi/*_${version}_*.msi" | Select-Object -First 1
+          $signatureSource = Get-ChildItem "target/release/bundle/msi/*_${version}_*.msi.sig" | Select-Object -First 1
+          $portableSource = 'target/release/airslate_pc_server.exe'
+          $msiName = "AirSlate-PC-Server_${version}_windows-x64.msi"
+          New-Item -ItemType Directory -Path 'release-assets' -Force | Out-Null
+          Copy-Item -LiteralPath $msiSource.FullName -Destination "release-assets/$msiName"
+          Copy-Item -LiteralPath $signatureSource.FullName -Destination "release-assets/${msiName}.sig"
+          Copy-Item -LiteralPath $portableSource -Destination "release-assets/AirSlate-PC-Server_${version}_windows-x64-portable.exe"
+
+      - name: Upload Windows release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: airslate-windows-release-assets
+          path: release-assets/*
+          if-no-files-found: error
+
+  build-macos:
+    name: Build macOS universal packages
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Verify release version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          config_version="$(node -p "require('./tauri.conf.json').version")"
+          if [ "$tag_version" != "$config_version" ]; then
+            echo "Release tag $tag_version does not match tauri.conf.json version $config_version"
+            exit 1
+          fi
+
+      - name: Build universal macOS packages
+        run: >-
+          ./frontend/node_modules/.bin/tauri build
+          --target universal-apple-darwin
+          --bundles app,dmg
+          --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Prepare macOS release assets
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p release-assets
+          dmg_path=$(find target/universal-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)
+          app_path=$(find target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)
+          cp "$dmg_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.dmg"
+          ditto -c -k --sequesterRsrc --keepParent "$app_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.app.zip"
+
+      - name: Upload macOS release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: airslate-macos-release-assets
+          path: release-assets/*
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Windows release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: airslate-windows-release-assets
+          path: release-assets
+
+      - name: Download macOS release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: airslate-macos-release-assets
+          path: release-assets
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            release-assets/*.msi \
+            release-assets/*.exe \
+            release-assets/*.dmg \
+            release-assets/*.app.zip \
+            --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
+            --generate-notes
+
+      - name: Generate Windows update manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_windows-x64.msi.sig)
+          notes=$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)
+          jq -n \
+            --arg version "$version" \
+            --arg notes "$notes" \
+            --arg signature "$signature" \
+            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_windows-x64.msi" \
+            '{version:$version,notes:$notes,pub_date:(now|todate),platforms:{"windows-x86_64":{signature:$signature,url:$url}}}' \
+            > latest.json
+
+      - name: Publish Windows update manifest branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh auth setup-git
+          manifest_repo="$RUNNER_TEMP/update-manifest-repo"
+          git clone --depth 1 "https://github.com/${GITHUB_REPOSITORY}.git" "$manifest_repo"
+          cd "$manifest_repo"
+          git checkout -B update-manifest
+          cp "$GITHUB_WORKSPACE/latest.json" latest.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add latest.json
+          git commit -m "Update manifest for ${GITHUB_REF_NAME}"
+          git push origin HEAD:update-manifest --force

@@ -61,8 +61,10 @@ export interface PressureCurveDto {
 }
 
 export interface AppBootstrapDto {
+  distribution: 'installed' | 'portable';
   configVersion: number;
   launchAtStartup: boolean;
+  showLaunchAtStartupOnMainPage: boolean;
   ipv4Values: string[];
   pressureCurve: PressureCurveDto;
   monitors: MonitorDto[];
@@ -76,6 +78,10 @@ export async function getAppBootstrap() {
   return invoke<AppBootstrapDto>('get_app_bootstrap');
 }
 
+export async function openExternal(url: string) {
+  return invoke('open_external', { url });
+}
+
 export async function setSelectedMonitor(monitorId: string) {
   return invoke('set_selected_monitor', { monitorId });
 }
@@ -86,6 +92,10 @@ export async function setPressureCurve(curve: PressureCurveDto) {
 
 export async function setLaunchAtStartup(enabled: boolean) {
   return invoke('set_launch_at_startup', { enabled });
+}
+
+export async function setShowLaunchAtStartupOnMainPage(enabled: boolean) {
+  return invoke('set_show_launch_at_startup_on_main_page', { enabled });
 }
 
 export async function selectShortcutPreset(presetId: string) {

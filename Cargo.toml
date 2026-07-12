@@ -1,6 +1,6 @@
 [package]
 name = "airslate_pc_server"
-version = "1.4.10"
+version = "1.5.0"
 edition = "2024"
 
 [build-dependencies]
@@ -9,9 +9,14 @@ tauri-build = { version = "2.5.6", features = [] }
 [dependencies]
 local-ip-address = "0.6"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 tauri = { version = "2.10.3", features = ["tray-icon"] }
 tauri-plugin-autostart = "2.5.1"
+tauri-plugin-opener = "2"
+tauri-plugin-process = "2"
 tauri-plugin-single-instance = "2.4.1"
+tauri-plugin-updater = "2"
+tauri-plugin-window-state = "2"
 thiserror = "2.0"
 toml = "0.9"
 tracing = "0.1"
@@ -25,3 +30,4 @@ windows-numerics = "0.3.1"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+portable = []

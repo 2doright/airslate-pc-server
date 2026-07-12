@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_autostart::ManagerExt;
+use tauri_plugin_opener::OpenerExt;
 
 use super::dto::{
     AppBootstrapDto, PressureControlPointDto, PressureCurvePayload, app_bootstrap, parse_binding_id,
@@ -73,6 +74,17 @@ pub fn get_app_bootstrap(state: State<'_, AppContext>) -> Result<AppBootstrapDto
 }
 
 #[tauri::command]
+pub fn open_external(app: AppHandle, url: String) -> Result<(), String> {
+    if !url.starts_with("https://") {
+        return Err("仅支持打开 HTTPS 外部链接".to_string());
+    }
+
+    app.opener()
+        .open_url(&url, None::<String>)
+        .map_err(|error| format!("打开链接失败: {error}"))
+}
+
+#[tauri::command]
 pub fn set_selected_monitor(
     state: State<'_, AppContext>,
     monitor_id: String,
@@ -116,6 +128,17 @@ pub fn set_launch_at_startup(
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn set_show_launch_at_startup_on_main_page(
+    state: State<'_, AppContext>,
+    enabled: bool,
+) -> Result<(), String> {
+    state
+        .runtime
+        .set_show_launch_at_startup_on_main_page(enabled)
+        .map_err(error_message)
 }
 
 #[tauri::command]

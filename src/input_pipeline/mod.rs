@@ -23,6 +23,8 @@ const LOGICAL_COORD_MAX: u16 = 32_767;
 const WINDOWS_PRESSURE_MAX: u32 = 1_024;
 const WINDOWS_TILT_MIN: i32 = -90;
 const WINDOWS_TILT_MAX: i32 = 90;
+const CONTACT_MOVE_MAX_PENDING: usize = 8;
+const CONTACT_MOVE_WINDOW_MS: u64 = 16;
 
 pub trait PenInjector: Send + Sync {
     fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError>;
@@ -116,11 +118,21 @@ impl<T> RealtimeQueue<T> {
     }
 
     fn push_with(&self, event: T, replace_tail: impl FnOnce(&T, &T) -> bool) -> Result<(), ()> {
+        self.push_compacting(event, |_, _| {}, replace_tail)
+    }
+
+    fn push_compacting(
+        &self,
+        event: T,
+        compact: impl FnOnce(&mut VecDeque<T>, &T),
+        replace_tail: impl FnOnce(&T, &T) -> bool,
+    ) -> Result<(), ()> {
         let mut state = self.state.lock().map_err(|_| ())?;
         if state.closed {
             return Err(());
         }
 
+        compact(&mut state.events, &event);
         if state
             .events
             .back()
@@ -206,7 +218,9 @@ impl StylusInputPipeline {
     }
 
     fn send_stylus(&self, event: StylusWorkerEvent) {
-        let result = self.stylus_queue.push_with(event, can_coalesce_stylus);
+        let result =
+            self.stylus_queue
+                .push_compacting(event, compact_contact_moves, can_coalesce_stylus);
         if result.is_err() {
             warn!("stylus worker queue is unavailable");
         }
@@ -226,6 +240,48 @@ impl StylusInputPipeline {
     }
 }
 
+fn compact_contact_moves(events: &mut VecDeque<StylusWorkerEvent>, incoming: &StylusWorkerEvent) {
+    let StylusWorkerEvent::Stylus { session_id, frame } = incoming else {
+        return;
+    };
+    if frame.event_type != StylusEventType::Move || !frame.flags.is_contact() {
+        return;
+    }
+
+    let trailing_start = events
+        .iter()
+        .rposition(|event| !is_contact_move_for_session(event, session_id))
+        .map_or(0, |index| index + 1);
+
+    while events.len() - trailing_start >= CONTACT_MOVE_MAX_PENDING
+        || events
+            .get(trailing_start)
+            .and_then(stylus_frame)
+            .is_some_and(|oldest| {
+                frame.timestamp.saturating_sub(oldest.timestamp) > CONTACT_MOVE_WINDOW_MS
+            })
+    {
+        events.remove(trailing_start);
+    }
+}
+
+fn is_contact_move_for_session(event: &StylusWorkerEvent, expected_session: &str) -> bool {
+    matches!(
+        event,
+        StylusWorkerEvent::Stylus { session_id, frame }
+            if session_id == expected_session
+                && frame.event_type == StylusEventType::Move
+                && frame.flags.is_contact()
+    )
+}
+
+fn stylus_frame(event: &StylusWorkerEvent) -> Option<&StylusFrame> {
+    match event {
+        StylusWorkerEvent::Stylus { frame, .. } => Some(frame),
+        StylusWorkerEvent::SessionEnded { .. } | StylusWorkerEvent::Stop => None,
+    }
+}
+
 fn can_coalesce_stylus(queued: &StylusWorkerEvent, incoming: &StylusWorkerEvent) -> bool {
     matches!(
         (queued, incoming),
@@ -241,6 +297,8 @@ fn can_coalesce_stylus(queued: &StylusWorkerEvent, incoming: &StylusWorkerEvent)
         ) if queued_session == incoming_session
             && queued_frame.event_type == StylusEventType::Move
             && incoming_frame.event_type == StylusEventType::Move
+            && !queued_frame.flags.is_contact()
+            && !incoming_frame.flags.is_contact()
     )
 }
 
@@ -821,6 +879,17 @@ mod tests {
         }
     }
 
+    fn contact_move(seq: u32, timestamp: u64, pressure: f32) -> StylusWorkerEvent {
+        let mut event = stylus_worker_event(seq, StylusEventType::Move);
+        let StylusWorkerEvent::Stylus { frame, .. } = &mut event else {
+            unreachable!("helper always creates a stylus event");
+        };
+        frame.timestamp = timestamp;
+        frame.flags = StylusFlags(0b0000_0011);
+        frame.pressure = pressure;
+        event
+    }
+
     #[test]
     fn realtime_queue_keeps_only_latest_consecutive_stylus_move() {
         let queue = RealtimeQueue::new();
@@ -867,6 +936,86 @@ mod tests {
                 queue.recv(),
                 Some(StylusWorkerEvent::Stylus { frame, .. })
                     if frame.seq == expected_seq && frame.event_type == expected_type
+            ));
+        }
+    }
+
+    #[test]
+    fn realtime_queue_preserves_every_contact_move_pressure_sample() {
+        let queue = RealtimeQueue::new();
+        for seq in [1, 2] {
+            queue
+                .push_compacting(
+                    contact_move(seq, 10 + u64::from(seq), seq as f32 / 2.0),
+                    compact_contact_moves,
+                    can_coalesce_stylus,
+                )
+                .expect("contact move should queue");
+        }
+
+        for (expected_seq, expected_pressure) in [(1, 0.5), (2, 1.0)] {
+            assert!(matches!(
+                queue.recv(),
+                Some(StylusWorkerEvent::Stylus { frame, .. })
+                    if frame.seq == expected_seq && frame.pressure == expected_pressure
+            ));
+        }
+    }
+
+    #[test]
+    fn realtime_queue_bounds_contact_moves_by_pending_count() {
+        let queue = RealtimeQueue::new();
+        for seq in 1..=9 {
+            queue
+                .push_compacting(
+                    contact_move(seq, u64::from(seq), seq as f32 / 9.0),
+                    compact_contact_moves,
+                    can_coalesce_stylus,
+                )
+                .expect("contact move should queue");
+        }
+
+        for expected_seq in 2..=9 {
+            assert!(matches!(
+                queue.recv(),
+                Some(StylusWorkerEvent::Stylus { frame, .. }) if frame.seq == expected_seq
+            ));
+        }
+    }
+
+    #[test]
+    fn realtime_queue_drops_contact_moves_older_than_time_window() {
+        let queue = RealtimeQueue::new();
+        for event in [contact_move(1, 100, 0.8), contact_move(2, 117, 0.5)] {
+            queue
+                .push_compacting(event, compact_contact_moves, can_coalesce_stylus)
+                .expect("contact move should queue");
+        }
+
+        assert!(matches!(
+            queue.recv(),
+            Some(StylusWorkerEvent::Stylus { frame, .. })
+                if frame.seq == 2 && frame.pressure == 0.5
+        ));
+    }
+
+    #[test]
+    fn realtime_queue_never_compacts_contact_moves_across_pen_up() {
+        let queue = RealtimeQueue::new();
+        for event in [
+            contact_move(1, 100, 0.8),
+            stylus_worker_event(2, StylusEventType::Up),
+            contact_move(3, 120, 0.5),
+        ] {
+            queue
+                .push_compacting(event, compact_contact_moves, can_coalesce_stylus)
+                .expect("stylus event should queue");
+        }
+
+        for expected_seq in [1, 2, 3] {
+            assert!(matches!(
+                queue.recv(),
+                Some(StylusWorkerEvent::Stylus { frame, .. }) if frame.seq == expected_seq
             ));
         }
     }

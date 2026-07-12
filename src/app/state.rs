@@ -552,6 +552,16 @@ impl AppRuntime {
         config.save(&self.config_path)
     }
 
+    pub fn set_show_launch_at_startup_on_main_page(&self, enabled: bool) -> Result<(), AppError> {
+        let mut config = self
+            .config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))?;
+        config.show_launch_at_startup_on_main_page = enabled;
+        config.normalize();
+        config.save(&self.config_path)
+    }
+
     pub fn select_shortcut_preset(&self, preset_id: &str) -> Result<(), AppError> {
         self.mutate_presets(|presets| {
             presets

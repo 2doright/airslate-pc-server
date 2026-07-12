@@ -9,6 +9,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
 use tauri_plugin_autostart::MacosLauncher;
+use tauri_plugin_window_state::{StateFlags, WindowExt};
 
 use crate::{app::AppContext, error::AppError};
 
@@ -16,6 +17,10 @@ const MAIN_WINDOW_LABEL: &str = "main";
 const TRAY_OPEN_ID: &str = "open";
 const TRAY_QUIT_ID: &str = "quit";
 const AUTOSTART_ARG: &str = "--autostart";
+const DEFAULT_WINDOW_WIDTH: f64 = 1000.0;
+const DEFAULT_WINDOW_HEIGHT: f64 = 650.0;
+const MIN_WINDOW_WIDTH: f64 = 900.0;
+const MIN_WINDOW_HEIGHT: f64 = 600.0;
 static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 pub fn run(context: AppContext) -> Result<(), AppError> {
@@ -26,11 +31,22 @@ pub fn run(context: AppContext) -> Result<(), AppError> {
             MacosLauncher::LaunchAgent,
             Some(vec![AUTOSTART_ARG]),
         ))
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(window_state_flags())
+                .skip_initial_state(MAIN_WINDOW_LABEL)
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             crate::desktop_bridge::commands::get_app_bootstrap,
+            crate::desktop_bridge::commands::open_external,
             crate::desktop_bridge::commands::set_selected_monitor,
             crate::desktop_bridge::commands::set_pressure_curve,
             crate::desktop_bridge::commands::set_launch_at_startup,
+            crate::desktop_bridge::commands::set_show_launch_at_startup_on_main_page,
             crate::desktop_bridge::commands::select_shortcut_preset,
             crate::desktop_bridge::commands::create_shortcut_preset,
             crate::desktop_bridge::commands::rename_shortcut_preset,
@@ -54,8 +70,10 @@ pub fn run(context: AppContext) -> Result<(), AppError> {
         .setup(move |app| {
             let handle = app.handle();
             create_tray(&handle)?;
-            if !launched_via_autostart {
-                create_main_window(&handle)?;
+            if launched_via_autostart {
+                destroy_main_window(&handle)?;
+            } else {
+                show_main_window(&handle)?;
             }
             Ok(())
         })
@@ -81,8 +99,8 @@ fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
 
     WebviewWindowBuilder::new(app, MAIN_WINDOW_LABEL, WebviewUrl::default())
         .title("AirSlate 控制台")
-        .inner_size(1330.0, 900.0)
-        .min_inner_size(1100.0, 760.0)
+        .inner_size(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
+        .min_inner_size(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
         .resizable(true)
         .center()
         .build()?;
@@ -136,10 +154,15 @@ fn show_main_window(app: &AppHandle) -> tauri::Result<()> {
             .ok_or_else(|| tauri::Error::AssetNotFound(MAIN_WINDOW_LABEL.to_string()))?
     };
 
+    window.restore_state(window_state_flags())?;
     window.show()?;
     window.unminimize()?;
     window.set_focus()?;
     Ok(())
+}
+
+fn window_state_flags() -> StateFlags {
+    StateFlags::POSITION | StateFlags::SIZE | StateFlags::MAXIMIZED
 }
 
 fn destroy_main_window(app: &AppHandle) -> tauri::Result<()> {

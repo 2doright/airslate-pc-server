@@ -17,9 +17,11 @@ use super::local_ip::lan_ipv4_values;
 #[serde(rename_all = "camelCase")]
 pub struct AppBootstrapDto {
     pub app_name: String,
+    pub distribution: AppDistributionDto,
     pub config_version: u32,
     pub config_path: String,
     pub launch_at_startup: bool,
+    pub show_launch_at_startup_on_main_page: bool,
     pub ipv4_values: Vec<String>,
     pub pressure_curve: PressureCurveDto,
     pub monitors: Vec<MonitorDto>,
@@ -28,6 +30,13 @@ pub struct AppBootstrapDto {
     pub presets: Vec<ShortcutPresetDto>,
     pub effective_bindings: Vec<BindingDto>,
     pub session_status: SessionStatusDto,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AppDistributionDto {
+    Installed,
+    Portable,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -165,9 +174,11 @@ pub fn app_bootstrap(runtime: &AppRuntime, config_path: &str) -> Result<AppBoots
 
     Ok(AppBootstrapDto {
         app_name: config.app_name,
+        distribution: app_distribution(),
         config_version: config.config_version,
         config_path: config_path.to_string(),
         launch_at_startup: config.launch_at_startup,
+        show_launch_at_startup_on_main_page: config.show_launch_at_startup_on_main_page,
         ipv4_values: lan_ipv4_values(),
         pressure_curve: PressureCurveDto::from(config.pressure_curve),
         monitors: workspace_snapshot.monitors,
@@ -177,6 +188,14 @@ pub fn app_bootstrap(runtime: &AppRuntime, config_path: &str) -> Result<AppBoots
         effective_bindings: binding_dtos(&active_preset.profile, false),
         session_status: SessionStatusDto { has_active_session },
     })
+}
+
+fn app_distribution() -> AppDistributionDto {
+    if cfg!(feature = "portable") {
+        AppDistributionDto::Portable
+    } else {
+        AppDistributionDto::Installed
+    }
 }
 
 pub fn workspace_snapshot(workspace: &WorkspaceService) -> Result<WorkspaceSnapshotDto, AppError> {

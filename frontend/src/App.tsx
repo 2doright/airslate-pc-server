@@ -1,54 +1,22 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowUpCircle, Keyboard, Monitor, Power, RefreshCw, Settings } from 'lucide-react';
 import { ConnectionPage } from './components/connection-page';
+import { SettingsPage } from './components/settings-page';
 import { Shell } from './components/shell';
 import { ShortcutsPage, type RecordingTarget } from './components/shortcuts-page';
 import { Button, EmptyState, Panel, Switch } from './components/ui';
-import { type AppBootstrapDto, getAppBootstrap, setBindingKeys, setLaunchAtStartup, setRadialOuterSlot } from './lib/tauri';
+import { useAppUpdater } from './hooks/use-app-updater';
+import { type AppBootstrapDto, getAppBootstrap, openExternal, setBindingKeys, setLaunchAtStartup, setRadialOuterSlot, setShowLaunchAtStartupOnMainPage } from './lib/tauri';
 
-type PageKey = 'connection' | 'shortcuts';
-
-function IconFrame(props: { children: ReactNode }) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {props.children}
-    </svg>
-  );
-}
-
-function WirelessIcon() {
-  return (
-    <IconFrame>
-      <path d="M4.93 9.93a10 10 0 0 1 14.14 0" />
-      <path d="M7.76 12.76a6 6 0 0 1 8.48 0" />
-      <path d="M10.59 15.59a2 2 0 0 1 2.82 0" />
-      <circle cx="12" cy="18" r="1" fill="currentColor" stroke="none" />
-    </IconFrame>
-  );
-}
-
-function ShortcutIcon() {
-  return (
-    <IconFrame>
-      <rect x="4" y="6" width="16" height="12" rx="3" />
-      <path d="M8 10h.01" />
-      <path d="M12 10h.01" />
-      <path d="M16 10h.01" />
-      <path d="M8 14h8" />
-    </IconFrame>
-  );
-}
-
-function RefreshIcon() {
-  return (
-    <IconFrame>
-      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-      <path d="M21 3v6h-6" />
-    </IconFrame>
-  );
-}
+type PageKey = 'connection' | 'shortcuts' | 'settings';
+type SettingsTab = 'general' | 'advanced' | 'about';
+const GITHUB_URL = 'https://github.com/2doright/airslate-pc-server';
+const RELEASES_URL = `${GITHUB_URL}/releases`;
 
 export function App() {
   const [page, setPage] = useState<PageKey>('connection');
+  const [settingsReturnPage, setSettingsReturnPage] = useState<'connection' | 'shortcuts'>('connection');
+  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
   const [data, setData] = useState<AppBootstrapDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,6 +24,7 @@ export function App() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [newPresetName, setNewPresetName] = useState('');
   const [recordingTarget, setRecordingTarget] = useState<RecordingTarget | null>(null);
+  const updater = useAppUpdater(data?.distribution, /Windows/i.test(navigator.userAgent));
 
   const load = async (options?: { preserveView?: boolean }) => {
     const preserveView = options?.preserveView ?? false;
@@ -90,6 +59,24 @@ export function App() {
       setError(err instanceof Error ? err.message : String(err));
       setBusyKey(null);
     }
+  };
+
+  const openSettings = () => {
+    setSettingsInitialTab('general');
+    if (page !== 'settings') setSettingsReturnPage(page);
+    setPage('settings');
+  };
+
+  const openAbout = () => {
+    setSettingsInitialTab('about');
+    if (page !== 'settings') setSettingsReturnPage(page);
+    setPage('settings');
+  };
+
+  const handleOpenExternal = (url: string) => {
+    void openExternal(url).catch((err) => {
+      setError(err instanceof Error ? err.message : String(err));
+    });
   };
 
   useEffect(() => {
@@ -137,39 +124,66 @@ export function App() {
 
   const nav = useMemo(
     () => [
-      { key: 'connection', label: '连接', icon: <WirelessIcon />, active: page === 'connection', onClick: () => setPage('connection') },
-      { key: 'shortcuts', label: '快捷键', icon: <ShortcutIcon />, active: page === 'shortcuts', onClick: () => setPage('shortcuts') },
+      { key: 'connection', label: '连接', icon: <Monitor />, active: page === 'connection', onClick: () => setPage('connection') },
+      { key: 'shortcuts', label: '快捷键', icon: <Keyboard />, active: page === 'shortcuts', onClick: () => setPage('shortcuts') },
     ],
     [page],
   );
 
   const selectedMonitor = data?.monitors.find((monitor) => monitor.selected) ?? data?.monitors[0] ?? null;
+  const hasAvailableUpdate = Boolean(
+    updater.info &&
+    updater.info.availableVersion !== updater.info.currentVersion &&
+    updater.phase !== 'up-to-date' &&
+    updater.phase !== 'idle',
+  );
 
   return (
     <Shell
       appName="AirSlate"
+      appUrl={GITHUB_URL}
+      onAppUrlClick={() => handleOpenExternal(GITHUB_URL)}
+      appNameAccessory={
+        hasAvailableUpdate ? (
+          <button type="button" className="shell-update-indicator" onClick={openAbout} aria-label="发现新版本，打开关于" title="发现新版本">
+            <ArrowUpCircle className="shell-update-indicator__icon" />
+            <span>有新版本</span>
+          </button>
+        ) : null
+      }
       nav={nav}
-      meta={null}
+      subpage={page === 'settings' ? { title: '设置', onBack: () => setPage(settingsReturnPage) } : undefined}
       navAccessory={
-        data ? (
-          <div className="startup-toggle">
-            <div className="startup-toggle__copy">
-              <div className="startup-toggle__label">开机启动</div>
-              <div className="startup-toggle__hint">自动启动时仅驻留系统托盘</div>
-            </div>
+        <button
+          type="button"
+          className={page === 'settings' ? 'shell-utility-button shell-utility-button--active' : 'shell-utility-button'}
+          onClick={openSettings}
+          aria-label="设置"
+          title="设置"
+        >
+          <Settings className="shell-lucide-icon shell-lucide-icon--small" />
+        </button>
+      }
+      headerAccessory={
+        data?.showLaunchAtStartupOnMainPage ? (
+          <div className="shell-startup-toggle" title="开机自启">
+            <Power className={data.launchAtStartup ? 'shell-startup-toggle__icon shell-startup-toggle__icon--enabled' : 'shell-startup-toggle__icon'} aria-hidden="true" />
             <Switch
               checked={data.launchAtStartup}
               disabled={loading || refreshing || busyKey === 'launch-at-startup'}
-              ariaLabel="切换开机启动"
+              ariaLabel="切换开机自启"
               onChange={(enabled) => void runAction('launch-at-startup', () => setLaunchAtStartup(enabled))}
             />
           </div>
         ) : null
       }
+      meta={null}
       actions={
-        <Button type="button" tone="ghost" onClick={() => void load({ preserveView: Boolean(data) })} disabled={loading || refreshing} aria-label="刷新">
-          <RefreshIcon />
-        </Button>
+        page === 'settings' ? null : (
+          <Button type="button" tone="ghost" onClick={() => void load({ preserveView: Boolean(data) })} disabled={loading || refreshing} aria-label="刷新">
+            <RefreshCw className={refreshing ? 'shell-lucide-icon shell-lucide-icon--spinning' : 'shell-lucide-icon'} />
+          </Button>
+        )
       }
     >
       {loading && <LoadingState />}
@@ -179,7 +193,7 @@ export function App() {
           {error ? <ErrorState error={error} onRetry={() => void load({ preserveView: true })} /> : null}
           {page === 'connection' ? (
             <ConnectionPage data={data} selectedMonitor={selectedMonitor} busyKey={busyKey} runAction={runAction} />
-          ) : (
+          ) : page === 'shortcuts' ? (
             <ShortcutsPage
               data={data}
               busyKey={busyKey}
@@ -188,6 +202,17 @@ export function App() {
               runAction={runAction}
               recordingTarget={recordingTarget}
               setRecordingTarget={setRecordingTarget}
+            />
+          ) : (
+            <SettingsPage
+              data={data}
+              busyKey={busyKey}
+              onOpenGithub={() => handleOpenExternal(GITHUB_URL)}
+              onOpenReleases={() => handleOpenExternal(RELEASES_URL)}
+              initialTab={settingsInitialTab}
+              updater={updater}
+              runAction={runAction}
+              setShowLaunchAtStartupOnMainPage={setShowLaunchAtStartupOnMainPage}
             />
           )}
         </div>

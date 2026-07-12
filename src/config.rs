@@ -11,9 +11,13 @@ use crate::{
     shortcut::{ShortcutPresetLibrary, ShortcutProfile},
 };
 
-const CONFIG_VERSION: u32 = 6;
+const CONFIG_VERSION: u32 = 7;
 const APP_DIR: &str = "AirSlatePcServer";
 const CONFIG_FILE: &str = "config.toml";
+
+fn default_show_launch_at_startup_on_main_page() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
@@ -64,6 +68,8 @@ pub struct Config {
     pub config_version: u32,
     pub app_name: String,
     pub launch_at_startup: bool,
+    #[serde(default = "default_show_launch_at_startup_on_main_page")]
+    pub show_launch_at_startup_on_main_page: bool,
     pub selected_monitor_id: Option<String>,
     pub pressure_curve: PressureCurve,
     pub shortcut_profile: ShortcutProfile,
@@ -80,6 +86,7 @@ impl Default for Config {
             config_version: CONFIG_VERSION,
             app_name: "airslate_pc_server".to_string(),
             launch_at_startup: false,
+            show_launch_at_startup_on_main_page: true,
             selected_monitor_id: None,
             pressure_curve: PressureCurve::default(),
             shortcut_profile: default_profile,
@@ -205,6 +212,18 @@ mod tests {
                 })),
             Some(&ShortcutAction::HoldKeys(vec![KeyCode::Z]))
         );
+    }
+
+    #[test]
+    fn config_defaults_to_showing_launch_at_startup_on_main_page() {
+        let config = Config::default();
+        let raw = toml::to_string_pretty(&config).expect("config should serialize");
+        let mut table = toml::from_str::<toml::Table>(&raw).expect("config should be a table");
+        table.remove("show_launch_at_startup_on_main_page");
+        let old_raw = toml::to_string(&table).expect("old config should serialize");
+        let restored = toml::from_str::<Config>(&old_raw).expect("old config should deserialize");
+
+        assert!(restored.show_launch_at_startup_on_main_page);
     }
 
     #[test]
