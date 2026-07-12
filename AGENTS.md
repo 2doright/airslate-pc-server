@@ -13,19 +13,17 @@
 
 - Rust + Windows crate
 - 前端位于 `frontend/`
-- 目标平台为 Windows
+- 目标平台为 Windows、MacOS
 
-## Rust Skills（强制）
+## Rust Skills
 
 本项目通过 `.rust-skills` Git submodule 使用
 [`actionbook/rust-skills`](https://github.com/actionbook/rust-skills)。所有 Rust 问题、设计、实现、
 调试和代码审查任务都必须使用该 Skill 系统。
 
-#### Rust 开发
+### Rust skill 流程
 
-所有 Rust 开发任务必须：
-
-1. 先完整阅读 `.rust-skills/AGENTS.md`
+1. 完整阅读 `.rust-skills/AGENTS.md`
 2. 使用 `.rust-skills/skills/rust-router/SKILL.md` 路由问题
 3. 根据路由结果任务类型，继续完整阅读对应的 `.rust-skills/skills/*/SKILL.md`
 4. 遵循相关 Skill 的实现、检查和测试要求
