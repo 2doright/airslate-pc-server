@@ -148,14 +148,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --repo "$GITHUB_REPOSITORY" \
-            release-assets/*.msi \
-            release-assets/*.exe \
-            release-assets/*.dmg \
-            release-assets/*.app.zip \
-            --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
-            --generate-notes
+          release_assets=(
+            release-assets/*.msi
+            release-assets/*.exe
+            release-assets/*.dmg
+            release-assets/*.app.zip
+          )
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              "${release_assets[@]}" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              "${release_assets[@]}" \
+              --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi
 
       - name: Generate Windows update manifest
         env:
@@ -184,6 +194,10 @@ jobs:
           cp "$GITHUB_WORKSPACE/latest.json" latest.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add latest.json
-          git commit -m "Update manifest for ${GITHUB_REF_NAME}"
+          git add -f latest.json
+          if git diff --cached --quiet; then
+            echo 'The update manifest is already current.'
+          else
+            git commit -m "Update manifest for ${GITHUB_REF_NAME}"
+          fi
           git push origin HEAD:update-manifest --force
