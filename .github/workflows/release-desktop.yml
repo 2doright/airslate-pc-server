@@ -132,6 +132,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check out tag metadata
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download Windows release assets
         uses: actions/download-artifact@v4
         with:
@@ -148,6 +153,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          tag_type=$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")
+          if [ "$tag_type" != "tag" ]; then
+            echo "Release tag $GITHUB_REF_NAME must be an annotated tag"
+            exit 1
+          fi
+          git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > release-notes.md
           release_assets=(
             release-assets/*.msi
             release-assets/*.exe
@@ -164,7 +175,7 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               "${release_assets[@]}" \
               --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
-              --notes-from-tag
+              --notes-file release-notes.md
           fi
 
       - name: Generate Windows update manifest
