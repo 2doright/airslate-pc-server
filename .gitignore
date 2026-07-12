@@ -63,6 +63,7 @@ GEMINI.*.md
 .mcp.*.json
 
 # Private docs, plans, generated schemas, and local Tauri outputs
+cc-switch/
 doc/**
 !doc/winapi/
 !doc/winapi/**
