@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build, for example v1.5.1"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +19,7 @@ jobs:
     name: Build Windows x64 packages
     runs-on: windows-latest
     env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
@@ -36,7 +43,7 @@ jobs:
       - name: Verify release version
         shell: pwsh
         run: |
-          $tagVersion = $env:GITHUB_REF_NAME.Substring(1)
+          $tagVersion = $env:RELEASE_TAG.Substring(1)
           $configVersion = (Get-Content 'tauri.conf.json' -Raw | ConvertFrom-Json).version
           if ($tagVersion -ne $configVersion) {
             throw "Release tag $tagVersion does not match tauri.conf.json version $configVersion"
@@ -51,7 +58,7 @@ jobs:
       - name: Prepare Windows release assets
         shell: pwsh
         run: |
-          $version = $env:GITHUB_REF_NAME.Substring(1)
+          $version = $env:RELEASE_TAG.Substring(1)
           $msiSource = Get-ChildItem "target/release/bundle/msi/*_${version}_*.msi" | Select-Object -First 1
           $signatureSource = Get-ChildItem "target/release/bundle/msi/*_${version}_*.msi.sig" | Select-Object -First 1
           $portableSource = 'target/release/airslate_pc_server.exe'
@@ -71,6 +78,8 @@ jobs:
   build-macos:
     name: Build macOS universal packages
     runs-on: macos-14
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
     steps:
       - name: Check out repository
@@ -96,7 +105,7 @@ jobs:
 
       - name: Verify release version
         run: |
-          tag_version="${GITHUB_REF_NAME#v}"
+          tag_version="${RELEASE_TAG#v}"
           config_version="$(node -p "require('./tauri.conf.json').version")"
           if [ "$tag_version" != "$config_version" ]; then
             echo "Release tag $tag_version does not match tauri.conf.json version $config_version"
@@ -112,7 +121,7 @@ jobs:
 
       - name: Prepare macOS release assets
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           mkdir -p release-assets
           dmg_path=$(find target/universal-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)
           app_path=$(find target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)
@@ -130,6 +139,8 @@ jobs:
     name: Publish GitHub Release
     needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
     steps:
       - name: Download Windows release assets
@@ -154,16 +165,16 @@ jobs:
             release-assets/*.dmg
             release-assets/*.app.zip
           )
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" \
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               "${release_assets[@]}" \
               --clobber
           else
-            gh release create "$GITHUB_REF_NAME" \
+            gh release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               "${release_assets[@]}" \
-              --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
+              --title "AirSlate PC Server ${RELEASE_TAG}" \
               --notes ""
           fi
 
@@ -171,14 +182,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_windows-x64.msi.sig)
-          notes=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
+          notes=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
           jq -n \
             --arg version "$version" \
             --arg notes "$notes" \
             --arg signature "$signature" \
-            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_windows-x64.msi" \
+            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/AirSlate-PC-Server_${version}_windows-x64.msi" \
             '{version:$version,notes:$notes,pub_date:(now|todate),platforms:{"windows-x86_64":{signature:$signature,url:$url}}}' \
             > latest.json
 
@@ -198,6 +209,6 @@ jobs:
           if git diff --cached --quiet; then
             echo 'The update manifest is already current.'
           else
-            git commit -m "Update manifest for ${GITHUB_REF_NAME}"
+            git commit -m "Update manifest for ${RELEASE_TAG}"
           fi
           git push origin HEAD:update-manifest --force
