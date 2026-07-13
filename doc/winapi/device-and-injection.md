@@ -53,6 +53,9 @@ BOOL InjectSyntheticPointerInput(
   - 待注入的 [POINTER_TYPE_INFO](./common-pointer-types.md) 数组。
   - 数组元素的实际类型必须与创建设备时使用的 `pointerType` 一致。
   - 每个元素中的 `ptPixelLocation` 以虚拟屏幕左上角为原点。
+  - `GetMonitorInfoW` 返回的是桌面坐标；多屏虚拟桌面的左或上边界可能为负值。传入
+    `ptPixelLocation` 前，必须分别减去 `SM_XVIRTUALSCREEN` 和 `SM_YVIRTUALSCREEN`，转换为
+    虚拟屏幕左上角相对坐标。
 - `count`
   - 本次注入的 contact 数量。
   - 对 [PT_TOUCH](./input-types-and-limits.md)，必须大于 0 且小于等于 [MAX_TOUCH_COUNT](./input-types-and-limits.md)。

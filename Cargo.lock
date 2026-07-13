@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "airslate_pc_server"
-version = "1.5.1"
+version = "1.5.2"
 dependencies = [
  "local-ip-address",
  "serde",

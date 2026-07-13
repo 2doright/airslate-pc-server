@@ -144,10 +144,13 @@ impl ShortcutExecutor for WindowsShortcutExecutor {
 
 #[cfg(windows)]
 fn build_pointer_type_info(frame_id: u32, command: &PenInjectionCommand) -> POINTER_TYPE_INFO {
-    let point = POINT {
-        x: command.x,
-        y: command.y,
-    };
+    // InjectSyntheticPointerInput uses coordinates relative to the virtual screen's top-left,
+    // while the input pipeline uses desktop coordinates returned by GetMonitorInfoW.
+    // SAFETY: GetSystemMetrics only reads process-wide system metrics and receives valid constants.
+    let virtual_left = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
+    // SAFETY: GetSystemMetrics only reads process-wide system metrics and receives valid constants.
+    let virtual_top = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
+    let point = synthetic_pointer_location(command.x, command.y, virtual_left, virtual_top);
 
     let pointer_info = POINTER_INFO {
         pointerType: PT_PEN,
@@ -181,6 +184,19 @@ fn build_pointer_type_info(frame_id: u32, command: &PenInjectionCommand) -> POIN
     POINTER_TYPE_INFO {
         r#type: PT_PEN,
         Anonymous: POINTER_TYPE_INFO_0 { penInfo: pen_info },
+    }
+}
+
+#[cfg(windows)]
+fn synthetic_pointer_location(
+    desktop_x: i32,
+    desktop_y: i32,
+    virtual_left: i32,
+    virtual_top: i32,
+) -> POINT {
+    POINT {
+        x: desktop_x - virtual_left,
+        y: desktop_y - virtual_top,
     }
 }
 
@@ -374,6 +390,13 @@ mod tests {
         unsafe {
             assert_eq!(info.Anonymous.penInfo.pointerInfo.historyCount, 1);
         }
+    }
+
+    #[test]
+    fn synthetic_pointer_location_is_relative_to_negative_virtual_screen_origin() {
+        let point = synthetic_pointer_location(0, 0, -2560, -360);
+
+        assert_eq!((point.x, point.y), (2560, 360));
     }
 
     #[test]

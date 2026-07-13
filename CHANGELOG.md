@@ -4,6 +4,11 @@
 
 _No changes yet._
 
+## 1.5.2 - 2026-07-13
+
+- fixed Windows pen mapping on mixed-resolution multi-monitor layouts whose virtual desktop has a
+  negative left or top origin, so the full selected display is reachable without a constant offset
+
 ## 1.5.1 - 2026-07-12
 
 ### ✨ Features
