@@ -14,7 +14,6 @@ pub struct WindowsShortcutExecutor;
 
 impl WindowsPenInjector {
     pub fn new() -> Result<Self, AppError> {
-        ensure_post_event_access()?;
         Ok(Self {
             tablet: Mutex::new(MacosTabletState::new()?),
         })
@@ -29,6 +28,7 @@ impl WindowsShortcutExecutor {
 
 impl PenInjector for WindowsPenInjector {
     fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError> {
+        ensure_post_event_access()?;
         self.tablet
             .lock()
             .map_err(|_| AppError::StatePoisoned("macos_tablet_injector"))?
@@ -38,6 +38,7 @@ impl PenInjector for WindowsPenInjector {
 
 impl ShortcutExecutor for WindowsShortcutExecutor {
     fn execute(&self, command: ShortcutCommand) -> Result<(), AppError> {
+        ensure_post_event_access()?;
         match command {
             ShortcutCommand::KeyDown(key) => post_key_event(key, false),
             ShortcutCommand::KeyUp(key) => post_key_event(key, true),
@@ -155,7 +156,7 @@ unsafe extern "C" {
 
 fn ensure_post_event_access() -> Result<(), AppError> {
     // SAFETY: Both CoreGraphics functions take no arguments, retain no Rust-owned data, and are
-    // called on the application's main thread before input worker threads are started.
+    // safe to call from the input worker before it creates or posts synthetic events.
     let granted = unsafe {
         CGPreflightPostEventAccess() || CGRequestPostEventAccess() || CGPreflightPostEventAccess()
     };

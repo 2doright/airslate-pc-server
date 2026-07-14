@@ -4,6 +4,12 @@
 
 _No changes yet._
 
+## 1.5.4 - 2026-07-14
+
+- fixed a macOS startup regression that terminated the desktop shell before it opened when
+  Accessibility post-event permission had not yet been granted; permission is now requested and
+  enforced at the actual input-injection boundary
+
 ## 1.5.3 - 2026-07-14
 
 - replaced the unusable PC-side AppGallery review link with guidance to leave a five-star review
