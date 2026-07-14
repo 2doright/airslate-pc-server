@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { AppWindow, CircleHelp, Eye, ExternalLink, Gauge, MessagesSquare, Power } from 'lucide-react';
+import { AppWindow, CircleHelp, Eye, ExternalLink, Gauge, MessagesSquare, Power, Star } from 'lucide-react';
 import foregroundIcon from '../assets/foreground.png';
 import { Switch } from './ui';
 import { setLaunchAtStartup, setLatestContactMoveOnly, setLatestContactMoveToleranceMs, setPreemptPreviousStroke, type AppBootstrapDto } from '../lib/tauri';
@@ -144,6 +144,10 @@ export function SettingsPage(props: {
             </div>
             <AboutUpdateSection updater={props.updater} />
             <div className="settings-about-community">
+              <div className="settings-about-community__item settings-about-community__item--review">
+                <Star aria-hidden="true" />
+                <span><strong>期待你的好评</strong><small>如果 AirSlate 对你有所帮助，欢迎在鸿蒙应用商店留下五星好评。非常感谢你的支持！</small></span>
+              </div>
               <button type="button" className="settings-about-community__item" onClick={props.onOpenIssues}>
                 <CircleHelp aria-hidden="true" />
                 <span><strong>问题反馈</strong><small>遇到 Bug 或异常行为，请前往 GitHub Issues 反馈。</small></span>

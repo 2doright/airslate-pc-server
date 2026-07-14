@@ -4,36 +4,35 @@
 
 _No changes yet._
 
+## 1.5.3 - 2026-07-14
+
+- replaced the unusable PC-side AppGallery review link with guidance to leave a five-star review
+  from Huawei AppGallery on a HarmonyOS device
+- fixed macOS stylus injection to require active Accessibility post-event permission instead of
+  reporting successful injection when macOS rejects synthetic input
+- fixed macOS tablet proximity events to emit one enter and one leave per in-range lifecycle
+  instead of repeatedly emitting enter events without a matching leave
+- disabled dev and test incremental compilation caches so reusable dependency artifacts remain
+  available without allowing `target` to accumulate per-compilation incremental state
+
 ## 1.5.2 - 2026-07-13
 
 - fixed Windows pen mapping on mixed-resolution multi-monitor layouts whose virtual desktop has a
   negative left or top origin, so the full selected display is reachable without a constant offset
 
 ## 1.5.1 - 2026-07-12
-
-### ✨ Features
-
 - added opt-in Advanced input strategies for latest-sample contact prioritization and new-stroke preemption, with a persistent 0–100 ms backlog-tolerance control
 - added main-page session status controls, including a clear waiting state, local disconnect action, shared session cleanup, and live Tauri status events
 - added an independent LAN IPv4 refresh action and bound handshake sessions to the peer's IPv4 address
 - added opt-in `AIRSLATE_INPUT_METRICS=1` pipeline measurements for sequence gaps, queue depth, queue wait, and injection duration
-
-### 🐛 Fixes & performance
-
 - replaced lossy contact-move backlog compaction with an ordered lossless queue, preserving every accepted in-contact Move sample during high-frequency multi-stroke bursts while still coalescing only non-contact hover moves
 - moved normal stylus coordinate and pressure mapping out of the pen worker's duplicate hot path and reduced shortcut-context work for contact moves
 - replaced the Windows pen frame-id mutex with atomic sequencing and corrected synthetic pen history metadata
 - removed the window-size flash when reopening the control panel by restoring persisted geometry before recreating the window
-
-### 🎨 UI & UX
-
 - refreshed the waiting and main-page connection controls with the cc-switch-inspired orange treatment, circular add-action shape, elevated shadow, and color-only hover transition
 - changed the radial-menu inner-ring toggle to a circular switch while preserving the nine-grid editor layout
 - added explicit red fidelity warnings for opt-in lossy input strategies and streamlined the About page with Update, Issues, and Discussions actions
 - changed the default window size to 2064 × 1232 and the minimum window size to 960 × 540 (16:9)
-
-### ⚠️ Upgrade notes
-
 - the new input strategies are opt-in; lossless input remains the default
 - pipeline metrics are disabled unless `AIRSLATE_INPUT_METRICS=1` is set
 

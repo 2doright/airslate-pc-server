@@ -1,6 +1,6 @@
 [package]
 name = "airslate_pc_server"
-version = "1.5.2"
+version = "1.5.3"
 edition = "2024"
 
 [build-dependencies]
@@ -31,3 +31,11 @@ windows-numerics = "0.3.1"
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 portable = []
+
+# Keep dependency artifacts reusable while preventing project-local incremental
+# compilation state from growing without bound under target/*/incremental.
+[profile.dev]
+incremental = false
+
+[profile.test]
+incremental = false

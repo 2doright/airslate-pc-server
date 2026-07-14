@@ -1,8 +1,4 @@
-use std::{
-    ffi::c_void,
-    sync::Mutex,
-    time::{Duration, Instant},
-};
+use std::{ffi::c_void, sync::Mutex};
 
 use crate::{
     error::AppError,
@@ -18,8 +14,9 @@ pub struct WindowsShortcutExecutor;
 
 impl WindowsPenInjector {
     pub fn new() -> Result<Self, AppError> {
+        ensure_post_event_access()?;
         Ok(Self {
-            tablet: Mutex::new(MacosTabletState::new()),
+            tablet: Mutex::new(MacosTabletState::new()?),
         })
     }
 }
@@ -117,10 +114,11 @@ const NS_POINTING_DEVICE_TYPE_PEN: i64 = 1;
 const WACOM_CAPABILITY_MASK: i64 = 0x001 | 0x002 | 0x004 | 0x040 | 0x080 | 0x100 | 0x400;
 const WACOM_VENDOR_POINTER_TYPE_GENERAL_STYLUS: i64 = 0x802;
 const MACOS_TABLET_DEVICE_ID: i64 = 5_303_613_955_435_230_461;
-const PROXIMITY_REFRESH_INTERVAL: Duration = Duration::from_millis(200);
 
 #[link(name = "CoreGraphics", kind = "framework")]
 unsafe extern "C" {
+    fn CGPreflightPostEventAccess() -> bool;
+    fn CGRequestPostEventAccess() -> bool;
     fn CGEventCreate(source: CGEventSourceRef) -> CGEventRef;
     fn CGEventSourceCreate(state_id: i32) -> CGEventSourceRef;
     fn CGEventSourceFlagsState(state_id: i32) -> u64;
@@ -153,6 +151,19 @@ unsafe extern "C" {
 #[link(name = "CoreFoundation", kind = "framework")]
 unsafe extern "C" {
     fn CFRelease(cf: *const c_void);
+}
+
+fn ensure_post_event_access() -> Result<(), AppError> {
+    // SAFETY: Both CoreGraphics functions take no arguments, retain no Rust-owned data, and are
+    // called on the application's main thread before input worker threads are started.
+    let granted = unsafe {
+        CGPreflightPostEventAccess() || CGRequestPostEventAccess() || CGPreflightPostEventAccess()
+    };
+    if granted {
+        Ok(())
+    } else {
+        Err(AppError::MacosInputPermissionDenied)
+    }
 }
 
 fn post_key_event(key: KeyCode, key_up: bool) -> Result<(), AppError> {
@@ -246,7 +257,7 @@ struct MacosTabletState {
     event_source: CGEventSourceRef,
     is_contact: bool,
     last_point: Option<CGPoint>,
-    last_proximity: Option<Instant>,
+    is_in_proximity: bool,
 }
 
 // SAFETY: `MacosTabletState` exclusively owns its retained `CGEventSourceRef`. CoreGraphics event
@@ -255,13 +266,22 @@ struct MacosTabletState {
 unsafe impl Send for MacosTabletState {}
 
 impl MacosTabletState {
-    fn new() -> Self {
-        Self {
-            event_source: unsafe { CGEventSourceCreate(K_CG_EVENT_SOURCE_STATE_PRIVATE) },
+    fn new() -> Result<Self, AppError> {
+        // SAFETY: The returned retained CoreGraphics object is exclusively owned by this state and
+        // released in `Drop`.
+        let event_source = unsafe { CGEventSourceCreate(K_CG_EVENT_SOURCE_STATE_PRIVATE) };
+        if event_source.is_null() {
+            return Err(AppError::DesktopShell(
+                "failed to create macOS CoreGraphics event source".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            event_source,
             is_contact: false,
             last_point: None,
-            last_proximity: None,
-        }
+            is_in_proximity: false,
+        })
     }
 
     fn inject(&mut self, command: PenInjectionCommand) -> Result<(), AppError> {
@@ -269,8 +289,9 @@ impl MacosTabletState {
             x: f64::from(command.x),
             y: f64::from(command.y),
         };
-        if command.in_range {
-            self.ensure_proximity()?;
+        if command.in_range && !self.is_in_proximity {
+            self.post_proximity_event(true)?;
+            self.is_in_proximity = true;
         }
 
         let event_type = self.event_type(&command);
@@ -319,10 +340,14 @@ impl MacosTabletState {
                 PenInjectionCommandKind::Up | PenInjectionCommandKind::Cancel
             );
         self.last_point = Some(point);
+        if !command.in_range && self.is_in_proximity {
+            self.post_proximity_event(false)?;
+            self.is_in_proximity = false;
+        }
+
         if matches!(command.kind, PenInjectionCommandKind::Cancel) || !command.in_range {
             self.is_contact = false;
             self.last_point = None;
-            self.last_proximity = None;
         }
 
         Ok(())
@@ -341,21 +366,7 @@ impl MacosTabletState {
         }
     }
 
-    fn ensure_proximity(&mut self) -> Result<(), AppError> {
-        let should_post = self
-            .last_proximity
-            .map(|instant| instant.elapsed() > PROXIMITY_REFRESH_INTERVAL)
-            .unwrap_or(true);
-        if !should_post {
-            return Ok(());
-        }
-
-        self.post_proximity_event()?;
-        self.last_proximity = Some(Instant::now());
-        Ok(())
-    }
-
-    fn post_proximity_event(&self) -> Result<(), AppError> {
+    fn post_proximity_event(&self, entering: bool) -> Result<(), AppError> {
         let event = unsafe { CGEventCreate(self.event_source) };
         if event.is_null() {
             return Err(AppError::DesktopShell(
@@ -373,7 +384,7 @@ impl MacosTabletState {
             CGEventSetIntegerValueField(
                 event,
                 K_CG_EVENT_FIELD_TABLET_PROXIMITY_ENTER_PROXIMITY,
-                1,
+                i64::from(entering),
             );
             CGEventSetIntegerValueField(
                 event,
@@ -444,6 +455,10 @@ impl MacosTabletState {
 
 impl Drop for MacosTabletState {
     fn drop(&mut self) {
+        if self.is_in_proximity {
+            let _ = self.post_proximity_event(false);
+            self.is_in_proximity = false;
+        }
         if !self.event_source.is_null() {
             unsafe { CFRelease(self.event_source) };
         }

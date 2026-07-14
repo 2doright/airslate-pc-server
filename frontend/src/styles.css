@@ -2154,6 +2154,22 @@ select:disabled {
   background: var(--accent-soft);
 }
 
+.settings-about-community__item--review {
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, 1fr);
+  cursor: default;
+}
+
+.settings-about-community__item--review:hover {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.settings-about-community__item--review > svg:first-child {
+  color: #f59e0b;
+  fill: rgba(245, 158, 11, 0.16);
+}
+
 .settings-about-community__item > svg {
   width: 18px;
   height: 18px;

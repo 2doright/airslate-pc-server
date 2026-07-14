@@ -37,6 +37,11 @@ pub enum AppError {
     Windows(#[from] WindowsError),
     #[error("desktop shell failed: {0}")]
     DesktopShell(String),
+    #[cfg(target_os = "macos")]
+    #[error(
+        "macOS Accessibility permission is required to inject input; grant AirSlate PC Server permission and restart the application"
+    )]
+    MacosInputPermissionDenied,
     #[error("shortcut preset failed: {0}")]
     ShortcutPreset(String),
     #[cfg(target_os = "macos")]

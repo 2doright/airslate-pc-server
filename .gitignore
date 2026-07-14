@@ -47,6 +47,7 @@
 !images/**
 
 # Never publish local agent/tooling state, prompts, notes, or machine files
+*CONTEXT*.md
 .agents/**
 .codex/**
 .claude/**
