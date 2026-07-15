@@ -2,8 +2,12 @@
 
 ## Unreleased
 
-- corrected macOS synthetic tablet event construction so the tablet-point subtype is selected
-  before tablet fields are written and every event carries the source tablet-space coordinates
+_No changes yet._
+
+## 1.5.5 - 2026-07-15
+
+- completed macOS synthetic tablet-point events by carrying the client's logical pen position as
+  full-resolution tablet-space X/Y alongside the mapped global screen location
 
 ## 1.5.4 - 2026-07-14
 

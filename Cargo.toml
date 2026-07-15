@@ -1,6 +1,6 @@
 [package]
 name = "airslate_pc_server"
-version = "1.5.4"
+version = "1.5.5"
 edition = "2024"
 
 [build-dependencies]
