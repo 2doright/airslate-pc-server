@@ -350,6 +350,8 @@ mod tests {
         let flags = build_pointer_flags(&PenInjectionCommand {
             x: 100,
             y: 200,
+            tablet_x: 100,
+            tablet_y: 200,
             kind: PenInjectionCommandKind::Down,
             in_range: true,
             is_contact: true,
@@ -376,6 +378,8 @@ mod tests {
             &PenInjectionCommand {
                 x: 100,
                 y: 200,
+                tablet_x: 100,
+                tablet_y: 200,
                 kind: PenInjectionCommandKind::Down,
                 in_range: true,
                 is_contact: true,
@@ -404,6 +408,8 @@ mod tests {
         let flags = build_pointer_flags(&PenInjectionCommand {
             x: 100,
             y: 200,
+            tablet_x: 100,
+            tablet_y: 200,
             kind: PenInjectionCommandKind::Cancel,
             in_range: false,
             is_contact: false,

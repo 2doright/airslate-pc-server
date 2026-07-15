@@ -44,6 +44,8 @@ pub enum PenInjectionCommandKind {
 pub struct PenInjectionCommand {
     pub x: i32,
     pub y: i32,
+    pub tablet_x: u16,
+    pub tablet_y: u16,
     pub kind: PenInjectionCommandKind,
     pub in_range: bool,
     pub is_contact: bool,
@@ -57,6 +59,8 @@ struct ActivePenState {
     session_id: String,
     x: i32,
     y: i32,
+    tablet_x: u16,
+    tablet_y: u16,
     in_range: bool,
     is_contact: bool,
 }
@@ -759,6 +763,8 @@ impl StylusWorker {
         let cancel = PenInjectionCommand {
             x: active.x,
             y: active.y,
+            tablet_x: active.tablet_x,
+            tablet_y: active.tablet_y,
             kind: PenInjectionCommandKind::Cancel,
             in_range: false,
             is_contact: false,
@@ -793,6 +799,8 @@ impl StylusWorker {
         let command = PenInjectionCommand {
             x: active.x,
             y: active.y,
+            tablet_x: active.tablet_x,
+            tablet_y: active.tablet_y,
             kind: PenInjectionCommandKind::Cancel,
             in_range: false,
             is_contact: false,
@@ -821,6 +829,8 @@ impl StylusWorker {
             session_id: session_id.to_string(),
             x: command.x,
             y: command.y,
+            tablet_x: command.tablet_x,
+            tablet_y: command.tablet_y,
             in_range: command.in_range,
             is_contact: command.is_contact,
         });
@@ -943,6 +953,8 @@ fn map_stylus_frame(
     PenInjectionCommand {
         x: map_axis(frame.x, monitor.pixel_width, monitor.virtual_left),
         y: map_axis(frame.y, monitor.pixel_height, monitor.virtual_top),
+        tablet_x: frame.x,
+        tablet_y: frame.y,
         kind: map_command_kind(frame.event_type),
         in_range,
         is_contact,
@@ -1498,6 +1510,9 @@ mod tests {
         assert_eq!((origin.x, origin.y), (100, 200));
         assert_eq!((corner.x, corner.y), (2019, 1279));
         assert_eq!((center.x, center.y), (1060, 740));
+        assert_eq!((origin.tablet_x, origin.tablet_y), (0, 0));
+        assert_eq!((corner.tablet_x, corner.tablet_y), (32_767, 32_767));
+        assert_eq!((center.tablet_x, center.tablet_y), (16_384, 16_384));
     }
 
     #[test]
@@ -2053,6 +2068,8 @@ mod tests {
                 PenInjectionCommand {
                     x: 106,
                     y: 207,
+                    tablet_x: 100,
+                    tablet_y: 200,
                     kind: PenInjectionCommandKind::Down,
                     in_range: true,
                     is_contact: true,
@@ -2063,6 +2080,8 @@ mod tests {
                 PenInjectionCommand {
                     x: 106,
                     y: 207,
+                    tablet_x: 100,
+                    tablet_y: 200,
                     kind: PenInjectionCommandKind::Cancel,
                     in_range: false,
                     is_contact: false,

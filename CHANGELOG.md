@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-_No changes yet._
+- corrected macOS synthetic tablet event construction so the tablet-point subtype is selected
+  before tablet fields are written and every event carries the source tablet-space coordinates
 
 ## 1.5.4 - 2026-07-14
 

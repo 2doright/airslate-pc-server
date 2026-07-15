@@ -97,6 +97,8 @@ const K_CG_EVENT_FIELD_MOUSE_EVENT_BUTTON_NUMBER: u32 = 3;
 const K_CG_EVENT_FIELD_MOUSE_EVENT_DELTA_X: u32 = 4;
 const K_CG_EVENT_FIELD_MOUSE_EVENT_DELTA_Y: u32 = 5;
 const K_CG_EVENT_FIELD_MOUSE_EVENT_SUBTYPE: u32 = 7;
+const K_CG_EVENT_FIELD_TABLET_POINT_X: u32 = 15;
+const K_CG_EVENT_FIELD_TABLET_POINT_Y: u32 = 16;
 const K_CG_EVENT_FIELD_TABLET_POINT_BUTTONS: u32 = 18;
 const K_CG_EVENT_FIELD_TABLET_POINT_PRESSURE: u32 = 19;
 const K_CG_EVENT_FIELD_TABLET_TILT_X: u32 = 20;
@@ -306,6 +308,13 @@ impl MacosTabletState {
         }
 
         unsafe {
+            // CoreGraphics stores mouse and tablet fields in a union selected by the subtype.
+            // Apple requires the tablet subtype to be set before any tablet-specific values.
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_MOUSE_EVENT_SUBTYPE,
+                K_CG_MOUSE_EVENT_SUBTYPE_TABLET_POINT,
+            );
             CGEventSetLocation(event, point);
             CGEventSetIntegerValueField(
                 event,
@@ -426,8 +435,13 @@ impl MacosTabletState {
             CGEventSetDoubleValueField(event, K_CG_EVENT_FIELD_MOUSE_EVENT_PRESSURE, pressure);
             CGEventSetIntegerValueField(
                 event,
-                K_CG_EVENT_FIELD_MOUSE_EVENT_SUBTYPE,
-                K_CG_MOUSE_EVENT_SUBTYPE_TABLET_POINT,
+                K_CG_EVENT_FIELD_TABLET_POINT_X,
+                i64::from(command.tablet_x),
+            );
+            CGEventSetIntegerValueField(
+                event,
+                K_CG_EVENT_FIELD_TABLET_POINT_Y,
+                i64::from(command.tablet_y),
             );
             CGEventSetIntegerValueField(event, K_CG_EVENT_FIELD_TABLET_POINT_BUTTONS, buttons);
             CGEventSetIntegerValueField(
