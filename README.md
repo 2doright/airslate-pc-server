@@ -10,6 +10,7 @@
 [![GitHub Release](https://img.shields.io/badge/GitHub%20Release-下载%20PC%20Server-24292F?style=for-the-badge&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/releases)
 
 [![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA)
+[![GitHub 下载量](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?style=flat-square&logo=github&label=下载量)](https://github.com/2doright/airslate-pc-server/releases)
 [![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-24292F?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues)
 [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-24292F?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
 
@@ -216,3 +217,7 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 - 介绍讲解视频：[Bilibili](https://www.bilibili.com/video/BV1nkMi6fEXA)
 - Bug 反馈：[GitHub Issues](https://github.com/2doright/airslate-pc-server/issues)
 - 交流讨论：[GitHub Discussions](https://github.com/2doright/airslate-pc-server/discussions)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=2doright/airslate-pc-server&type=Date)](https://www.star-history.com/#2doright/airslate-pc-server&Date)
