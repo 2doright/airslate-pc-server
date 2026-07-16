@@ -1,7 +1,8 @@
 [package]
 name = "airslate_pc_server"
-version = "1.5.5"
+version = "1.5.6"
 edition = "2024"
+default-run = "airslate_pc_server"
 
 [build-dependencies]
 tauri-build = { version = "2.5.6", features = [] }

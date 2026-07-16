@@ -4,6 +4,11 @@
 
 _No changes yet._
 
+## 1.5.6 - 2026-07-17
+
+- fixed Tauri and Cargo startup selection so the MSI launches `airslate_pc_server.exe` instead of a diagnostic CLI binary
+- fixed the native radial overlay service lifetime so the radial menu and hold indicator remain available after application initialization
+
 ## 1.5.5 - 2026-07-15
 
 - completed macOS synthetic tablet-point events by carrying the client's logical pen position as

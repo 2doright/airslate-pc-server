@@ -28,6 +28,7 @@ pub struct AppContext {
     pub workspace: WorkspaceService,
     pub runtime: AppRuntime,
     pub session_lifecycle: Arc<SessionLifecycle>,
+    _radial_overlay: Arc<RadialOverlayService>,
 }
 
 pub fn initialize() -> Result<AppContext, AppError> {
@@ -82,6 +83,7 @@ pub fn initialize() -> Result<AppContext, AppError> {
         workspace,
         runtime,
         session_lifecycle,
+        _radial_overlay: radial_overlay,
     })
 }
 
