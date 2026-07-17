@@ -123,7 +123,7 @@ pub(crate) mod windows_app {
         }
         match locations.as_slice() {
             [location] => Ok(location.clone()),
-            [] => Err(DryRunError::NoMatchingDevice),
+            [] => Err(DryRunError::MissingCandidate),
             locations => Err(DryRunError::AmbiguousCandidates(locations.len())),
         }
     }
@@ -623,7 +623,6 @@ pub(crate) mod windows_app {
         UnexpectedWindowsDirectoryLength(usize),
         DriverPathTooLong(usize),
         UnexpectedPropertyType,
-        NoMatchingDevice,
         TargetChanged,
         MissingWinUsbNode,
         AmbiguousCandidates(usize),
@@ -659,10 +658,6 @@ pub(crate) mod windows_app {
                         "Windows returned an unexpected PnP property type"
                     )
                 }
-                Self::NoMatchingDevice => write!(
-                    formatter,
-                    "no present USB device matched the requested VID/PID/serial"
-                ),
                 Self::TargetChanged => write!(
                     formatter,
                     "the confirmed devnode facts changed before installation; refusing"
