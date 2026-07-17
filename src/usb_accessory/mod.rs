@@ -2,7 +2,7 @@ mod stream;
 
 #[cfg(windows)]
 #[allow(dead_code)]
-#[path = "winusb_inbox.rs"]
+#[path = "../bin/winusb_inbox_dry_run.rs"]
 mod winusb_tool;
 
 use std::{

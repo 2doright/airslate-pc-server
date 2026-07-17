@@ -1,8 +1,14 @@
+#[cfg(not(windows))]
+fn main() {
+    eprintln!("winusb-inbox-dry-run is available only on Windows");
+}
+
 #[cfg(windows)]
 pub(crate) mod windows_app {
     use std::{
-        fmt, mem,
+        env, fmt, mem,
         path::{Path, PathBuf},
+        process::ExitCode,
     };
 
     use windows::{
@@ -45,6 +51,16 @@ pub(crate) mod windows_app {
     const AIRSLATE_USB_INTERFACE_GUID: GUID =
         GUID::from_u128(0x9658c676_474f_4d5e_bfcb_3f7747eb5dd8);
     const ACCESSORY_COMPATIBLE_ID: &str = "USB\\Class_FF&SubClass_FF&Prot_00";
+
+    pub fn main() -> ExitCode {
+        match run() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("winusb-inbox-dry-run: {error}");
+                ExitCode::FAILURE
+            }
+        }
+    }
 
     #[allow(dead_code)]
     pub(crate) fn find_present_usb_location(
@@ -128,6 +144,90 @@ pub(crate) mod windows_app {
         }
     }
 
+    fn run() -> Result<(), DryRunError> {
+        let command = parse_args(env::args().skip(1))?;
+        let candidates = enumerate_candidates(Some(&command.location_path))?;
+        print_candidates(&candidates);
+
+        let nodes = enumerate_winusb_nodes()?;
+        print_driver_nodes(&nodes);
+
+        if candidates.len() > 1 {
+            return Err(DryRunError::AmbiguousCandidates(candidates.len()));
+        }
+        if nodes.len() > 1 {
+            return Err(DryRunError::AmbiguousWinUsbNodes(nodes.len()));
+        }
+        if let [candidate] = candidates.as_slice() {
+            let target_nodes =
+                enumerate_target_winusb_nodes(&candidate.instance_id, &command.location_path)?;
+            print_target_driver_nodes(&candidate.instance_id, &target_nodes);
+            if target_nodes.len() > 1 {
+                return Err(DryRunError::AmbiguousWinUsbNodes(target_nodes.len()));
+            }
+        }
+        if command.install {
+            let candidate = candidates.first().ok_or(DryRunError::MissingCandidate)?;
+            let confirmed = command
+                .confirmed_instance_id
+                .as_deref()
+                .ok_or(DryRunError::MissingConfirmation)?;
+            if !candidate.instance_id.eq_ignore_ascii_case(confirmed) {
+                return Err(DryRunError::ConfirmationMismatch);
+            }
+            install_inbox_winusb(&command.location_path, confirmed)?;
+        } else {
+            println!("dry-run only; pass --install and --instance-id with the printed exact ID");
+        }
+        Ok(())
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct Command {
+        location_path: String,
+        install: bool,
+        confirmed_instance_id: Option<String>,
+    }
+
+    fn parse_args(args: impl Iterator<Item = String>) -> Result<Command, DryRunError> {
+        let args = args.collect::<Vec<_>>();
+        let mut location_path = None;
+        let mut install = false;
+        let mut confirmed_instance_id = None;
+        let mut index = 0;
+        while index < args.len() {
+            match args[index].as_str() {
+                "--install" => {
+                    install = true;
+                    index += 1;
+                }
+                "--location-path" | "--instance-id" => {
+                    let flag = args[index].as_str();
+                    let value = args
+                        .get(index + 1)
+                        .filter(|value| !value.is_empty())
+                        .ok_or(DryRunError::Usage)?;
+                    if flag == "--location-path" {
+                        location_path = Some(value.clone());
+                    } else {
+                        confirmed_instance_id = Some(value.clone());
+                    }
+                    index += 2;
+                }
+                _ => return Err(DryRunError::Usage),
+            }
+        }
+        let location_path = location_path.ok_or(DryRunError::Usage)?;
+        if !install && confirmed_instance_id.is_some() {
+            return Err(DryRunError::Usage);
+        }
+        Ok(Command {
+            location_path,
+            install,
+            confirmed_instance_id,
+        })
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct CandidateFacts {
         instance_id: String,
@@ -151,6 +251,17 @@ pub(crate) mod windows_app {
                         .any(|path| path.eq_ignore_ascii_case(expected))
                 })
         }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct DriverNode {
+        description: String,
+        manufacturer: String,
+        provider: String,
+        inf_path: PathBuf,
+        section: String,
+        class_guid: GUID,
+        class_name: String,
     }
 
     fn enumerate_candidates(
@@ -208,6 +319,170 @@ pub(crate) mod windows_app {
             }
         }
         Ok(candidates)
+    }
+
+    fn enumerate_winusb_nodes() -> Result<Vec<DriverNode>, DryRunError> {
+        let expected_inf = system_winusb_inf_path()?;
+        let set = unsafe { SetupDiCreateDeviceInfoList(Some(&USBDEVICE_CLASS_GUID), None) }
+            .map_err(|error| DryRunError::Windows("creating USBDevice class set", error))?;
+        let set = DeviceInfoSet(set);
+        let mut install_params = SP_DEVINSTALL_PARAMS_W {
+            cbSize: mem::size_of::<SP_DEVINSTALL_PARAMS_W>() as u32,
+            ..Default::default()
+        };
+        unsafe { SetupDiGetDeviceInstallParamsW(set.0, None, &mut install_params) }.map_err(
+            |error| DryRunError::Windows("reading USBDevice driver search parameters", error),
+        )?;
+        install_params.FlagsEx |= DI_FLAGSEX_ALLOWEXCLUDEDDRVS;
+        unsafe { SetupDiSetDeviceInstallParamsW(set.0, None, &install_params) }.map_err(
+            |error| DryRunError::Windows("enabling excluded system driver enumeration", error),
+        )?;
+        unsafe { SetupDiBuildDriverInfoList(set.0, None, SPDIT_CLASSDRIVER) }
+            .map_err(|error| DryRunError::Windows("building USBDevice class driver list", error))?;
+        let drivers = DriverInfoList {
+            set: set.0,
+            device: None,
+            kind: SPDIT_CLASSDRIVER,
+        };
+
+        let mut nodes = Vec::new();
+        let mut index = 0;
+        loop {
+            let mut info = SP_DRVINFO_DATA_V2_W {
+                cbSize: mem::size_of::<SP_DRVINFO_DATA_V2_W>() as u32,
+                ..Default::default()
+            };
+            match unsafe {
+                SetupDiEnumDriverInfoW(set.0, None, SPDIT_CLASSDRIVER, index, &mut info)
+            } {
+                Ok(()) => {}
+                Err(error) if is_win32_error(&error, ERROR_NO_MORE_ITEMS.0) => break,
+                Err(error) => {
+                    return Err(DryRunError::Windows(
+                        "enumerating USBDevice driver node",
+                        error,
+                    ));
+                }
+            }
+            index += 1;
+
+            let detail = get_driver_detail(set.0, None, &info)?;
+            if !is_generic_inbox_winusb_node(&detail.inf_path, &detail.section, &expected_inf)
+                || !utf16_field(&info.ProviderName).eq_ignore_ascii_case("Microsoft")
+            {
+                continue;
+            }
+
+            let mut class_guid = GUID::zeroed();
+            let mut class_name = [0_u16; 64];
+            unsafe {
+                SetupDiGetINFClassW(
+                    PCWSTR::from_raw(null_terminated(&detail.inf_path).as_ptr()),
+                    &mut class_guid,
+                    &mut class_name,
+                    None,
+                )
+            }
+            .map_err(|error| DryRunError::Windows("reading winusb.inf class", error))?;
+            if class_guid != USBDEVICE_CLASS_GUID {
+                continue;
+            }
+
+            nodes.push(DriverNode {
+                description: utf16_field(&info.Description),
+                manufacturer: utf16_field(&info.MfgName),
+                provider: utf16_field(&info.ProviderName),
+                inf_path: detail.inf_path,
+                section: detail.section,
+                class_guid,
+                class_name: utf16_field(&class_name),
+            });
+        }
+        drop(drivers);
+        Ok(nodes)
+    }
+
+    fn enumerate_target_winusb_nodes(
+        instance_id: &str,
+        expected_location: &str,
+    ) -> Result<Vec<DriverNode>, DryRunError> {
+        let set = unsafe { SetupDiCreateDeviceInfoList(None, None) }
+            .map_err(|error| DryRunError::Windows("creating read-only target device set", error))?;
+        let set = DeviceInfoSet(set);
+        let mut target = SP_DEVINFO_DATA {
+            cbSize: mem::size_of::<SP_DEVINFO_DATA>() as u32,
+            ..Default::default()
+        };
+        let instance_wide = null_terminated(Path::new(instance_id));
+        unsafe {
+            SetupDiOpenDeviceInfoW(
+                set.0,
+                PCWSTR::from_raw(instance_wide.as_ptr()),
+                None,
+                0,
+                Some(&mut target),
+            )
+        }
+        .map_err(|error| DryRunError::Windows("opening target for read-only driver list", error))?;
+
+        let facts = facts_for_info(set.0, &target)?;
+        if !facts.instance_id.eq_ignore_ascii_case(instance_id)
+            || !facts.is_safe_target(Some(expected_location))
+        {
+            return Err(DryRunError::TargetChanged);
+        }
+
+        let expected_inf = system_winusb_inf_path()?;
+        let search = InstallDriverSearch::new(expected_inf.clone());
+        configure_device_driver_search(set.0, &target, &search)?;
+        unsafe { SetupDiBuildDriverInfoList(set.0, Some(&mut target), SPDIT_CLASSDRIVER) }
+            .map_err(|error| {
+                DryRunError::Windows("building read-only target-associated driver list", error)
+            })?;
+        let _drivers = DriverInfoList {
+            set: set.0,
+            device: Some(target),
+            kind: SPDIT_CLASSDRIVER,
+        };
+
+        let mut nodes = Vec::new();
+        let mut index = 0;
+        loop {
+            let mut info = SP_DRVINFO_DATA_V2_W {
+                cbSize: mem::size_of::<SP_DRVINFO_DATA_V2_W>() as u32,
+                ..Default::default()
+            };
+            match unsafe {
+                SetupDiEnumDriverInfoW(set.0, Some(&target), SPDIT_CLASSDRIVER, index, &mut info)
+            } {
+                Ok(()) => {}
+                Err(error) if is_win32_error(&error, ERROR_NO_MORE_ITEMS.0) => break,
+                Err(error) => {
+                    return Err(DryRunError::Windows(
+                        "enumerating read-only target-associated driver node",
+                        error,
+                    ));
+                }
+            }
+            index += 1;
+            let detail = get_driver_detail(set.0, Some(&target), &info)?;
+            if !is_generic_inbox_winusb_node(&detail.inf_path, &detail.section, &expected_inf)
+                || !utf16_field(&info.ProviderName).eq_ignore_ascii_case("Microsoft")
+                || inf_class_guid(&detail.inf_path)? != USBDEVICE_CLASS_GUID
+            {
+                continue;
+            }
+            nodes.push(DriverNode {
+                description: utf16_field(&info.Description),
+                manufacturer: utf16_field(&info.MfgName),
+                provider: utf16_field(&info.ProviderName),
+                inf_path: detail.inf_path,
+                section: detail.section,
+                class_guid: USBDEVICE_CLASS_GUID,
+                class_name: "USBDevice".to_owned(),
+            });
+        }
+        Ok(nodes)
     }
 
     fn install_inbox_winusb(
@@ -586,6 +861,52 @@ pub(crate) mod windows_app {
         error.code() == HRESULT::from_win32(code)
     }
 
+    fn print_candidates(candidates: &[CandidateFacts]) {
+        println!("safe Code28 FF/FF/00 candidate count: {}", candidates.len());
+        for candidate in candidates {
+            println!("candidate instance_id={:?}", candidate.instance_id);
+            println!("  problem_code={}", candidate.problem_code);
+            println!("  service={:?}", candidate.service);
+            println!("  location_paths={:?}", candidate.location_paths);
+            println!("  compatible_ids={:?}", candidate.compatible_ids);
+        }
+    }
+
+    fn print_driver_nodes(nodes: &[DriverNode]) {
+        println!(
+            "system winusb.inf USBDevice driver node count: {}",
+            nodes.len()
+        );
+        for node in nodes {
+            println!(
+                "driver description={:?} manufacturer={:?} provider={:?}",
+                node.description, node.manufacturer, node.provider
+            );
+            println!(
+                "  inf={:?} section={:?} class={:?} class_name={:?}",
+                node.inf_path, node.section, node.class_guid, node.class_name
+            );
+        }
+    }
+
+    fn print_target_driver_nodes(instance_id: &str, nodes: &[DriverNode]) {
+        println!(
+            "target-associated system winusb.inf driver node count for {:?}: {}",
+            instance_id,
+            nodes.len()
+        );
+        for node in nodes {
+            println!(
+                "target driver description={:?} manufacturer={:?} provider={:?}",
+                node.description, node.manufacturer, node.provider
+            );
+            println!(
+                "  inf={:?} section={:?} class={:?} class_name={:?}",
+                node.inf_path, node.section, node.class_guid, node.class_name
+            );
+        }
+    }
+
     struct DeviceInfoSet(HDEVINFO);
 
     impl Drop for DeviceInfoSet {
@@ -617,12 +938,16 @@ pub(crate) mod windows_app {
 
     #[derive(Debug)]
     enum DryRunError {
+        Usage,
         Windows(&'static str, WindowsError),
         ConfigManager(u32),
         Registry(u32),
         UnexpectedWindowsDirectoryLength(usize),
         DriverPathTooLong(usize),
         UnexpectedPropertyType,
+        MissingCandidate,
+        MissingConfirmation,
+        ConfirmationMismatch,
         TargetChanged,
         MissingWinUsbNode,
         AmbiguousCandidates(usize),
@@ -632,6 +957,10 @@ pub(crate) mod windows_app {
     impl fmt::Display for DryRunError {
         fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
+                Self::Usage => write!(
+                    formatter,
+                    "usage:\n  winusb_inbox_dry_run --location-path EXACT_WINDOWS_LOCATION_PATH\n  winusb_inbox_dry_run --location-path EXACT_WINDOWS_LOCATION_PATH --install --instance-id EXACT_PRINTED_INSTANCE_ID"
+                ),
                 Self::Windows(operation, error) => {
                     write!(formatter, "failed while {operation}: {error}")
                 }
@@ -658,6 +987,18 @@ pub(crate) mod windows_app {
                         "Windows returned an unexpected PnP property type"
                     )
                 }
+                Self::MissingCandidate => write!(
+                    formatter,
+                    "no unique Code28/empty-service/FF-FF-00 target exists at the exact LocationPath"
+                ),
+                Self::MissingConfirmation => write!(
+                    formatter,
+                    "--install requires --instance-id copied exactly from this dry-run"
+                ),
+                Self::ConfirmationMismatch => write!(
+                    formatter,
+                    "--instance-id does not match the unique dry-run candidate"
+                ),
                 Self::TargetChanged => write!(
                     formatter,
                     "the confirmed devnode facts changed before installation; refusing"
@@ -742,6 +1083,42 @@ pub(crate) mod windows_app {
         }
 
         #[test]
+        fn install_requires_explicit_location_and_instance_confirmation() {
+            let dry_run = parse_args(
+                ["--location-path", "PCIROOT(0)#USBROOT(0)#USB(2)"]
+                    .map(str::to_owned)
+                    .into_iter(),
+            )
+            .expect("dry-run arguments");
+            assert_eq!(
+                dry_run,
+                Command {
+                    location_path: "PCIROOT(0)#USBROOT(0)#USB(2)".into(),
+                    install: false,
+                    confirmed_instance_id: None,
+                }
+            );
+
+            assert!(
+                parse_args(
+                    ["--location-path", "port", "--install"]
+                        .map(str::to_owned)
+                        .into_iter()
+                )
+                .is_ok()
+            );
+            assert!(parse_args(["--install"].map(str::to_owned).into_iter()).is_err());
+            assert!(
+                parse_args(
+                    ["--location-path", "port", "--instance-id", "device"]
+                        .map(str::to_owned)
+                        .into_iter()
+                )
+                .is_err()
+            );
+        }
+
+        #[test]
         fn install_driver_search_uses_exact_single_inf_flags() {
             let search = InstallDriverSearch::new(PathBuf::from(r"C:\Windows\INF\winusb.inf"));
             assert_eq!(search.flags, DI_ENUMSINGLEINF);
@@ -749,4 +1126,9 @@ pub(crate) mod windows_app {
             assert_eq!(search.inf_path, PathBuf::from(r"C:\Windows\INF\winusb.inf"));
         }
     }
+}
+
+#[cfg(windows)]
+fn main() -> std::process::ExitCode {
+    windows_app::main()
 }
