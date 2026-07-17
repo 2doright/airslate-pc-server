@@ -4,7 +4,9 @@
 
 _No changes yet._
 
-## 1.5.7 - 2026-07-17
+## 1.6.0 - 2026-07-17
+
+- moved the Windows inbox WinUSB helper into the USB accessory service and removed the standalone dry-run binary, so macOS universal Tauri packaging no longer expects a Windows-only executable
 
 - aligned the USB status and UI documentation with the current authorization-before-handshake flow and compact user-facing panel
 - keep the wired panel in `等待授权` through Bulk opening and USB_READY submission; show `正在连接` only after the tablet's formal handshake request is received

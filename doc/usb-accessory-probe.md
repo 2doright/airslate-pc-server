@@ -46,11 +46,8 @@ driver list 中恰有一个 Microsoft `%SystemRoot%\inf\winusb.inf` / `WINUSB` /
 节点。提权后的同一程序重新核验全部事实，调用 `SetupDiSetSelectedDriver` 和 `DiInstallDevice`，
 写入 AirSlate interface GUID。流程不使用 Zadig、自定义 INF 或 UsbDk。
 
-`winusb_inbox_dry_run` 仍可只读查看相同筛选事实：
-
-```powershell
-cargo run --bin winusb_inbox_dry_run -- --location-path "完整 LocationPath"
-```
+上述 WinUSB 事实核验和一次性 UAC 安装只作为正式 USB 服务的内部步骤执行；项目不再发布或运行
+独立的 dry-run 二进制，也不会要求用户手动安装驱动。
 
 ## 正式 ASLT 字节流
 
