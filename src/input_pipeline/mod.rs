@@ -555,7 +555,8 @@ impl IncomingEventSink for StylusInputPipeline {
         match event {
             IncomingEvent::Stylus {
                 session_id, frame, ..
-            } => {
+            }
+            | IncomingEvent::UsbStylus { session_id, frame } => {
                 self.metrics.record_sequence(frame.seq);
                 self.metrics.record_accepted();
                 let shortcut_session_id = session_id.clone();
@@ -636,7 +637,13 @@ impl IncomingEventSink for StylusInputPipeline {
                 );
                 self.send_shortcut(ShortcutWorkerEvent::Gesture { session_id, frame });
             }
-            IncomingEvent::SessionEnded { session_id, .. } => {
+            IncomingEvent::UsbGesture { session_id, frame } => {
+                self.metrics.record_sequence(frame.seq);
+                info!(session_id = %session_id, seq = frame.seq, "stage 7 USB gesture frame received");
+                self.send_shortcut(ShortcutWorkerEvent::Gesture { session_id, frame });
+            }
+            IncomingEvent::SessionEnded { session_id, .. }
+            | IncomingEvent::UsbSessionEnded { session_id } => {
                 self.metrics.reset_sequence();
                 self.send_stylus(StylusWorkerEvent::SessionEnded {
                     session_id: session_id.clone(),

@@ -4,6 +4,60 @@
 
 _No changes yet._
 
+## 1.5.7 - 2026-07-17
+
+- aligned the USB status and UI documentation with the current authorization-before-handshake flow and compact user-facing panel
+- keep the wired panel in `等待授权` through Bulk opening and USB_READY submission; show `正在连接` only after the tablet's formal handshake request is received
+- keep the selected settings tab blue while hovered and give unselected tabs a visible neutral hover state
+- simplified the wired USB connection card to match the compact LAN IPv4 layout, placed it beside IPv4, moved the half-width monitor selector to the next row, and moved refresh into the same compact header icon; technical descriptor facts are no longer shown in the main connection view
+- removed the duplicate wired-session disconnect action from the card; the shared top-right session control remains the single disconnect entry point
+- vertically centered the wired connection status content to match the adjacent IPv4 card
+- made the authorization state use the visible `等待授权` label in the card body and kept the initial no-device state as `未连接`
+- prevented a bootstrap refresh from overwriting a newer live USB status event, so `等待授权` is not replaced by a stale `未连接`/`等待连接` snapshot
+- report the post-`USB_READY` authorization wait as `等待授权`, and guide a failed startup connection to replug the USB cable
+- keep a failed initial USB candidate in the actionable cable-replug state until physical re-enumeration or an explicit retry, avoiding repeated `等待授权`/`连接失败` flashes
+- make the waiting USB panel actionable when the known tablet file-transfer interface is visible:
+  ask the user to start and authorize the AirSlate wired connection, then retry, without treating
+  the file-transfer endpoints as an accessory candidate or raw session
+- distinguish the real tablet-file-transfer waiting state from an unrecognized USB inventory in
+  the status event and discovery log, including the nusb Windows backend and reported driver
+- added a production wired-connection panel to the desktop UI, backed by the USB service's
+  real status snapshot and descriptor facts; the panel exposes authorization/handshake/connected/
+  error states, selected interface and Bulk endpoints, actionable retry, and the existing shared
+  session disconnect path without claiming success from enumeration alone
+- treat nusb 0.2.4/WinUSB submit-time `ERROR_BAD_COMMAND` (`TransferError::Disconnected`) as
+  recoverable only before any USB_READY byte was sent, while the exact accessory LocationPath is
+  still present; reopen descriptor-selected Bulk endpoints with a six-attempt bound and keep real
+  disappearance, partial-write, and driver failures terminal
+- log low-noise discovery state transitions, visible USB descriptor summaries, and the explicit
+  post-session cleanup return to the initial accessory-compatible scan; add reconnect lifecycle coverage proving a
+  released USB connection does not block the next connection id
+- consume a complete 72-byte pre-handshake request before handling a nusb transfer error, so a
+  full request reported together with STALL cannot enter a blocking pipe reset; add stage logs from
+  request parsing through response flush without logging client data
+- add low-noise pre-handshake USB Bulk IN diagnostics for every non-empty completion, buffered
+  framing progress, timeout runs, STALL detection, and successful pipe reset without logging payloads
+- send the USB-only 8-byte ASLT `USB_READY` bootstrap before waiting for Harmony's formal
+  handshake; pre-authorization Bulk OUT timeout/STALL is retried with bounded backoff and nusb
+  `clear_halt`, while partial completions resume from the unsent byte and real I/O failures remain terminal
+- recover a pre-handshake USB Bulk IN STALL with nusb `Endpoint::clear_halt` (WinUSB
+  `ResetPipe`) so granting HarmonyOS accessory permission after PC enumeration cannot strand the
+  tablet waiting for a response; an active-session STALL remains a terminal I/O failure
+- promoted the verified USBAccessory path into a formal wired transport that shares handshake,
+  session cleanup, stylus/gesture dispatch, shortcut processing, and Windows input injection with wireless
+- replaced the ASUB PING/PONG probe with strict ASLT stream framing for handshake, disconnect, stylus,
+  and gesture packets, including short-read/coalesced-read/short-write handling and terminal protocol errors
+- keep the Harmony accessory selection identity fixed at manufacturer `AirSlate` and product
+  `AirSlate PC Server`
+- identify the re-enumerated data function by its exact Windows LocationPath and descriptor-selected
+  configuration/interface/alternate/Bulk endpoints instead of fixed VID/PID or endpoint addresses
+- identify the initial accessory-compatible function by its `FF/50/01` interface signature, allowing
+  a re-enumerated accessory interface even when Windows uses a different device display name
+- add an explicit, LocationPath-bound helper that can select the Microsoft inbox `winusb.inf`
+  driver for one unique unclaimed Accessory devnode; the formal service invokes it through one UAC
+- build, enumerate, and select the inbox WinUSB node from the target device's associated driver
+  list instead of passing a global class-list node to `DiInstallDevice`
+
 ## 1.5.6 - 2026-07-17
 
 - fixed Tauri and Cargo startup selection so the MSI launches `airslate_pc_server.exe` instead of a diagnostic CLI binary

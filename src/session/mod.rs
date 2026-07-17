@@ -12,6 +12,12 @@ use crate::{
 
 pub type SharedSessionService = Arc<Mutex<SessionService>>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionSource {
+    Network(Ipv4Addr),
+    Usb(u64),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionId(String);
 
@@ -43,7 +49,7 @@ impl SessionId {
 pub struct ActiveSession {
     session_id: SessionId,
     client_id: String,
-    peer_ip: Ipv4Addr,
+    source: SessionSource,
 }
 
 impl ActiveSession {
@@ -57,6 +63,7 @@ pub enum RealtimeFrameDisposition {
     Accepted { session_id: String },
     IgnoredNoActiveSession,
     IgnoredSourceIpMismatch { bound_ip: Ipv4Addr },
+    IgnoredTransportMismatch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,13 +77,14 @@ pub enum DisconnectDisposition {
     IgnoredSourceIpMismatch {
         bound_ip: Ipv4Addr,
     },
+    IgnoredTransportMismatch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LocalDisconnectDisposition {
     Released {
         session_id: String,
-        peer_ip: Ipv4Addr,
+        source: SessionSource,
     },
     AlreadyInactive,
 }
@@ -108,10 +116,29 @@ impl SessionService {
             return Err(AppError::SessionAlreadyActive);
         }
 
+        self.create_session_for_source(client_id, SessionSource::Network(peer_ip))
+    }
+
+    pub fn create_usb_session(
+        &mut self,
+        client_id: impl Into<String>,
+        connection_id: u64,
+    ) -> Result<&ActiveSession, AppError> {
+        self.create_session_for_source(client_id, SessionSource::Usb(connection_id))
+    }
+
+    fn create_session_for_source(
+        &mut self,
+        client_id: impl Into<String>,
+        source: SessionSource,
+    ) -> Result<&ActiveSession, AppError> {
+        if self.active.is_some() {
+            return Err(AppError::SessionAlreadyActive);
+        }
         let active = ActiveSession {
             session_id: SessionId::generate()?,
             client_id: client_id.into(),
-            peer_ip,
+            source,
         };
 
         self.active = Some(active);
@@ -123,12 +150,28 @@ impl SessionService {
             return RealtimeFrameDisposition::IgnoredNoActiveSession;
         };
 
-        if active.peer_ip != source_ip {
-            return RealtimeFrameDisposition::IgnoredSourceIpMismatch {
-                bound_ip: active.peer_ip,
-            };
+        match active.source {
+            SessionSource::Network(bound_ip) if bound_ip != source_ip => {
+                return RealtimeFrameDisposition::IgnoredSourceIpMismatch { bound_ip };
+            }
+            SessionSource::Usb(_) => {
+                return RealtimeFrameDisposition::IgnoredTransportMismatch;
+            }
+            SessionSource::Network(_) => {}
         }
 
+        RealtimeFrameDisposition::Accepted {
+            session_id: active.session_id.as_str().to_string(),
+        }
+    }
+
+    pub fn accept_usb_realtime_source(&mut self, connection_id: u64) -> RealtimeFrameDisposition {
+        let Some(active) = self.active.as_ref() else {
+            return RealtimeFrameDisposition::IgnoredNoActiveSession;
+        };
+        if active.source != SessionSource::Usb(connection_id) {
+            return RealtimeFrameDisposition::IgnoredTransportMismatch;
+        }
         RealtimeFrameDisposition::Accepted {
             session_id: active.session_id.as_str().to_string(),
         }
@@ -147,18 +190,56 @@ impl SessionService {
             return DisconnectDisposition::IgnoredSessionIdMismatch;
         }
 
-        if active.peer_ip != source_ip {
-            return DisconnectDisposition::IgnoredSourceIpMismatch {
-                bound_ip: active.peer_ip,
-            };
+        match active.source {
+            SessionSource::Network(bound_ip) if bound_ip != source_ip => {
+                return DisconnectDisposition::IgnoredSourceIpMismatch { bound_ip };
+            }
+            SessionSource::Usb(_) => return DisconnectDisposition::IgnoredTransportMismatch,
+            SessionSource::Network(_) => {}
         }
 
         let session_id = active.session_id.as_str().to_string();
-        let peer_ip = active.peer_ip;
+        let SessionSource::Network(peer_ip) = active.source else {
+            unreachable!("network source checked above")
+        };
         self.active = None;
         DisconnectDisposition::Released {
             session_id,
             peer_ip,
+        }
+    }
+
+    pub fn handle_usb_disconnect(
+        &mut self,
+        connection_id: u64,
+        packet: &SessionDisconnect,
+    ) -> LocalDisconnectDisposition {
+        let Some(active) = self.active.as_ref() else {
+            return LocalDisconnectDisposition::AlreadyInactive;
+        };
+        if active.session_id.as_str() != packet.session_id
+            || active.source != SessionSource::Usb(connection_id)
+        {
+            return LocalDisconnectDisposition::AlreadyInactive;
+        }
+        let active = self.active.take().expect("active session checked");
+        LocalDisconnectDisposition::Released {
+            session_id: active.session_id.as_str().to_string(),
+            source: active.source,
+        }
+    }
+
+    pub fn release_usb_connection(&mut self, connection_id: u64) -> LocalDisconnectDisposition {
+        let Some(active) = self.active.as_ref() else {
+            return LocalDisconnectDisposition::AlreadyInactive;
+        };
+        if active.source != SessionSource::Usb(connection_id) {
+            return LocalDisconnectDisposition::AlreadyInactive;
+        }
+        let active = self.active.take().expect("active session checked");
+        LocalDisconnectDisposition::Released {
+            session_id: active.session_id.as_str().to_string(),
+            source: active.source,
         }
     }
 
@@ -169,7 +250,7 @@ impl SessionService {
 
         LocalDisconnectDisposition::Released {
             session_id: active.session_id.as_str().to_string(),
-            peer_ip: active.peer_ip,
+            source: active.source,
         }
     }
 }
@@ -306,6 +387,58 @@ mod tests {
             service.accept_realtime_source(test_ip(10)),
             RealtimeFrameDisposition::IgnoredNoActiveSession
         );
+    }
+
+    #[test]
+    fn usb_session_accepts_only_its_connection_id() {
+        let mut service = SessionService::new();
+        let session_id = service
+            .create_usb_session("tablet", 41)
+            .unwrap()
+            .session_id()
+            .as_str()
+            .to_owned();
+        assert_eq!(
+            service.accept_usb_realtime_source(41),
+            RealtimeFrameDisposition::Accepted { session_id }
+        );
+        assert_eq!(
+            service.accept_usb_realtime_source(42),
+            RealtimeFrameDisposition::IgnoredTransportMismatch
+        );
+        assert_eq!(
+            service.accept_realtime_source(test_ip(10)),
+            RealtimeFrameDisposition::IgnoredTransportMismatch
+        );
+    }
+
+    #[test]
+    fn usb_disconnect_releases_only_matching_session_and_connection() {
+        let mut service = SessionService::new();
+        let session_id = service
+            .create_usb_session("tablet", 41)
+            .unwrap()
+            .session_id()
+            .as_str()
+            .to_owned();
+        assert_eq!(
+            service.handle_usb_disconnect(
+                42,
+                &SessionDisconnect {
+                    session_id: session_id.clone(),
+                },
+            ),
+            LocalDisconnectDisposition::AlreadyInactive
+        );
+        let expected_session_id = session_id.clone();
+        assert_eq!(
+            service.handle_usb_disconnect(41, &SessionDisconnect { session_id }),
+            LocalDisconnectDisposition::Released {
+                session_id: expected_session_id,
+                source: SessionSource::Usb(41),
+            }
+        );
+        assert!(!service.has_active_session());
     }
 
     #[test]

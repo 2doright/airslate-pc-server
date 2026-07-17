@@ -75,10 +75,32 @@ export interface AppBootstrapDto {
   presets: ShortcutPresetDto[];
   effectiveBindings: BindingDto[];
   sessionStatus: { hasActiveSession: boolean };
+  usbStatus: UsbStatusEvent;
 }
 
 export interface SessionStatusEvent {
   hasActiveSession: boolean;
+}
+
+export interface UsbStatusEvent {
+  state: 'waiting' | 'waiting_accessory' | 'authorizing' | 'handshaking' | 'connected' | 'error';
+  detail: string;
+  retryable: boolean;
+  device: UsbDeviceInfo | null;
+}
+
+export interface UsbDeviceInfo {
+  vendorId: number;
+  productId: number;
+  busId: string;
+  portChain: number[];
+  configuration: number | null;
+  interfaceNumber: number | null;
+  alternateSetting: number | null;
+  bulkInEndpoint: number | null;
+  bulkOutEndpoint: number | null;
+  bulkInMaxPacketSize: number | null;
+  bulkOutMaxPacketSize: number | null;
 }
 
 export async function getAppBootstrap() {
@@ -87,6 +109,10 @@ export async function getAppBootstrap() {
 
 export async function disconnectActiveSession() {
   return invoke<SessionStatusEvent>('disconnect_active_session');
+}
+
+export async function retryUsbConnection() {
+  return invoke('retry_usb_connection');
 }
 
 export async function getLanIpv4Values() {

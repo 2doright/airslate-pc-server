@@ -71,17 +71,29 @@ pub struct CreatePresetPayload {
 
 #[tauri::command]
 pub fn get_app_bootstrap(state: State<'_, AppContext>) -> Result<AppBootstrapDto, String> {
-    app_bootstrap(&state.runtime, &state.config_path.display().to_string()).map_err(error_message)
+    app_bootstrap(
+        &state.runtime,
+        &state.config_path.display().to_string(),
+        state.usb_status_bus.snapshot(),
+    )
+    .map_err(error_message)
 }
 
 #[tauri::command]
 pub fn disconnect_active_session(
     state: State<'_, AppContext>,
 ) -> Result<crate::app::lifecycle::SessionStatusEvent, String> {
+    state.usb_session_control.cancel_active();
     state
         .session_lifecycle
         .disconnect_locally()
         .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn retry_usb_connection(state: State<'_, AppContext>) -> Result<(), String> {
+    state.usb_session_control.request_retry();
+    Ok(())
 }
 
 #[tauri::command]

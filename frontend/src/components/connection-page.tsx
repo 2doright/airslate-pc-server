@@ -1,16 +1,18 @@
-import type { AppBootstrapDto } from '../lib/tauri';
-import { RefreshCw } from 'lucide-react';
+import type { AppBootstrapDto, UsbStatusEvent } from '../lib/tauri';
+import { Cable, CheckCircle2, CircleAlert, RefreshCw } from 'lucide-react';
 import { setSelectedMonitor } from '../lib/tauri';
 import { PressureCurveCard } from './pressure-curve-card';
 import { Badge, Button, EmptyState, Panel, PanelHeader, SelectField } from './ui';
 
 export function ConnectionPage(props: {
   data: AppBootstrapDto;
+  usbStatus: UsbStatusEvent;
   selectedMonitor: AppBootstrapDto['monitors'][number] | null;
   busyKey: string | null;
   runAction: (key: string, action: () => Promise<unknown>) => Promise<void>;
   refreshingIpv4: boolean;
   onRefreshIpv4: () => void;
+  onRetryUsb: () => void;
 }) {
   const primaryAddress = props.data.ipv4Values[0] ?? null;
   const secondaryAddresses = props.data.ipv4Values.slice(1);
@@ -50,6 +52,12 @@ export function ConnectionPage(props: {
         )}
       </Panel>
 
+      <UsbConnectionPanel
+        status={props.usbStatus}
+        busy={props.busyKey === 'usb-retry'}
+        onRetry={props.onRetryUsb}
+      />
+
       <Panel className="monitor-card">
         <PanelHeader title="显示器" action={props.selectedMonitor?.isPrimary ? <Badge tone="accent">主屏幕</Badge> : null} />
         <label className="monitor-summary">
@@ -74,4 +82,77 @@ export function ConnectionPage(props: {
       <PressureCurveCard curve={props.data.pressureCurve} busy={props.busyKey === 'pressure'} runAction={props.runAction} />
     </div>
   );
+}
+
+function UsbConnectionPanel(props: {
+  status: UsbStatusEvent;
+  busy: boolean;
+  onRetry: () => void;
+}) {
+  const statusLabel = usbStatusLabel(props.status.state);
+  const statusCopy = usbStatusCopy(props.status);
+  const statusTone = props.status.state === 'connected' ? 'success' : props.status.state === 'error' ? 'warning' : 'accent';
+
+  return (
+    <Panel variant="hero" className="usb-panel">
+      <PanelHeader
+        title="有线连接"
+        action={(
+          <>
+            <Badge tone={statusTone}>{statusLabel}</Badge>
+            {props.status.retryable ? (
+              <Button
+                type="button"
+                tone="ghost"
+                className="ipv4-refresh-button"
+                onClick={props.onRetry}
+                disabled={props.busy}
+                aria-label="刷新有线连接"
+                title="刷新有线连接"
+              >
+                <RefreshCw className={props.busy ? 'shell-lucide-icon shell-lucide-icon--small shell-lucide-icon--spinning' : 'shell-lucide-icon shell-lucide-icon--small'} />
+              </Button>
+            ) : null}
+          </>
+        )}
+      />
+      <div className="usb-panel__status" role="status" aria-live="polite">
+        <div className="usb-panel__status-icon" data-state={props.status.state}>
+          {props.status.state === 'connected' ? <CheckCircle2 /> : props.status.state === 'error' ? <CircleAlert /> : <Cable />}
+        </div>
+        <div className="usb-panel__status-copy">
+          <strong>{statusCopy.title}</strong>
+          <span title={props.status.detail}>{statusCopy.detail}</span>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function usbStatusLabel(state: UsbStatusEvent['state']) {
+  switch (state) {
+    case 'waiting_accessory': return '等待授权';
+    case 'authorizing': return '等待授权';
+    case 'handshaking': return '正在连接';
+    case 'connected': return '已连接';
+    case 'error': return '连接失败';
+    default: return '未连接';
+  }
+}
+
+function usbStatusCopy(status: UsbStatusEvent) {
+  switch (status.state) {
+    case 'waiting_accessory':
+      return { title: '等待授权', detail: '请在平板的 AirSlate 页面发起连接并授权' };
+    case 'authorizing':
+      return { title: '等待授权', detail: '请在平板上允许 AirSlate 访问 USB' };
+    case 'handshaking':
+      return { title: '正在连接', detail: '正在与平板建立有线会话' };
+    case 'connected':
+      return { title: '已连接', detail: '有线连接已就绪，可以使用' };
+    case 'error':
+      return { title: '连接失败', detail: '请重新插拔 USB 数据线后重试' };
+    default:
+      return { title: '未连接', detail: '连接平板后会自动开始' };
+  }
 }

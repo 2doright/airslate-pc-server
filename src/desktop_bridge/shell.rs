@@ -15,6 +15,7 @@ use tauri_plugin_window_state::{StateFlags, WindowExt};
 use crate::{
     app::{AppContext, lifecycle::SESSION_STATUS_CHANGED_EVENT},
     error::AppError,
+    usb_accessory::USB_STATUS_CHANGED_EVENT,
 };
 
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -30,6 +31,7 @@ static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
 pub fn run(context: AppContext) -> Result<(), AppError> {
     let launched_via_autostart = env::args().any(|arg| arg == AUTOSTART_ARG);
     let session_status_events = context.session_lifecycle.status_bus().subscribe()?;
+    let usb_status_events = context.usb_status_bus.subscribe();
     let mut builder = tauri::Builder::default()
         .manage(context)
         .plugin(tauri_plugin_autostart::init(
@@ -56,6 +58,7 @@ pub fn run(context: AppContext) -> Result<(), AppError> {
             crate::desktop_bridge::commands::set_latest_contact_move_tolerance_ms,
             crate::desktop_bridge::commands::set_preempt_previous_stroke,
             crate::desktop_bridge::commands::disconnect_active_session,
+            crate::desktop_bridge::commands::retry_usb_connection,
             crate::desktop_bridge::commands::get_lan_ipv4_values,
             crate::desktop_bridge::commands::select_shortcut_preset,
             crate::desktop_bridge::commands::create_shortcut_preset,
@@ -84,6 +87,15 @@ pub fn run(context: AppContext) -> Result<(), AppError> {
                 while let Ok(event) = session_status_events.recv() {
                     if let Err(error) = event_handle.emit(SESSION_STATUS_CHANGED_EVENT, event) {
                         tracing::warn!(error = %error, "session status event delivery stopped");
+                        break;
+                    }
+                }
+            });
+            let usb_event_handle = handle.clone();
+            thread::spawn(move || {
+                while let Ok(event) = usb_status_events.recv() {
+                    if let Err(error) = usb_event_handle.emit(USB_STATUS_CHANGED_EVENT, event) {
+                        tracing::warn!(error = %error, "USB status event delivery stopped");
                         break;
                     }
                 }

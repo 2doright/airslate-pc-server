@@ -71,12 +71,23 @@ impl HandshakeService {
         request_bytes: &[u8],
         peer_ip: Ipv4Addr,
     ) -> Result<Vec<u8>, AppError> {
-        let response_packet = self.build_response_packet(request_bytes, peer_ip);
+        let response_packet =
+            self.build_response_packet(request_bytes, HandshakePeer::Network(peer_ip));
         encode_packet(&response_packet).map_err(AppError::from)
     }
 
-    fn build_response_packet(&self, request_bytes: &[u8], peer_ip: Ipv4Addr) -> Packet {
-        match self.build_handshake_response(request_bytes, peer_ip) {
+    pub fn handle_usb_request_bytes(
+        &self,
+        request_bytes: &[u8],
+        connection_id: u64,
+    ) -> Result<Vec<u8>, AppError> {
+        let response_packet =
+            self.build_response_packet(request_bytes, HandshakePeer::Usb(connection_id));
+        encode_packet(&response_packet).map_err(AppError::from)
+    }
+
+    fn build_response_packet(&self, request_bytes: &[u8], peer: HandshakePeer) -> Packet {
+        match self.build_handshake_response(request_bytes, peer) {
             Ok(response) => Packet::HandshakeResponse(response),
             Err(error) => Packet::HandshakeError(error),
         }
@@ -85,7 +96,7 @@ impl HandshakeService {
     fn build_handshake_response(
         &self,
         request_bytes: &[u8],
-        peer_ip: Ipv4Addr,
+        peer: HandshakePeer,
     ) -> Result<HandshakeResponse, ProtocolHandshakeError> {
         match decode_header(request_bytes) {
             Ok(header) if header.packet_type == PacketType::HandshakeRequest => {}
@@ -138,10 +149,15 @@ impl HandshakeService {
         let desktop_width_px = workspace.monitor.pixel_width;
         let desktop_height_px = workspace.monitor.pixel_height;
 
-        let session_id = self
-            .lifecycle
-            .create_session(request.client_id, peer_ip)
-            .map_err(map_app_error_to_handshake)?;
+        let session_id = match peer {
+            HandshakePeer::Network(peer_ip) => {
+                self.lifecycle.create_session(request.client_id, peer_ip)
+            }
+            HandshakePeer::Usb(connection_id) => self
+                .lifecycle
+                .create_usb_session(request.client_id, connection_id),
+        }
+        .map_err(map_app_error_to_handshake)?;
 
         Ok(HandshakeResponse {
             session_id,
@@ -150,6 +166,12 @@ impl HandshakeService {
             desktop_unit: DesktopUnit::Pixel,
         })
     }
+}
+
+#[derive(Clone, Copy)]
+enum HandshakePeer {
+    Network(Ipv4Addr),
+    Usb(u64),
 }
 
 fn read_handshake_request(stream: &mut TcpStream) -> Result<Vec<u8>, AppError> {

@@ -13,7 +13,7 @@ use crate::{
     error::AppError,
     protocol::SessionDisconnect,
     session::{
-        DisconnectDisposition, LocalDisconnectDisposition, RealtimeFrameDisposition,
+        DisconnectDisposition, LocalDisconnectDisposition, RealtimeFrameDisposition, SessionSource,
         SharedSessionService,
     },
     udp_ingest::{IncomingEvent, IncomingEventSink},
@@ -118,6 +118,35 @@ impl SessionLifecycle {
             .map(|mut session| session.accept_realtime_source(source_ip))
     }
 
+    pub fn create_usb_session(
+        &self,
+        client_id: impl Into<String>,
+        connection_id: u64,
+    ) -> Result<String, AppError> {
+        let session_id = self
+            .session
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("session"))?
+            .create_usb_session(client_id, connection_id)?
+            .session_id()
+            .as_str()
+            .to_owned();
+        self.status_bus.publish(SessionStatusEvent {
+            has_active_session: true,
+        });
+        Ok(session_id)
+    }
+
+    pub fn accept_usb_realtime_source(
+        &self,
+        connection_id: u64,
+    ) -> Result<RealtimeFrameDisposition, AppError> {
+        self.session
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("session"))
+            .map(|mut session| session.accept_usb_realtime_source(connection_id))
+    }
+
     pub fn handle_udp_disconnect(
         &self,
         source_ip: Ipv4Addr,
@@ -134,7 +163,7 @@ impl SessionLifecycle {
             peer_ip,
         } = &disposition
         {
-            self.finish_session(session_id.clone(), *peer_ip);
+            self.finish_session(session_id.clone(), SessionSource::Network(*peer_ip));
         }
 
         Ok(disposition)
@@ -147,12 +176,8 @@ impl SessionLifecycle {
             .map_err(|_| AppError::StatePoisoned("session"))?
             .disconnect_locally();
 
-        if let LocalDisconnectDisposition::Released {
-            session_id,
-            peer_ip,
-        } = disposition
-        {
-            self.finish_session(session_id, peer_ip);
+        if let LocalDisconnectDisposition::Released { session_id, source } = disposition {
+            self.finish_session(session_id, source);
         }
 
         Ok(SessionStatusEvent {
@@ -164,10 +189,48 @@ impl SessionLifecycle {
         self.input_sink.emit(event);
     }
 
-    fn finish_session(&self, session_id: String, peer_ip: Ipv4Addr) {
+    pub fn handle_usb_disconnect(
+        &self,
+        connection_id: u64,
+        packet: &SessionDisconnect,
+    ) -> Result<LocalDisconnectDisposition, AppError> {
+        let disposition = self
+            .session
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("session"))?
+            .handle_usb_disconnect(connection_id, packet);
+        if let LocalDisconnectDisposition::Released { session_id, source } = &disposition {
+            self.finish_session(session_id.clone(), *source);
+        }
+        Ok(disposition)
+    }
+
+    pub fn release_usb_connection(&self, connection_id: u64) -> Result<(), AppError> {
+        let disposition = self
+            .session
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("session"))?
+            .release_usb_connection(connection_id);
+        if let LocalDisconnectDisposition::Released { session_id, source } = disposition {
+            self.finish_session(session_id, source);
+        }
+        Ok(())
+    }
+
+    fn finish_session(&self, session_id: String, source: SessionSource) {
         self.input_sink.emit(IncomingEvent::SessionEnded {
-            session_id,
-            source_ip: peer_ip,
+            session_id: session_id.clone(),
+            source_ip: match source {
+                SessionSource::Network(ip) => ip,
+                SessionSource::Usb(_) => {
+                    self.input_sink
+                        .emit(IncomingEvent::UsbSessionEnded { session_id });
+                    self.status_bus.publish(SessionStatusEvent {
+                        has_active_session: false,
+                    });
+                    return;
+                }
+            },
         });
         self.status_bus.publish(SessionStatusEvent {
             has_active_session: false,

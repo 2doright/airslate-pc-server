@@ -31,6 +31,17 @@ pub enum IncomingEvent {
         session_id: String,
         source_ip: Ipv4Addr,
     },
+    UsbStylus {
+        session_id: String,
+        frame: StylusFrame,
+    },
+    UsbGesture {
+        session_id: String,
+        frame: GestureFrame,
+    },
+    UsbSessionEnded {
+        session_id: String,
+    },
 }
 
 pub trait IncomingEventSink: Send + Sync {
@@ -87,10 +98,8 @@ impl UdpIngestService {
             }
         };
 
-        if !event_emitted {
-            if let Some(event) = event.clone() {
-                self.lifecycle.emit_incoming(event);
-            }
+        if !event_emitted && let Some(event) = event.clone() {
+            self.lifecycle.emit_incoming(event);
         }
 
         event
@@ -121,6 +130,10 @@ impl UdpIngestService {
             }
             RealtimeFrameDisposition::IgnoredSourceIpMismatch { bound_ip } => {
                 info!(source_ip = %source_ip, bound_ip = %bound_ip, "ignored stylus frame from mismatched source ip");
+                None
+            }
+            RealtimeFrameDisposition::IgnoredTransportMismatch => {
+                info!(source_ip = %source_ip, "ignored network stylus frame for USB session");
                 None
             }
         }
@@ -167,6 +180,10 @@ impl UdpIngestService {
                 info!(source_ip = %source_ip, bound_ip = %bound_ip, "ignored gesture frame from mismatched source ip");
                 None
             }
+            RealtimeFrameDisposition::IgnoredTransportMismatch => {
+                info!(source_ip = %source_ip, "ignored network gesture frame for USB session");
+                None
+            }
         }
     }
 
@@ -201,6 +218,10 @@ impl UdpIngestService {
             }
             DisconnectDisposition::IgnoredSourceIpMismatch { bound_ip } => {
                 info!(source_ip = %source_ip, bound_ip = %bound_ip, session_id = %packet.session_id, "ignored session disconnect from mismatched source ip");
+                None
+            }
+            DisconnectDisposition::IgnoredTransportMismatch => {
+                info!(source_ip = %source_ip, "ignored network disconnect for USB session");
                 None
             }
         }

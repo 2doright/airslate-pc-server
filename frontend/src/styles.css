@@ -831,11 +831,82 @@ select:disabled {
 
 .connection-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
+.usb-panel {
+  grid-column: 2;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  row-gap: 18px;
+}
+
+.usb-panel > .panel-header {
+  margin-bottom: 0;
+}
+
+.usb-panel__status {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 14px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.usb-panel__status-icon {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 14px;
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.usb-panel__status-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.usb-panel__status-icon[data-state="connected"] {
+  border-color: rgba(14, 143, 134, 0.22);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.usb-panel__status-icon[data-state="error"] {
+  border-color: rgba(180, 83, 9, 0.22);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.usb-panel__status-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.usb-panel__status-copy strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: clamp(1.45rem, 2.2vw, 2.3rem);
+  font-weight: 780;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.usb-panel__status-copy span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
 .connect-hero {
+  grid-column: 1;
   min-height: 0;
 }
 
@@ -884,6 +955,7 @@ select:disabled {
 }
 
 .monitor-card {
+  grid-column: 1;
   position: relative;
   z-index: 30;
   align-self: stretch;
@@ -1853,13 +1925,14 @@ select:disabled {
   transition: color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
-.settings-tab:hover {
+.settings-tab:not(.settings-tab--active):hover {
   color: var(--ink);
   opacity: 1;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(15, 23, 42, 0.07);
 }
 
-.settings-tab--active {
+.settings-tab--active,
+.settings-tab--active:hover {
   background: var(--blue);
   color: #ffffff;
   opacity: 1;
@@ -2513,6 +2586,8 @@ select:disabled {
   }
 
   .connect-hero,
+  .usb-panel,
+  .monitor-card,
   .binding-section-stack > .binding-section-panel,
   .binding-section-stack > .binding-section-panel:has(.binding-card:nth-child(3)),
   .binding-section-stack > .binding-section-panel:has(.binding-card:nth-child(4)) {

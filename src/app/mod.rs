@@ -15,6 +15,7 @@ use crate::{
     session::SessionService,
     shortcut::ShortcutExecutor,
     udp_ingest::{IncomingEventSink, UdpIngestService},
+    usb_accessory::{UsbAccessoryService, UsbSessionControl, UsbStatusBus},
     windows_injector::{WindowsPenInjector, WindowsShortcutExecutor},
     workspace::WorkspaceService,
 };
@@ -28,6 +29,8 @@ pub struct AppContext {
     pub workspace: WorkspaceService,
     pub runtime: AppRuntime,
     pub session_lifecycle: Arc<SessionLifecycle>,
+    pub usb_status_bus: Arc<UsbStatusBus>,
+    pub usb_session_control: Arc<UsbSessionControl>,
     _radial_overlay: Arc<RadialOverlayService>,
 }
 
@@ -77,12 +80,16 @@ pub fn initialize() -> Result<AppContext, AppError> {
         input_sink,
         SessionStatusBus::shared(),
     ));
+    let usb_status_bus = UsbStatusBus::shared();
+    let usb_session_control = UsbSessionControl::shared();
 
     Ok(AppContext {
         config_path: path,
         workspace,
         runtime,
         session_lifecycle,
+        usb_status_bus,
+        usb_session_control,
         _radial_overlay: radial_overlay,
     })
 }
@@ -91,6 +98,12 @@ pub fn start_services(context: &AppContext) -> Result<(), AppError> {
     let handshake =
         HandshakeService::new(context.workspace.clone(), context.session_lifecycle.clone());
     let udp_ingest = UdpIngestService::new(context.session_lifecycle.clone());
+    let usb_accessory = UsbAccessoryService::new(
+        context.workspace.clone(),
+        context.session_lifecycle.clone(),
+        context.usb_status_bus.clone(),
+        context.usb_session_control.clone(),
+    );
 
     let _udp_thread = thread::spawn(move || {
         if let Err(error) = udp_ingest.run() {
@@ -102,6 +115,7 @@ pub fn start_services(context: &AppContext) -> Result<(), AppError> {
             tracing::warn!(error = %error, "handshake service stopped");
         }
     });
+    let _usb_thread = thread::spawn(move || usb_accessory.run());
 
     Ok(())
 }

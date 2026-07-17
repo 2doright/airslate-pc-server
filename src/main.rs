@@ -11,6 +11,7 @@ mod radial_overlay;
 mod session;
 mod shortcut;
 mod udp_ingest;
+mod usb_accessory;
 mod windows_injector;
 mod workspace;
 
@@ -23,6 +24,9 @@ use windows::Win32::UI::HiDpi::{
 };
 
 fn main() -> ExitCode {
+    if let Some(exit_code) = usb_accessory::run_driver_helper_if_requested() {
+        return exit_code;
+    }
     init_tracing();
 
     match run() {

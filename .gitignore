@@ -66,6 +66,7 @@ GEMINI.*.md
 # Private docs, plans, generated schemas, and local Tauri outputs
 cc-switch/
 doc/**
+!doc/usb-accessory-probe.md
 !doc/winapi/
 !doc/winapi/**
 gen/**

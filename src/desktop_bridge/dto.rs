@@ -8,6 +8,7 @@ use crate::{
         RadialInnerSlot, ShortcutAction, ShortcutPresetLibrary, ShortcutProfile, StylusTrigger,
         SwipeAxis, all_bindings,
     },
+    usb_accessory::UsbStatusEvent,
     workspace::WorkspaceService,
 };
 
@@ -33,6 +34,7 @@ pub struct AppBootstrapDto {
     pub presets: Vec<ShortcutPresetDto>,
     pub effective_bindings: Vec<BindingDto>,
     pub session_status: SessionStatusDto,
+    pub usb_status: UsbStatusEvent,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -165,7 +167,11 @@ pub enum ActionDto {
     },
 }
 
-pub fn app_bootstrap(runtime: &AppRuntime, config_path: &str) -> Result<AppBootstrapDto, AppError> {
+pub fn app_bootstrap(
+    runtime: &AppRuntime,
+    config_path: &str,
+    usb_status: UsbStatusEvent,
+) -> Result<AppBootstrapDto, AppError> {
     let config = runtime.config_snapshot()?;
     let presets = runtime.shortcut_presets_snapshot()?;
     let active_preset = presets
@@ -193,6 +199,7 @@ pub fn app_bootstrap(runtime: &AppRuntime, config_path: &str) -> Result<AppBoots
         presets: preset_dtos(&presets),
         effective_bindings: binding_dtos(&active_preset.profile, false),
         session_status: SessionStatusDto { has_active_session },
+        usb_status,
     })
 }
 

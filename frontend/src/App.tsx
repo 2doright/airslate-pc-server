@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { ArrowUpCircle, Clock3, Keyboard, Monitor, Power, Settings, Unplug } from 'lucide-react';
 import { ConnectionPage } from './components/connection-page';
@@ -10,10 +10,12 @@ import { useAppUpdater } from './hooks/use-app-updater';
 import {
   type AppBootstrapDto,
   type SessionStatusEvent,
+  type UsbStatusEvent,
   disconnectActiveSession,
   getAppBootstrap,
   getLanIpv4Values,
   openExternal,
+  retryUsbConnection,
   setBindingKeys,
   setLaunchAtStartup,
   setRadialOuterSlot,
@@ -33,6 +35,12 @@ export function App() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
   const [data, setData] = useState<AppBootstrapDto | null>(null);
   const [hasActiveSession, setHasActiveSession] = useState(false);
+  const [usbStatus, setUsbStatus] = useState<UsbStatusEvent>({
+    state: 'waiting',
+    detail: '等待 AirSlate 平板 USB 连接',
+    retryable: true,
+    device: null,
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingIpv4, setRefreshingIpv4] = useState(false);
@@ -41,6 +49,7 @@ export function App() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [newPresetName, setNewPresetName] = useState('');
   const [recordingTarget, setRecordingTarget] = useState<RecordingTarget | null>(null);
+  const usbStatusRevision = useRef(0);
   const updater = useAppUpdater(data?.distribution, /Windows/i.test(navigator.userAgent));
 
   const applySessionStatus = (nextStatus: boolean) => {
@@ -53,6 +62,7 @@ export function App() {
 
   const load = async (options?: { preserveView?: boolean }) => {
     const preserveView = options?.preserveView ?? false;
+    const usbStatusRevisionAtStart = usbStatusRevision.current;
     if (preserveView) {
       setRefreshing(true);
     } else {
@@ -63,6 +73,9 @@ export function App() {
       const next = await getAppBootstrap();
       setData(next);
       setHasActiveSession(next.sessionStatus.hasActiveSession);
+      if (usbStatusRevision.current === usbStatusRevisionAtStart) {
+        setUsbStatus(next.usbStatus);
+      }
       if (preserveView) setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -154,6 +167,18 @@ export function App() {
       disposed = true;
       unlisten?.();
     };
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen<UsbStatusEvent>('usb-status-changed', (event) => {
+      usbStatusRevision.current += 1;
+      setUsbStatus(event.payload);
+    })
+      .then((removeListener) => disposed ? removeListener() : (unlisten = removeListener))
+      .catch((err) => { if (!disposed) setError(err instanceof Error ? err.message : String(err)); });
+    return () => { disposed = true; unlisten?.(); };
   }, []);
 
   useEffect(() => {
@@ -264,7 +289,7 @@ export function App() {
             onClick={() => void handleDisconnect()}
             disabled={!data || !hasActiveSession || disconnecting}
             aria-label={hasActiveSession ? '断开现有/残留连接' : '等待连接'}
-            title={hasActiveSession ? '断开现有/残留连接' : '等待连接'}
+            title={hasActiveSession ? `断开现有/残留连接（${usbStatus.detail}）` : usbStatus.detail}
           >
             {hasActiveSession ? <Unplug className="shell-lucide-icon" /> : <Clock3 className="shell-lucide-icon" />}
           </Button>
@@ -279,11 +304,13 @@ export function App() {
           {page === 'connection' ? (
             <ConnectionPage
               data={data}
+              usbStatus={usbStatus}
               selectedMonitor={selectedMonitor}
               busyKey={busyKey}
               runAction={runAction}
               refreshingIpv4={refreshingIpv4}
               onRefreshIpv4={() => void handleRefreshIpv4()}
+              onRetryUsb={() => void runAction('usb-retry', retryUsbConnection)}
             />
           ) : page === 'shortcuts' ? (
             <ShortcutsPage
