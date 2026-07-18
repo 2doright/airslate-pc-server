@@ -846,6 +846,25 @@ select:disabled {
   margin-bottom: 0;
 }
 
+.usb-panel__help {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  cursor: help;
+}
+
+.usb-panel__help:hover {
+  color: var(--ink);
+}
+
+.usb-panel__help svg {
+  width: 16px;
+  height: 16px;
+}
+
 .usb-panel__status {
   display: flex;
   align-items: center;
@@ -1952,6 +1971,11 @@ select:disabled {
   gap: 12px;
 }
 
+.settings-general-stack {
+  display: grid;
+  gap: 24px;
+}
+
 .settings-section__header {
   display: flex;
   align-items: center;
@@ -2023,6 +2047,260 @@ select:disabled {
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 1.4;
+}
+
+.settings-input-row {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #dfe1e6;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 16px 20px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.settings-input-row__field {
+  width: 160px;
+  flex: 0 0 160px;
+  font-family: 'Cascadia Mono', 'Consolas', monospace;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.settings-input-row__scan {
+  flex: 0 0 auto;
+}
+
+.settings-input-row__scan svg {
+  width: 16px;
+  height: 16px;
+}
+
+.usb-scan-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.32);
+  backdrop-filter: blur(8px);
+}
+
+.usb-scan-dialog__panel {
+  display: flex;
+  width: min(720px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.25);
+}
+
+.usb-scan-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.usb-scan-dialog__header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.usb-scan-dialog__header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.usb-scan-dialog__header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.usb-scan-dialog__close {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--muted);
+}
+
+.usb-scan-dialog__close:hover {
+  border-color: rgba(22, 131, 255, 0.36);
+  color: var(--blue);
+}
+
+.usb-scan-dialog__close:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.usb-scan-dialog__close svg {
+  width: 17px;
+  height: 17px;
+}
+
+.usb-scan-dialog__status {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.usb-scan-dialog__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #16a34a;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12);
+}
+
+.usb-scan-dialog__status-dot--error {
+  background: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);
+}
+
+.usb-scan-dialog__body {
+  min-height: 180px;
+  overflow: auto;
+  padding: 18px 24px;
+}
+
+.usb-scan-dialog__devices {
+  display: grid;
+  gap: 12px;
+}
+
+.usb-scan-dialog__empty {
+  display: grid;
+  min-height: 180px;
+  place-content: center;
+  gap: 6px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.usb-scan-dialog__empty strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.usb-scan-dialog__empty span,
+.usb-scan-dialog__error {
+  font-size: 0.78rem;
+}
+
+.usb-scan-dialog__error {
+  margin-bottom: 12px;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: 10px;
+  background: #fef2f2;
+  padding: 10px 12px;
+  color: #b91c1c;
+}
+
+.usb-scan-device-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fafcff;
+  padding: 14px;
+}
+
+.usb-scan-device-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.usb-scan-device-card__header div {
+  display: grid;
+  gap: 3px;
+}
+
+.usb-scan-device-card__header strong {
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+
+.usb-scan-device-card__header span {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.usb-scan-interface-groups {
+  display: grid;
+  gap: 10px;
+}
+
+.usb-scan-interface-group {
+  display: grid;
+  gap: 6px;
+}
+
+.usb-scan-interface-group__label {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.usb-scan-interface-list {
+  display: grid;
+  gap: 7px;
+}
+
+.usb-scan-interface {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 9px 10px;
+}
+
+.usb-scan-interface code {
+  border: 1px solid rgba(22, 131, 255, 0.18);
+  border-radius: 7px;
+  background: var(--blue-soft);
+  padding: 3px 7px;
+  color: var(--accent-strong);
+  font-family: 'Cascadia Mono', 'Consolas', monospace;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.usb-scan-device-card__empty {
+  color: var(--faint);
+  font-size: 0.68rem;
+}
+
+.usb-scan-device-card__empty {
+  padding: 6px 0 2px;
 }
 
 .settings-advanced-stack {
@@ -2496,6 +2774,35 @@ select:disabled {
   }
 
   .settings-about-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settings-input-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .settings-input-row__field {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .settings-input-row__scan {
+    width: 100%;
+  }
+
+  .usb-scan-dialog {
+    padding: 10px;
+  }
+
+  .usb-scan-dialog__header,
+  .usb-scan-dialog__body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .usb-scan-device-card__header {
     align-items: flex-start;
     flex-direction: column;
   }

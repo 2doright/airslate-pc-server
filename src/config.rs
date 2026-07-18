@@ -11,10 +11,86 @@ use crate::{
     shortcut::{ShortcutPresetLibrary, ShortcutProfile},
 };
 
-const CONFIG_VERSION: u32 = 9;
+const CONFIG_VERSION: u32 = 10;
 pub const MAX_LATEST_CONTACT_MOVE_TOLERANCE_MS: u32 = 100;
 const APP_DIR: &str = "AirSlatePcServer";
 const CONFIG_FILE: &str = "config.toml";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct UsbInterface {
+    pub class: u8,
+    pub subclass: u8,
+    pub protocol: u8,
+}
+
+impl UsbInterface {
+    pub const fn new(class: u8, subclass: u8, protocol: u8) -> Self {
+        Self {
+            class,
+            subclass,
+            protocol,
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self, String> {
+        let value = value.trim();
+        if value.is_empty() {
+            return Ok(Self::default());
+        }
+
+        let parts = value.split('/').collect::<Vec<_>>();
+        let [class, subclass, protocol] = parts.as_slice() else {
+            return Err("格式必须为 XX/XX/XX，每段是两位十六进制数".to_owned());
+        };
+        if class.len() != 2 || subclass.len() != 2 || protocol.len() != 2 {
+            return Err("格式必须为 XX/XX/XX，每段是两位十六进制数".to_owned());
+        }
+
+        let class = parse_hex_byte(class)?;
+        let subclass = parse_hex_byte(subclass)?;
+        let protocol = parse_hex_byte(protocol)?;
+        Ok(Self::new(class, subclass, protocol))
+    }
+
+    pub const fn matches(self, class: u8, subclass: u8, protocol: u8) -> bool {
+        self.class == class && self.subclass == subclass && self.protocol == protocol
+    }
+}
+
+impl Default for UsbInterface {
+    fn default() -> Self {
+        Self::new(0xFF, 0x50, 0x01)
+    }
+}
+
+impl std::fmt::Display for UsbInterface {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "{:02X}/{:02X}/{:02X}",
+            self.class, self.subclass, self.protocol
+        )
+    }
+}
+
+impl TryFrom<String> for UsbInterface {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::parse(&value)
+    }
+}
+
+impl From<UsbInterface> for String {
+    fn from(value: UsbInterface) -> Self {
+        value.to_string()
+    }
+}
+
+fn parse_hex_byte(value: &str) -> Result<u8, String> {
+    u8::from_str_radix(value, 16).map_err(|_| format!("{value} 不是有效的两位十六进制数"))
+}
 
 fn default_show_launch_at_startup_on_main_page() -> bool {
     true
@@ -74,6 +150,7 @@ pub struct Config {
     pub latest_contact_move_only: bool,
     pub latest_contact_move_tolerance_ms: u32,
     pub preempt_previous_stroke: bool,
+    pub usb_interface: UsbInterface,
     pub selected_monitor_id: Option<String>,
     pub pressure_curve: PressureCurve,
     pub shortcut_profile: ShortcutProfile,
@@ -94,6 +171,7 @@ impl Default for Config {
             latest_contact_move_only: false,
             latest_contact_move_tolerance_ms: 0,
             preempt_previous_stroke: false,
+            usb_interface: UsbInterface::default(),
             selected_monitor_id: None,
             pressure_curve: PressureCurve::default(),
             shortcut_profile: default_profile,
@@ -234,6 +312,49 @@ mod tests {
         let restored = toml::from_str::<Config>(&old_raw).expect("old config should deserialize");
 
         assert!(restored.show_launch_at_startup_on_main_page);
+    }
+
+    #[test]
+    fn usb_interface_defaults_to_the_current_harmony_signature() {
+        let config = Config::default();
+
+        assert_eq!(config.usb_interface, UsbInterface::new(0xFF, 0x50, 0x01));
+        assert_eq!(config.usb_interface.to_string(), "FF/50/01");
+    }
+
+    #[test]
+    fn usb_interface_round_trips_as_a_canonical_hex_string() {
+        let configured = UsbInterface::parse("aa/bb/0c").expect("USB interface should parse");
+        let config = Config {
+            usb_interface: configured,
+            ..Config::default()
+        };
+        let raw = toml::to_string(&config).expect("config should serialize");
+        let restored = toml::from_str::<Config>(&raw).expect("config should load");
+
+        assert_eq!(configured, UsbInterface::new(0xAA, 0xBB, 0x0C));
+        assert_eq!(restored.usb_interface, configured);
+        assert!(raw.contains("usb_interface = \"AA/BB/0C\""));
+    }
+
+    #[test]
+    fn usb_interface_rejects_non_hex_or_non_canonical_shapes() {
+        assert_eq!(UsbInterface::parse(""), Ok(UsbInterface::default()));
+        assert!(UsbInterface::parse("FF-50-01").is_err());
+        assert!(UsbInterface::parse("FFF/50/01").is_err());
+        assert!(UsbInterface::parse("FF/5G/01").is_err());
+    }
+
+    #[test]
+    fn old_config_defaults_to_the_current_usb_interface() {
+        let config = Config::default();
+        let raw = toml::to_string_pretty(&config).expect("config should serialize");
+        let mut table = toml::from_str::<toml::Table>(&raw).expect("config should be a table");
+        table.remove("usb_interface");
+        let old_raw = toml::to_string(&table).expect("old config should serialize");
+        let restored = toml::from_str::<Config>(&old_raw).expect("old config should deserialize");
+
+        assert_eq!(restored.usb_interface, UsbInterface::default());
     }
 
     #[test]

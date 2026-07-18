@@ -15,7 +15,7 @@ use crate::{
     session::SessionService,
     shortcut::ShortcutExecutor,
     udp_ingest::{IncomingEventSink, UdpIngestService},
-    usb_accessory::{UsbAccessoryService, UsbSessionControl, UsbStatusBus},
+    usb_accessory::{UsbAccessoryService, UsbScanHistory, UsbSessionControl, UsbStatusBus},
     windows_injector::{WindowsPenInjector, WindowsShortcutExecutor},
     workspace::WorkspaceService,
 };
@@ -30,6 +30,7 @@ pub struct AppContext {
     pub runtime: AppRuntime,
     pub session_lifecycle: Arc<SessionLifecycle>,
     pub usb_status_bus: Arc<UsbStatusBus>,
+    pub usb_scan_history: Arc<UsbScanHistory>,
     pub usb_session_control: Arc<UsbSessionControl>,
     _radial_overlay: Arc<RadialOverlayService>,
 }
@@ -81,6 +82,7 @@ pub fn initialize() -> Result<AppContext, AppError> {
         SessionStatusBus::shared(),
     ));
     let usb_status_bus = UsbStatusBus::shared();
+    let usb_scan_history = UsbScanHistory::shared();
     let usb_session_control = UsbSessionControl::shared();
 
     Ok(AppContext {
@@ -89,6 +91,7 @@ pub fn initialize() -> Result<AppContext, AppError> {
         runtime,
         session_lifecycle,
         usb_status_bus,
+        usb_scan_history,
         usb_session_control,
         _radial_overlay: radial_overlay,
     })
@@ -99,10 +102,11 @@ pub fn start_services(context: &AppContext) -> Result<(), AppError> {
         HandshakeService::new(context.workspace.clone(), context.session_lifecycle.clone());
     let udp_ingest = UdpIngestService::new(context.session_lifecycle.clone());
     let usb_accessory = UsbAccessoryService::new(
-        context.workspace.clone(),
+        context.runtime.clone(),
         context.session_lifecycle.clone(),
         context.usb_status_bus.clone(),
         context.usb_session_control.clone(),
+        context.usb_scan_history.clone(),
     );
 
     let _udp_thread = thread::spawn(move || {

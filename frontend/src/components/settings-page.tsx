@@ -1,8 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { AppWindow, CircleHelp, Eye, ExternalLink, Gauge, MessagesSquare, Power, Star } from 'lucide-react';
+import { AppWindow, Cable, CircleHelp, Eye, ExternalLink, Gauge, MessagesSquare, Power, ScanLine, Star } from 'lucide-react';
 import foregroundIcon from '../assets/foreground.png';
-import { Switch } from './ui';
-import { setLaunchAtStartup, setLatestContactMoveOnly, setLatestContactMoveToleranceMs, setPreemptPreviousStroke, type AppBootstrapDto } from '../lib/tauri';
+import { Switch, TextInput } from './ui';
+import { UsbScanDialog } from './usb-scan-dialog';
+import { setLaunchAtStartup, setLatestContactMoveOnly, setLatestContactMoveToleranceMs, setPreemptPreviousStroke, setUsbInterface, type AppBootstrapDto } from '../lib/tauri';
 import type { AppUpdaterState } from '../hooks/use-app-updater';
 
 type SettingsTab = 'general' | 'advanced' | 'about';
@@ -21,12 +22,31 @@ export function SettingsPage(props: {
 }) {
   const [tab, setTab] = useState<SettingsTab>(props.initialTab ?? 'general');
   const [moveToleranceMs, setMoveToleranceMs] = useState(props.data.latestContactMoveToleranceMs);
+  const [usbInterface, setUsbInterfaceValue] = useState(() => displayUsbInterfaceInput(props.data.usbInterface));
+  const [usbScannerOpen, setUsbScannerOpen] = useState(false);
 
   useEffect(() => setMoveToleranceMs(props.data.latestContactMoveToleranceMs), [props.data.latestContactMoveToleranceMs]);
+  useEffect(() => setUsbInterfaceValue(displayUsbInterfaceInput(props.data.usbInterface)), [props.data.usbInterface]);
 
   const saveMoveTolerance = () => {
     if (moveToleranceMs === props.data.latestContactMoveToleranceMs) return;
     void props.runAction('latest-contact-move-tolerance', () => setLatestContactMoveToleranceMs(moveToleranceMs));
+  };
+
+  const saveUsbInterface = () => {
+    const normalized = formatUsbInterfaceInput(usbInterface);
+    if (!isCompleteUsbInterface(normalized)) {
+      setUsbInterfaceValue('');
+      if (props.data.usbInterface !== DEFAULT_USB_INTERFACE) {
+        void props.runAction('usb-interface', () => setUsbInterface(''));
+      }
+      return;
+    }
+
+    const nextInterface = normalized === DEFAULT_USB_INTERFACE ? '' : normalized;
+    setUsbInterfaceValue(nextInterface);
+    if (normalized === props.data.usbInterface) return;
+    void props.runAction('usb-interface', () => setUsbInterface(normalized));
   };
 
   return (
@@ -39,30 +59,69 @@ export function SettingsPage(props: {
 
       <div className="settings-tab-panel" role="tabpanel">
         {tab === 'general' ? (
-          <section className="settings-section">
-            <div className="settings-section__header">
-              <AppWindow aria-hidden="true" />
-              <h2>窗口行为</h2>
-            </div>
-            <div className="settings-toggle-list">
-              <SettingsToggleRow
-                icon={<Power aria-hidden="true" />}
-                title="开机自启"
-                description="随 Windows 登录自动运行并驻留系统托盘。"
-                checked={props.data.launchAtStartup}
-                disabled={props.busyKey === 'launch-at-startup'}
-                onChange={(enabled) => void props.runAction('launch-at-startup', () => setLaunchAtStartup(enabled))}
-              />
-              <SettingsToggleRow
-                icon={<Eye aria-hidden="true" />}
-                title="在主页面显示开机自启"
-                description="控制主页面顶部是否显示开机自启开关。"
-                checked={props.data.showLaunchAtStartupOnMainPage}
-                disabled={props.busyKey === 'show-launch-at-startup-on-main-page'}
-                onChange={(enabled) => void props.runAction('show-launch-at-startup-on-main-page', () => props.setShowLaunchAtStartupOnMainPage(enabled))}
-              />
-            </div>
-          </section>
+          <div className="settings-general-stack">
+            <section className="settings-section">
+              <div className="settings-section__header">
+                <AppWindow aria-hidden="true" />
+                <h2>窗口行为</h2>
+              </div>
+              <div className="settings-toggle-list">
+                <SettingsToggleRow
+                  icon={<Power aria-hidden="true" />}
+                  title="开机自启"
+                  description="随 Windows 登录自动运行并驻留系统托盘。"
+                  checked={props.data.launchAtStartup}
+                  disabled={props.busyKey === 'launch-at-startup'}
+                  onChange={(enabled) => void props.runAction('launch-at-startup', () => setLaunchAtStartup(enabled))}
+                />
+                <SettingsToggleRow
+                  icon={<Eye aria-hidden="true" />}
+                  title="在主页面显示开机自启"
+                  description="控制主页面顶部是否显示开机自启开关。"
+                  checked={props.data.showLaunchAtStartupOnMainPage}
+                  disabled={props.busyKey === 'show-launch-at-startup-on-main-page'}
+                  onChange={(enabled) => void props.runAction('show-launch-at-startup-on-main-page', () => props.setShowLaunchAtStartupOnMainPage(enabled))}
+                />
+              </div>
+            </section>
+            <section className="settings-section">
+              <div className="settings-section__header">
+                <Cable aria-hidden="true" />
+                <h2>有线连接</h2>
+              </div>
+              <div className="settings-toggle-list">
+                <div className="settings-input-row">
+                  <div className="settings-toggle-row__icon"><Cable aria-hidden="true" /></div>
+                  <div className="settings-toggle-row__copy">
+                    <label className="settings-toggle-row__title" htmlFor="usb-interface">USB 设备接口</label>
+                    <p>默认接口：FF/50/01；自定义时输入 6 位十六进制值，斜杠自动插入。</p>
+                  </div>
+                  <TextInput
+                    id="usb-interface"
+                    className="settings-input-row__field"
+                    value={usbInterface}
+                    disabled={props.busyKey === 'usb-interface'}
+                    placeholder="FF/50/01"
+                    maxLength={8}
+                    inputMode="text"
+                    autoComplete="off"
+                    spellCheck={false}
+                    pattern="[0-9A-Fa-f]{2}/[0-9A-Fa-f]{2}/[0-9A-Fa-f]{2}"
+                    aria-label="USB 设备接口"
+                    onChange={(event) => setUsbInterfaceValue(formatUsbInterfaceInput(event.target.value))}
+                    onBlur={saveUsbInterface}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.currentTarget.blur();
+                    }}
+                  />
+                  <button type="button" className="ui-button ui-button--ghost settings-input-row__scan" onClick={() => setUsbScannerOpen(true)}>
+                    <ScanLine aria-hidden="true" />
+                    扫描设备
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
         ) : null}
 
         {tab === 'advanced' ? (
@@ -162,6 +221,7 @@ export function SettingsPage(props: {
           </section>
         ) : null}
       </div>
+      {usbScannerOpen ? <UsbScanDialog onClose={() => setUsbScannerOpen(false)} /> : null}
     </div>
   );
 }
@@ -246,4 +306,21 @@ function SettingsTabButton(props: { active: boolean; label: string; onClick: () 
       {props.label}
     </button>
   );
+}
+
+function formatUsbInterfaceInput(value: string) {
+  if (/[^0-9a-f/]/i.test(value)) return '';
+  const hex = value.replace(/\//g, '').toUpperCase();
+  if (hex.length > 6) return '';
+  return [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)].filter(Boolean).join('/');
+}
+
+const DEFAULT_USB_INTERFACE = 'FF/50/01';
+
+function displayUsbInterfaceInput(value: string) {
+  return value === DEFAULT_USB_INTERFACE ? '' : formatUsbInterfaceInput(value);
+}
+
+function isCompleteUsbInterface(value: string) {
+  return /^[0-9A-F]{2}\/[0-9A-F]{2}\/[0-9A-F]{2}$/.test(value);
 }

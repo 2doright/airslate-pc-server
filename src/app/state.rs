@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    config::{Config, PressureCurve},
+    config::{Config, PressureCurve, UsbInterface},
     error::AppError,
     session::SharedSessionService,
     shortcut::{
@@ -226,6 +226,35 @@ mod tests {
         assert_eq!(settings.lut[0], 0);
         assert_eq!(settings.lut[PRESSURE_LUT_SIZE - 1], 1024);
         assert!((i32::from(settings.lut[PRESSURE_LUT_SIZE / 2]) - 512).abs() <= 1);
+    }
+
+    #[test]
+    fn set_usb_interface_persists_and_updates_runtime_snapshot() {
+        let config_path = test_config_path("usb_interface_round_trip");
+        let runtime = AppRuntime::new(
+            config_path.clone(),
+            Config::default(),
+            test_workspace(),
+            SessionService::shared(),
+        );
+        let configured = UsbInterface::new(0x12, 0x34, 0x56);
+
+        runtime
+            .set_usb_interface(configured)
+            .expect("USB interface should persist");
+
+        assert_eq!(
+            runtime.usb_interface().expect("USB interface snapshot"),
+            configured
+        );
+        assert_eq!(
+            Config::load(&config_path)
+                .expect("saved config should load")
+                .usb_interface,
+            configured
+        );
+
+        let _ = fs::remove_file(config_path);
     }
 
     #[test]
@@ -539,6 +568,13 @@ impl AppRuntime {
             .map(|config| config.clone())
     }
 
+    pub fn usb_interface(&self) -> Result<UsbInterface, AppError> {
+        self.config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))
+            .map(|config| config.usb_interface)
+    }
+
     pub fn shortcut_presets_snapshot(&self) -> Result<ShortcutPresetLibrary, AppError> {
         self.config_snapshot().map(|config| config.shortcut_presets)
     }
@@ -635,6 +671,16 @@ impl AppRuntime {
             .preempt_previous_stroke
             .store(enabled, Ordering::Release);
         Ok(())
+    }
+
+    pub fn set_usb_interface(&self, interface: UsbInterface) -> Result<(), AppError> {
+        let mut config = self
+            .config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))?;
+        config.usb_interface = interface;
+        config.normalize();
+        config.save(&self.config_path)
     }
 
     pub fn select_shortcut_preset(&self, preset_id: &str) -> Result<(), AppError> {

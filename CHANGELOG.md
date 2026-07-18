@@ -4,6 +4,12 @@
 
 _No changes yet._
 
+## 1.6.1 - 2026-07-18
+
+- added a persisted General setting for the initial Harmony USB interface signature (class/subclass/protocol), defaulting to `FF/50/01` and applying to the live USB discovery scan
+- added a live USB descriptor scanner beside the General interface setting; it keeps the initial interface visible alongside the live re-enumerated interface, includes USB product/manufacturer names when provided, and only lists devices inserted after the scanner opens
+- narrowed the USB scanner to devices identified by the `HDC Device` product name, requires both the initial and re-enumerated interface before showing the original identification interface, and simplified the card and refresh controls; the General input now shows the default `FF/50/01` value as its blank-state hint and clears incomplete or invalid values automatically, while the wired connection card explains where to configure the device interface
+
 ## 1.6.0 - 2026-07-17
 
 - moved the Windows inbox WinUSB helper into the USB accessory service and removed the standalone dry-run binary, so macOS universal Tauri packaging no longer expects a Windows-only executable

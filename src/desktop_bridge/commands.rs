@@ -9,7 +9,7 @@ use super::dto::{
 use super::local_ip::lan_ipv4_values;
 use crate::{
     app::AppContext,
-    config::{PressureCurve, PressureCurveControlPoint},
+    config::{PressureCurve, PressureCurveControlPoint, UsbInterface},
     error::AppError,
     shortcut::{KeyCode, RadialInnerBindings, SpecialAction},
 };
@@ -94,6 +94,13 @@ pub fn disconnect_active_session(
 pub fn retry_usb_connection(state: State<'_, AppContext>) -> Result<(), String> {
     state.usb_session_control.request_retry();
     Ok(())
+}
+
+#[tauri::command]
+pub fn scan_usb_devices(
+    state: State<'_, AppContext>,
+) -> Result<Vec<crate::usb_accessory::UsbScanDevice>, String> {
+    crate::usb_accessory::scan_usb_devices(&state.usb_scan_history)
 }
 
 #[tauri::command]
@@ -200,6 +207,18 @@ pub fn set_preempt_previous_stroke(
         .runtime
         .set_preempt_previous_stroke(enabled)
         .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_usb_interface(state: State<'_, AppContext>, interface: String) -> Result<(), String> {
+    let interface = UsbInterface::parse(&interface)
+        .map_err(|error| format!("USB 设备接口格式无效：{error}"))?;
+    state
+        .runtime
+        .set_usb_interface(interface)
+        .map_err(error_message)?;
+    state.usb_session_control.request_scan();
+    Ok(())
 }
 
 #[tauri::command]

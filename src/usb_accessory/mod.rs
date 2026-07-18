@@ -6,6 +6,7 @@ mod stream;
 mod winusb_tool;
 
 use std::{
+    collections::{HashMap, HashSet},
     io::{Read, Write},
     sync::{
         Arc, Mutex,
@@ -26,12 +27,12 @@ use serde::Serialize;
 use tracing::{info, warn};
 
 use crate::{
-    app::lifecycle::SessionLifecycle,
+    app::{lifecycle::SessionLifecycle, state::AppRuntime},
+    config::UsbInterface,
     handshake::HandshakeService,
     protocol::{HANDSHAKE_REQUEST_SIZE, Packet, PacketType, decode_packet},
     session::{LocalDisconnectDisposition, RealtimeFrameDisposition},
     udp_ingest::IncomingEvent,
-    workspace::WorkspaceService,
 };
 
 use self::stream::PacketStream;
@@ -106,6 +107,155 @@ pub struct UsbDeviceInfo {
     pub bulk_out_max_packet_size: Option<usize>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsbScanDevice {
+    pub vendor_id: u16,
+    pub product_id: u16,
+    pub bus_id: String,
+    pub port_chain: Vec<u8>,
+    pub manufacturer: Option<String>,
+    pub product: Option<String>,
+    pub interfaces: Vec<UsbScanInterface>,
+    pub initial_manufacturer: Option<String>,
+    pub initial_product: Option<String>,
+    pub initial_interfaces: Option<Vec<UsbScanInterface>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsbScanInterface {
+    pub interface_number: u8,
+    pub class_code: u8,
+    pub subclass: u8,
+    pub protocol: u8,
+}
+
+#[derive(Default)]
+pub struct UsbScanHistory {
+    records: Mutex<HashMap<UsbPhysicalKey, UsbScanRecord>>,
+}
+
+struct UsbScanRecord {
+    first_seen: UsbScanDevice,
+    current: UsbScanDevice,
+    initial_reported: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct UsbPhysicalKey {
+    bus_id: String,
+    port_chain: Vec<u8>,
+}
+
+impl UsbPhysicalKey {
+    fn from_device(device: &UsbScanDevice) -> Self {
+        Self {
+            bus_id: device.bus_id.clone(),
+            port_chain: device.port_chain.clone(),
+        }
+    }
+}
+
+impl UsbScanHistory {
+    pub fn shared() -> Arc<Self> {
+        Arc::new(Self::default())
+    }
+
+    fn remember_current(&self, current_devices: &[UsbScanDevice]) -> Result<(), String> {
+        let current_keys = current_devices
+            .iter()
+            .map(UsbPhysicalKey::from_device)
+            .collect::<HashSet<_>>();
+        let mut records = self
+            .records
+            .lock()
+            .map_err(|_| "USB 扫描历史状态已损坏".to_owned())?;
+        records.retain(|key, _| current_keys.contains(key));
+
+        for device in current_devices {
+            let key = UsbPhysicalKey::from_device(device);
+            match records.entry(key) {
+                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                    entry.get_mut().current = device.clone();
+                }
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    entry.insert(UsbScanRecord {
+                        first_seen: device.clone(),
+                        current: device.clone(),
+                        initial_reported: false,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn display_current(
+        &self,
+        current_devices: &[UsbScanDevice],
+    ) -> Result<Vec<UsbScanDevice>, String> {
+        let mut records = self
+            .records
+            .lock()
+            .map_err(|_| "USB 扫描历史状态已损坏".to_owned())?;
+        current_devices
+            .iter()
+            .map(|device| {
+                let key = UsbPhysicalKey::from_device(device);
+                let record = records
+                    .get_mut(&key)
+                    .ok_or_else(|| "USB 扫描设备记录不存在".to_owned())?;
+                let mut displayed = if record.initial_reported {
+                    record.current.clone()
+                } else {
+                    record.initial_reported = true;
+                    record.first_seen.clone()
+                };
+                displayed.initial_manufacturer = record.first_seen.manufacturer.clone();
+                displayed.initial_product = record.first_seen.product.clone();
+                displayed.initial_interfaces = Some(record.first_seen.interfaces.clone());
+                Ok(displayed)
+            })
+            .collect()
+    }
+}
+
+pub fn scan_usb_devices(history: &UsbScanHistory) -> Result<Vec<UsbScanDevice>, String> {
+    let devices = nusb::list_devices()
+        .wait()
+        .map_err(|error| format!("枚举 USB 设备失败：{error}"))?;
+
+    let devices = devices
+        .map(|info| usb_scan_device(&info))
+        .collect::<Vec<_>>();
+    history.remember_current(&devices)?;
+    history.display_current(&devices)
+}
+
+fn usb_scan_device(info: &DeviceInfo) -> UsbScanDevice {
+    UsbScanDevice {
+        vendor_id: info.vendor_id(),
+        product_id: info.product_id(),
+        bus_id: info.bus_id().to_owned(),
+        port_chain: info.port_chain().to_vec(),
+        manufacturer: info.manufacturer_string().map(str::to_owned),
+        product: info.product_string().map(str::to_owned),
+        interfaces: info
+            .interfaces()
+            .map(|interface| UsbScanInterface {
+                interface_number: interface.interface_number(),
+                class_code: interface.class(),
+                subclass: interface.subclass(),
+                protocol: interface.protocol(),
+            })
+            .collect(),
+        initial_manufacturer: None,
+        initial_product: None,
+        initial_interfaces: None,
+    }
+}
+
 pub struct UsbStatusBus {
     subscriber: Mutex<Option<Sender<UsbStatusEvent>>>,
     current: Mutex<UsbStatusEvent>,
@@ -139,8 +289,12 @@ impl UsbSessionControl {
     }
 
     pub fn request_retry(&self) {
-        self.retry_requested.store(true, Ordering::Release);
+        self.request_scan();
         self.cancel_active();
+    }
+
+    pub fn request_scan(&self) {
+        self.retry_requested.store(true, Ordering::Release);
     }
 
     fn take_retry_requested(&self) -> bool {
@@ -212,24 +366,30 @@ impl UsbStatusBus {
 }
 
 pub struct UsbAccessoryService {
+    runtime: AppRuntime,
     handshake: HandshakeService,
     lifecycle: Arc<SessionLifecycle>,
     status: Arc<UsbStatusBus>,
     control: Arc<UsbSessionControl>,
+    scan_history: Arc<UsbScanHistory>,
 }
 
 impl UsbAccessoryService {
     pub fn new(
-        workspace: WorkspaceService,
+        runtime: AppRuntime,
         lifecycle: Arc<SessionLifecycle>,
         status: Arc<UsbStatusBus>,
         control: Arc<UsbSessionControl>,
+        scan_history: Arc<UsbScanHistory>,
     ) -> Self {
+        let workspace = runtime.workspace();
         Self {
+            runtime,
             handshake: HandshakeService::new(workspace, lifecycle.clone()),
             lifecycle,
             status,
             control,
+            scan_history,
         }
     }
 
@@ -243,7 +403,16 @@ impl UsbAccessoryService {
         loop {
             let scan_is_initial = first_scan;
             first_scan = false;
-            match discover_candidate() {
+            let usb_interface = match self.runtime.usb_interface() {
+                Ok(interface) => interface,
+                Err(error) => {
+                    warn!(error = %error, "USB interface configuration could not be read");
+                    self.status.publish("error", error.to_string());
+                    self.wait_for_retry_or_scan_interval();
+                    continue;
+                }
+            };
+            match discover_candidate(usb_interface, &self.scan_history) {
                 Ok(Discovery::None {
                     visible_devices,
                     initial_candidates,
@@ -304,10 +473,10 @@ impl UsbAccessoryService {
                         self.status.publish_with_device(
                             "authorizing",
                             "已发现唯一 USB 配件，正在等待授权并协商",
-                            Some(usb_device_info(&info, None)),
+                            Some(usb_device_info(&info, None, usb_interface)),
                         );
                     }
-                    match negotiate(*info) {
+                    match negotiate(*info, usb_interface) {
                         Ok(accessory) => {
                             failed_initial_state = None;
                             info!(
@@ -353,7 +522,7 @@ impl UsbAccessoryService {
                     self.status.publish_with_device(
                         "authorizing",
                         "已发现唯一 USB 配件，正在等待平板授权",
-                        Some(usb_device_info(&info, None)),
+                        Some(usb_device_info(&info, None, ACCESSORY_INTERFACE)),
                     );
                     self.run_candidate(*info);
                 }
@@ -394,7 +563,7 @@ impl UsbAccessoryService {
         self.status.publish_with_device(
             "authorizing",
             "正在等待平板授权并打开 USB 会话",
-            Some(usb_device_info(&info, None)),
+            Some(usb_device_info(&info, None, ACCESSORY_INTERFACE)),
         );
         let session_failed = if let Err(error) = self.run_session(info, connection_id) {
             if !matches!(error, UsbError::Cancelled) {
@@ -439,7 +608,7 @@ impl UsbAccessoryService {
             endpoints,
         } = loop {
             let mut opened = open_bulk_session(&info, connection_id)?;
-            let descriptor = usb_device_info(&info, Some(&opened.endpoints));
+            let descriptor = usb_device_info(&info, Some(&opened.endpoints), ACCESSORY_INTERFACE);
             self.status.publish_with_device(
                 "authorizing",
                 "正在等待平板授权并发送 USB_READY",
@@ -475,7 +644,11 @@ impl UsbAccessoryService {
         self.status.publish_with_device(
             "authorizing",
             "USB_READY 已送达，等待平板授权并发送正式握手",
-            Some(usb_device_info(&info, Some(&endpoints))),
+            Some(usb_device_info(
+                &info,
+                Some(&endpoints),
+                ACCESSORY_INTERFACE,
+            )),
         );
         let mut writer = output.writer(endpoints.out_max_packet_size);
         let mut packets = PacketStream::default();
@@ -491,7 +664,11 @@ impl UsbAccessoryService {
         self.status.publish_with_device(
             "handshaking",
             "已收到平板握手请求，正在建立有线会话",
-            Some(usb_device_info(&info, Some(&endpoints))),
+            Some(usb_device_info(
+                &info,
+                Some(&endpoints),
+                ACCESSORY_INTERFACE,
+            )),
         );
         info!(
             connection_id,
@@ -524,7 +701,11 @@ impl UsbAccessoryService {
         self.status.publish_with_device(
             "connected",
             "AirSlate 正式 USB 会话已连接",
-            Some(usb_device_info(&info, Some(&endpoints))),
+            Some(usb_device_info(
+                &info,
+                Some(&endpoints),
+                ACCESSORY_INTERFACE,
+            )),
         );
         info!(connection_id, "formal USB session established");
         let mut reader = input.reader(IO_BUFFER_SIZE).with_read_timeout(READ_TIMEOUT);
@@ -895,6 +1076,8 @@ enum Discovery {
     Direct(Box<DeviceInfo>),
 }
 
+const ACCESSORY_INTERFACE: UsbInterface = UsbInterface::new(0xFF, 0xFF, 0x00);
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct VisibleDeviceSummary {
     bus_id: String,
@@ -986,7 +1169,10 @@ fn should_wait_after_initial_failure(
     matches!(current, DiscoveryState::Initial { .. }) && failed_state == Some(current)
 }
 
-fn discover_candidate() -> Result<Discovery, UsbError> {
+fn discover_candidate(
+    initial_interface: UsbInterface,
+    scan_history: &UsbScanHistory,
+) -> Result<Discovery, UsbError> {
     let devices = nusb::list_devices()
         .wait()
         .map_err(|error| UsbError::Usb {
@@ -994,6 +1180,10 @@ fn discover_candidate() -> Result<Discovery, UsbError> {
             detail: error.to_string(),
         })?
         .collect::<Vec<_>>();
+    let scan_devices = devices.iter().map(usb_scan_device).collect::<Vec<_>>();
+    scan_history
+        .remember_current(&scan_devices)
+        .map_err(UsbError::ScanHistory)?;
     let visible_devices = devices.len();
     let summaries = devices
         .iter()
@@ -1019,9 +1209,9 @@ fn discover_candidate() -> Result<Discovery, UsbError> {
     let mut initial = Vec::new();
     let mut accessory_like = Vec::new();
     for info in devices {
-        if has_interface(&info, 0xFF, 0x50, 0x01) {
+        if has_interface(&info, initial_interface) {
             initial.push(info);
-        } else if has_interface(&info, 0xFF, 0xFF, 0x00) {
+        } else if has_interface(&info, ACCESSORY_INTERFACE) {
             accessory_like.push(info);
         }
     }
@@ -1058,11 +1248,13 @@ fn validate_recovery_bulk_pair(info: &DeviceInfo) -> Result<(), UsbError> {
         })
 }
 
-fn has_interface(info: &DeviceInfo, class: u8, subclass: u8, protocol: u8) -> bool {
+fn has_interface(info: &DeviceInfo, expected: UsbInterface) -> bool {
     info.interfaces().any(|interface| {
-        interface.class() == class
-            && interface.subclass() == subclass
-            && interface.protocol() == protocol
+        expected.matches(
+            interface.class(),
+            interface.subclass(),
+            interface.protocol(),
+        )
     })
 }
 
@@ -1070,7 +1262,7 @@ fn can_enter_direct_bulk_recovery(initial_candidates: usize, accessory_candidate
     initial_candidates == 0 && accessory_candidates == 1
 }
 
-fn negotiate(info: DeviceInfo) -> Result<DeviceInfo, UsbError> {
+fn negotiate(info: DeviceInfo, initial_interface: UsbInterface) -> Result<DeviceInfo, UsbError> {
     let bus_id = info.bus_id().to_owned();
     let port_chain = info.port_chain().to_vec();
     #[cfg(windows)]
@@ -1083,9 +1275,11 @@ fn negotiate(info: DeviceInfo) -> Result<DeviceInfo, UsbError> {
     let interface_number = info
         .interfaces()
         .find(|interface| {
-            interface.class() == 0xFF
-                && interface.subclass() == 0x50
-                && interface.protocol() == 0x01
+            initial_interface.matches(
+                interface.class(),
+                interface.subclass(),
+                interface.protocol(),
+            )
         })
         .ok_or_else(|| UsbError::Protocol("pre-negotiation device has no interface".to_owned()))?
         .interface_number();
@@ -1169,7 +1363,7 @@ fn negotiate(info: DeviceInfo) -> Result<DeviceInfo, UsbError> {
             .filter(|candidate| {
                 candidate.bus_id() == bus_id
                     && candidate.port_chain() == port_chain
-                    && has_interface(candidate, 0xFF, 0xFF, 0x00)
+                    && has_interface(candidate, ACCESSORY_INTERFACE)
             })
             .collect::<Vec<_>>();
         match candidates.as_slice() {
@@ -1220,20 +1414,19 @@ struct BulkPair {
     out_max_packet_size: usize,
 }
 
-fn usb_device_info(info: &DeviceInfo, pair: Option<&BulkPair>) -> UsbDeviceInfo {
+fn usb_device_info(
+    info: &DeviceInfo,
+    pair: Option<&BulkPair>,
+    expected_interface: UsbInterface,
+) -> UsbDeviceInfo {
     let interface_number = info
         .interfaces()
         .find(|interface| {
-            (
+            expected_interface.matches(
                 interface.class(),
                 interface.subclass(),
                 interface.protocol(),
-            ) == (0xFF, 0x50, 0x01)
-                || (
-                    interface.class(),
-                    interface.subclass(),
-                    interface.protocol(),
-                ) == (0xFF, 0xFF, 0x00)
+            )
         })
         .map(|interface| interface.interface_number());
 
@@ -1336,7 +1529,7 @@ fn same_physical_device_present(identity: &PhysicalUsbIdentity) -> Result<bool, 
         .filter(|candidate| {
             candidate.bus_id() == identity.bus_id
                 && candidate.port_chain() == identity.port_chain
-                && has_interface(candidate, 0xFF, 0xFF, 0x00)
+                && has_interface(candidate, ACCESSORY_INTERFACE)
         })
         .collect::<Vec<_>>();
     match candidates.as_slice() {
@@ -1411,6 +1604,8 @@ enum UsbError {
         operation: &'static str,
         detail: String,
     },
+    #[error("USB scan history could not be updated: {0}")]
+    ScanHistory(String),
     #[error("Accessory control request {0} failed: {1}")]
     Control(&'static str, String),
     #[error(
@@ -1594,12 +1789,12 @@ mod tests {
     use super::{
         ACCESSORY_IDENTITY, Completion, DiscoveryState, HANDSHAKE_TIMEOUT_REPORT_INTERVAL,
         HandshakeReadDiagnostics, HandshakeTimeoutReport, PacketStream, READY_SUBMIT_RETRY_LIMIT,
-        TransferErrorAction, USB_READY, UsbDeviceInfo, UsbSessionControl, UsbStatusBus,
-        UsbStatusEvent, UsbTransferPhase, VisibleDeviceSummary, advance_usb_ready,
-        can_enter_direct_bulk_recovery, discovery_state_changed, is_known_file_transfer_mode,
-        push_completion_and_take_packet, ready_disconnected_submit_can_reopen, ready_retry_allowed,
-        should_report_authorizing, should_wait_after_initial_failure, transfer_error_action,
-        waiting_status,
+        TransferErrorAction, USB_READY, UsbDeviceInfo, UsbScanDevice, UsbScanHistory,
+        UsbScanInterface, UsbSessionControl, UsbStatusBus, UsbStatusEvent, UsbTransferPhase,
+        VisibleDeviceSummary, advance_usb_ready, can_enter_direct_bulk_recovery,
+        discovery_state_changed, is_known_file_transfer_mode, push_completion_and_take_packet,
+        ready_disconnected_submit_can_reopen, ready_retry_allowed, should_report_authorizing,
+        should_wait_after_initial_failure, transfer_error_action, waiting_status,
     };
 
     #[test]
@@ -1652,6 +1847,103 @@ mod tests {
         assert!(control.is_cancelled(9));
         assert!(control.take_retry_requested());
         assert!(!control.take_retry_requested());
+    }
+
+    #[test]
+    fn scan_request_does_not_cancel_an_active_connection() {
+        let control = UsbSessionControl::default();
+        control
+            .active
+            .store(9, std::sync::atomic::Ordering::Release);
+
+        control.request_scan();
+
+        assert!(!control.is_cancelled(9));
+        assert!(control.take_retry_requested());
+    }
+
+    #[test]
+    fn usb_scan_history_replays_initial_descriptor_once_then_follows_reenumeration() {
+        let history = UsbScanHistory::default();
+        let initial = UsbScanDevice {
+            vendor_id: 0x12D1,
+            product_id: 0x1101,
+            bus_id: "bus".to_owned(),
+            port_chain: vec![2],
+            manufacturer: Some("Huawei".to_owned()),
+            product: Some("Harmony tablet".to_owned()),
+            interfaces: vec![UsbScanInterface {
+                interface_number: 0,
+                class_code: 0xFF,
+                subclass: 0x50,
+                protocol: 0x01,
+            }],
+            initial_manufacturer: None,
+            initial_product: None,
+            initial_interfaces: None,
+        };
+        let final_device = UsbScanDevice {
+            vendor_id: 0x12D1,
+            product_id: 0x2D00,
+            bus_id: "bus".to_owned(),
+            port_chain: vec![2],
+            manufacturer: None,
+            product: Some("AirSlate".to_owned()),
+            interfaces: vec![UsbScanInterface {
+                interface_number: 0,
+                class_code: 0xFF,
+                subclass: 0xFF,
+                protocol: 0x00,
+            }],
+            initial_manufacturer: None,
+            initial_product: None,
+            initial_interfaces: None,
+        };
+
+        let mut initial_display = initial.clone();
+        initial_display.initial_manufacturer = initial.manufacturer.clone();
+        initial_display.initial_product = initial.product.clone();
+        initial_display.initial_interfaces = Some(initial.interfaces.clone());
+        let mut final_display = final_device.clone();
+        final_display.initial_manufacturer = initial.manufacturer.clone();
+        final_display.initial_product = initial.product.clone();
+        final_display.initial_interfaces = Some(initial.interfaces.clone());
+
+        history
+            .remember_current(std::slice::from_ref(&initial))
+            .expect("initial USB descriptor should be recorded");
+        history
+            .remember_current(std::slice::from_ref(&final_device))
+            .expect("re-enumerated USB descriptor should be recorded");
+        assert_eq!(
+            history
+                .display_current(std::slice::from_ref(&final_device))
+                .expect("initial USB descriptor should be displayed once"),
+            vec![initial_display]
+        );
+        assert_eq!(
+            history
+                .display_current(std::slice::from_ref(&final_device))
+                .expect("current re-enumerated descriptor should be displayed"),
+            vec![final_display]
+        );
+
+        history
+            .remember_current(&[])
+            .expect("USB disconnect should clear the current physical port");
+        history
+            .remember_current(std::slice::from_ref(&final_device))
+            .expect("a reconnected USB descriptor should become a new first observation");
+        let mut reconnected_display = final_device.clone();
+        reconnected_display.initial_manufacturer = final_device.manufacturer.clone();
+        reconnected_display.initial_product = final_device.product.clone();
+        reconnected_display.initial_interfaces = Some(final_device.interfaces.clone());
+        assert_eq!(
+            history
+                .display_current(std::slice::from_ref(&final_device))
+                .expect("a reconnected USB descriptor should be displayed"),
+            vec![reconnected_display]
+        );
     }
 
     #[test]

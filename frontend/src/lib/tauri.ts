@@ -68,6 +68,7 @@ export interface AppBootstrapDto {
   latestContactMoveOnly: boolean;
   latestContactMoveToleranceMs: number;
   preemptPreviousStroke: boolean;
+  usbInterface: string;
   ipv4Values: string[];
   pressureCurve: PressureCurveDto;
   monitors: MonitorDto[];
@@ -103,6 +104,26 @@ export interface UsbDeviceInfo {
   bulkOutMaxPacketSize: number | null;
 }
 
+export interface UsbScanDevice {
+  vendorId: number;
+  productId: number;
+  busId: string;
+  portChain: number[];
+  manufacturer: string | null;
+  product: string | null;
+  interfaces: UsbScanInterface[];
+  initialManufacturer: string | null;
+  initialProduct: string | null;
+  initialInterfaces: UsbScanInterface[] | null;
+}
+
+export interface UsbScanInterface {
+  interfaceNumber: number;
+  classCode: number;
+  subclass: number;
+  protocol: number;
+}
+
 export async function getAppBootstrap() {
   return invoke<AppBootstrapDto>('get_app_bootstrap');
 }
@@ -113,6 +134,10 @@ export async function disconnectActiveSession() {
 
 export async function retryUsbConnection() {
   return invoke('retry_usb_connection');
+}
+
+export async function scanUsbDevices() {
+  return invoke<UsbScanDevice[]>('scan_usb_devices');
 }
 
 export async function getLanIpv4Values() {
@@ -149,6 +174,10 @@ export async function setLatestContactMoveToleranceMs(toleranceMs: number) {
 
 export async function setPreemptPreviousStroke(enabled: boolean) {
   return invoke('set_preempt_previous_stroke', { enabled });
+}
+
+export async function setUsbInterface(interfaceValue: string) {
+  return invoke('set_usb_interface', { interface: interfaceValue });
 }
 
 export async function selectShortcutPreset(presetId: string) {

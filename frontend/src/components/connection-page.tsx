@@ -1,5 +1,5 @@
 import type { AppBootstrapDto, UsbStatusEvent } from '../lib/tauri';
-import { Cable, CheckCircle2, CircleAlert, RefreshCw } from 'lucide-react';
+import { Cable, CheckCircle2, CircleAlert, CircleHelp, RefreshCw } from 'lucide-react';
 import { setSelectedMonitor } from '../lib/tauri';
 import { PressureCurveCard } from './pressure-curve-card';
 import { Badge, Button, EmptyState, Panel, PanelHeader, SelectField } from './ui';
@@ -113,6 +113,14 @@ function UsbConnectionPanel(props: {
                 <RefreshCw className={props.busy ? 'shell-lucide-icon shell-lucide-icon--small shell-lucide-icon--spinning' : 'shell-lucide-icon shell-lucide-icon--small'} />
               </Button>
             ) : null}
+            <span
+              className="usb-panel__help"
+              role="img"
+              aria-label="USB 接口配置说明"
+              title="无法正常连接时，请前往设置 → 通用 → USB 设备接口，获取当前鸿蒙设备的接口值并填写。"
+            >
+              <CircleHelp aria-hidden="true" />
+            </span>
           </>
         )}
       />
