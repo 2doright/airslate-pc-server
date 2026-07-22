@@ -927,7 +927,8 @@ fn keyboard_action_from_keys(
         BindingId::StylusTrigger(StylusTrigger::FourTap) => Err(AppError::DesktopShell(
             "this binding has a fixed system action".to_string(),
         )),
-        BindingId::Gesture(GestureBinding::LongPress { .. })
+        BindingId::Gesture(GestureBinding::TwoPan)
+        | BindingId::Gesture(GestureBinding::LongPress { .. })
         | BindingId::Gesture(GestureBinding::ThreePan)
         | BindingId::Gesture(GestureBinding::TwoPinch)
         | BindingId::Gesture(GestureBinding::TwoRotate) => Ok(ShortcutAction::HoldKeys(keys)),
@@ -1038,7 +1039,8 @@ fn keyboard_action_without_special(
         BindingId::StylusTrigger(StylusTrigger::FourTap) => Err(AppError::DesktopShell(
             "this binding has a fixed system action".to_string(),
         )),
-        BindingId::Gesture(GestureBinding::LongPress { .. })
+        BindingId::Gesture(GestureBinding::TwoPan)
+        | BindingId::Gesture(GestureBinding::LongPress { .. })
         | BindingId::Gesture(GestureBinding::ThreePan)
         | BindingId::Gesture(GestureBinding::TwoPinch)
         | BindingId::Gesture(GestureBinding::TwoRotate) => Ok(ShortcutAction::HoldKeys(keys)),
