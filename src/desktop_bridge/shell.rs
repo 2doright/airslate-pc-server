@@ -56,6 +56,7 @@ pub fn run(context: AppContext) -> Result<(), AppError> {
             crate::desktop_bridge::commands::set_show_launch_at_startup_on_main_page,
             crate::desktop_bridge::commands::set_latest_contact_move_only,
             crate::desktop_bridge::commands::set_latest_contact_move_tolerance_ms,
+            crate::desktop_bridge::commands::set_hover_move_policy,
             crate::desktop_bridge::commands::set_preempt_previous_stroke,
             crate::desktop_bridge::commands::set_usb_interface,
             crate::desktop_bridge::commands::disconnect_active_session,

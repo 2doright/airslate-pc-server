@@ -3,10 +3,21 @@ import { AppWindow, Cable, CircleHelp, Eye, ExternalLink, Gauge, MessagesSquare,
 import foregroundIcon from '../assets/foreground.png';
 import { Switch, TextInput } from './ui';
 import { UsbScanDialog } from './usb-scan-dialog';
-import { setLaunchAtStartup, setLatestContactMoveOnly, setLatestContactMoveToleranceMs, setPreemptPreviousStroke, setUsbInterface, type AppBootstrapDto } from '../lib/tauri';
+import { setHoverMovePolicy, setLaunchAtStartup, setLatestContactMoveOnly, setLatestContactMoveToleranceMs, setPreemptPreviousStroke, setUsbInterface, type AppBootstrapDto, type HoverMovePolicyLevel } from '../lib/tauri';
 import type { AppUpdaterState } from '../hooks/use-app-updater';
 
 type SettingsTab = 'general' | 'advanced' | 'about';
+
+const HOVER_MOVE_POLICIES: ReadonlyArray<{
+  level: HoverMovePolicyLevel;
+  label: string;
+  description: string;
+}> = [
+  { level: 0, label: '完整轨迹', description: '不跳过任何 hover 点，保留原始轨迹（默认）。' },
+  { level: 1, label: '轻度降采样', description: '相邻点间隔不足 4 ms 时合并，保留大部分轨迹细节。' },
+  { level: 2, label: '中度降采样', description: '相邻点间隔不足 8 ms 时合并，降低积压并保留主要轨迹。' },
+  { level: 3, label: '最新点', description: '积压时只保留最新轨迹点，延迟最低但会跳过更多点。' },
+];
 
 export function SettingsPage(props: {
   data: AppBootstrapDto;
@@ -22,15 +33,22 @@ export function SettingsPage(props: {
 }) {
   const [tab, setTab] = useState<SettingsTab>(props.initialTab ?? 'general');
   const [moveToleranceMs, setMoveToleranceMs] = useState(props.data.latestContactMoveToleranceMs);
+  const [hoverMovePolicy, setHoverMovePolicyLevel] = useState<HoverMovePolicyLevel>(props.data.hoverMovePolicy);
   const [usbInterface, setUsbInterfaceValue] = useState(() => displayUsbInterfaceInput(props.data.usbInterface));
   const [usbScannerOpen, setUsbScannerOpen] = useState(false);
 
   useEffect(() => setMoveToleranceMs(props.data.latestContactMoveToleranceMs), [props.data.latestContactMoveToleranceMs]);
+  useEffect(() => setHoverMovePolicyLevel(props.data.hoverMovePolicy), [props.data.hoverMovePolicy]);
   useEffect(() => setUsbInterfaceValue(displayUsbInterfaceInput(props.data.usbInterface)), [props.data.usbInterface]);
 
   const saveMoveTolerance = () => {
     if (moveToleranceMs === props.data.latestContactMoveToleranceMs) return;
     void props.runAction('latest-contact-move-tolerance', () => setLatestContactMoveToleranceMs(moveToleranceMs));
+  };
+
+  const saveHoverMovePolicy = () => {
+    if (hoverMovePolicy === props.data.hoverMovePolicy) return;
+    void props.runAction('hover-move-policy', () => setHoverMovePolicy(hoverMovePolicy));
   };
 
   const saveUsbInterface = () => {
@@ -135,6 +153,28 @@ export function SettingsPage(props: {
                 </div>
               </header>
               <div className="settings-policy-card__body">
+                <div className="settings-range-row settings-range-row--hover">
+                  <div className="settings-range-row__copy">
+                    <span>Hover 轨迹保留</span>
+                    <strong>{HOVER_MOVE_POLICIES[hoverMovePolicy].label}</strong>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="3"
+                    step="1"
+                    value={hoverMovePolicy}
+                    disabled={props.busyKey === 'hover-move-policy'}
+                    aria-label="Hover 轨迹保留策略"
+                    onChange={(event) => setHoverMovePolicyLevel(Number(event.target.value) as HoverMovePolicyLevel)}
+                    onPointerUp={saveHoverMovePolicy}
+                    onKeyUp={saveHoverMovePolicy}
+                  />
+                  <div className="settings-range-ticks" aria-hidden="true">
+                    {HOVER_MOVE_POLICIES.map((policy) => <span key={policy.level}>{policy.label}</span>)}
+                  </div>
+                  <p>{HOVER_MOVE_POLICIES[hoverMovePolicy].description}</p>
+                </div>
                 <SettingsToggleRow
                   title="单笔最新优先"
                   description="同一笔迹积压时，只保留最新移动点，降低长笔迹延迟。"

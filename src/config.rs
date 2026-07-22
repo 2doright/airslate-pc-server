@@ -11,7 +11,7 @@ use crate::{
     shortcut::{ShortcutPresetLibrary, ShortcutProfile},
 };
 
-const CONFIG_VERSION: u32 = 10;
+const CONFIG_VERSION: u32 = 11;
 pub const MAX_LATEST_CONTACT_MOVE_TOLERANCE_MS: u32 = 100;
 const APP_DIR: &str = "AirSlatePcServer";
 const CONFIG_FILE: &str = "config.toml";
@@ -139,6 +139,54 @@ impl PressureCurve {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HoverMovePolicy {
+    PreserveAll,
+    LightReduction,
+    BalancedReduction,
+    Latest,
+}
+
+impl Default for HoverMovePolicy {
+    fn default() -> Self {
+        Self::PreserveAll
+    }
+}
+
+impl HoverMovePolicy {
+    pub const fn level(self) -> u8 {
+        match self {
+            Self::PreserveAll => 0,
+            Self::LightReduction => 1,
+            Self::BalancedReduction => 2,
+            Self::Latest => 3,
+        }
+    }
+
+    pub const fn interval_ms(self) -> Option<u64> {
+        match self {
+            Self::PreserveAll | Self::Latest => None,
+            Self::LightReduction => Some(4),
+            Self::BalancedReduction => Some(8),
+        }
+    }
+}
+
+impl TryFrom<u8> for HoverMovePolicy {
+    type Error = String;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::PreserveAll),
+            1 => Ok(Self::LightReduction),
+            2 => Ok(Self::BalancedReduction),
+            3 => Ok(Self::Latest),
+            _ => Err(format!("hover 轨迹保留策略必须是 0–3，收到 {value}")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -149,6 +197,7 @@ pub struct Config {
     pub show_launch_at_startup_on_main_page: bool,
     pub latest_contact_move_only: bool,
     pub latest_contact_move_tolerance_ms: u32,
+    pub hover_move_policy: HoverMovePolicy,
     pub preempt_previous_stroke: bool,
     pub usb_interface: UsbInterface,
     pub selected_monitor_id: Option<String>,
@@ -170,6 +219,7 @@ impl Default for Config {
             show_launch_at_startup_on_main_page: true,
             latest_contact_move_only: false,
             latest_contact_move_tolerance_ms: 0,
+            hover_move_policy: HoverMovePolicy::default(),
             preempt_previous_stroke: false,
             usb_interface: UsbInterface::default(),
             selected_monitor_id: None,
@@ -362,16 +412,31 @@ mod tests {
         let defaults = Config::default();
         assert!(!defaults.latest_contact_move_only);
         assert!(!defaults.preempt_previous_stroke);
+        assert_eq!(defaults.hover_move_policy, HoverMovePolicy::PreserveAll);
 
         let mut configured = defaults;
         configured.latest_contact_move_only = true;
         configured.latest_contact_move_tolerance_ms = 24;
+        configured.hover_move_policy = HoverMovePolicy::Latest;
         configured.preempt_previous_stroke = true;
         let raw = toml::to_string(&configured).expect("config should serialize");
         let restored = toml::from_str::<Config>(&raw).expect("config should deserialize");
         assert!(restored.latest_contact_move_only);
         assert_eq!(restored.latest_contact_move_tolerance_ms, 24);
+        assert_eq!(restored.hover_move_policy, HoverMovePolicy::Latest);
         assert!(restored.preempt_previous_stroke);
+    }
+
+    #[test]
+    fn old_config_defaults_to_lossless_hover_moves() {
+        let config = Config::default();
+        let raw = toml::to_string_pretty(&config).expect("config should serialize");
+        let mut table = toml::from_str::<toml::Table>(&raw).expect("config should be a table");
+        table.remove("hover_move_policy");
+        let old_raw = toml::to_string(&table).expect("old config should serialize");
+        let restored = toml::from_str::<Config>(&old_raw).expect("old config should deserialize");
+
+        assert_eq!(restored.hover_move_policy, HoverMovePolicy::PreserveAll);
     }
 
     #[test]

@@ -46,7 +46,11 @@ export function ShortcutsPage(props: {
   setRecordingTarget: (value: RecordingTarget | null) => void;
 }) {
   const activePreset = props.data.presets.find((preset) => preset.active);
-  const radialBinding = props.data.effectiveBindings.find((row) => row.id === 'gesture:two_pan');
+  const radialBinding = props.data.effectiveBindings.find(
+    (row) =>
+      (row.id === 'gesture:two_pan' || row.id === 'gesture:three_pan') &&
+      row.activeSpecialAction === 'radialMenu',
+  );
   const sections = useBindingSections(props.data.effectiveBindings);
 
   return (
@@ -161,7 +165,7 @@ function RadialMenuPanel(props: {
     <Panel variant="hero" className="radial-panel">
       <PanelHeader
         title={<>
-          径向菜单 <Badge tone="accent">双指平移</Badge> <Badge tone={props.action.radialInnerEnabled ? 'success' : 'warning'}>{props.action.radialInnerEnabled ? '内环已启用' : '内环已关闭'}</Badge>
+          径向菜单 <Badge tone="accent">在平移类手势中配置</Badge> <Badge tone={props.action.radialInnerEnabled ? 'success' : 'warning'}>{props.action.radialInnerEnabled ? '内环已启用' : '内环已关闭'}</Badge>
         </>}
       />
       <div className="radial-editor-layout">
@@ -218,7 +222,7 @@ function RadialMenuPanel(props: {
           <div className="radial-editor-center">
             <div className="radial-editor-center__copy">
               <div className="radial-editor-center__label">内环启用</div>
-              <div className="radial-editor-center__hint">关闭后双指划动将直接作用于外环</div>
+              <div className="radial-editor-center__hint">关闭后触发径向菜单的平移手势将直接作用于外环</div>
             </div>
             <Switch
               className="radial-inner-switch"
@@ -259,6 +263,7 @@ function BindingItem(props: {
 }) {
   const editingBusyKey = `binding:keys:${props.row.id}`;
   const canEditKeys = Boolean(props.row.editableKeys);
+  const canOpenEditor = canEditKeys || props.row.specialActions.length > 0;
   const isRecording = props.recordingTarget?.kind === 'binding' && props.recordingTarget.bindingId === props.row.id;
   const tokens = canEditKeys ? (props.row.editableKeys ?? []) : actionKeys(props.row.currentAction);
   const displayTokens = gestureDisplayTokens(props.row, tokens);
@@ -273,9 +278,9 @@ function BindingItem(props: {
       <button
         type="button"
         className={isRecording ? 'record-button record-button--active' : 'record-button'}
-        disabled={!canEditKeys || props.busyKey === editingBusyKey}
+        disabled={!canOpenEditor || props.busyKey === editingBusyKey}
         onClick={() => {
-          if (!canEditKeys || props.busyKey === editingBusyKey) return;
+          if (!canOpenEditor || props.busyKey === editingBusyKey) return;
           props.setRecordingTarget(isRecording ? null : { kind: 'binding', bindingId: props.row.id, busyKey: editingBusyKey, mode: 'multi' });
         }}
       >
@@ -339,7 +344,7 @@ function useBindingSections(rows: BindingDto[]) {
     const sections = [
       { key: 'pen', title: '笔', rows: filterBindings(['stylus:squeeze', 'stylus:double_tap']) },
       { key: 'tap', title: '点击', rows: filterBindings(['stylus:two_tap', 'stylus:three_tap', 'stylus:four_tap']) },
-      { key: 'pan', title: '平移', rows: filterBindings(['gesture:three_pan']) },
+      { key: 'pan', title: '平移', rows: filterBindings(['gesture:two_pan', 'gesture:three_pan']) },
       { key: 'pinch', title: '捏合', rows: filterBindings(['gesture:two_pinch']) },
       { key: 'rotate', title: '旋转', rows: filterBindings(['gesture:two_rotate']) },
       { key: 'swipe', title: <>速划 <Badge tone="accent">单指</Badge></>, rows: rows.filter((row) => row.id.startsWith('gesture:swipe:')) },
@@ -401,6 +406,7 @@ function bindingDisplayLabel(row: BindingDto) {
   if (row.id === 'stylus:two_tap') return '双指';
   if (row.id === 'stylus:three_tap') return '三指';
   if (row.id === 'stylus:four_tap') return '四指';
+  if (row.id === 'gesture:two_pan') return '双指';
   if (row.id === 'gesture:three_pan') return '三指';
   if (row.id === 'gesture:two_pinch') return '双指';
   if (row.id === 'gesture:two_rotate') return '双指';

@@ -2,12 +2,12 @@ use std::{
     path::PathBuf,
     sync::{
         Arc, Mutex, RwLock,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
     },
 };
 
 use crate::{
-    config::{Config, PressureCurve, UsbInterface},
+    config::{Config, HoverMovePolicy, PressureCurve, UsbInterface},
     error::AppError,
     session::SharedSessionService,
     shortcut::{
@@ -26,6 +26,7 @@ pub type SharedInputProcessingSettings = Arc<InputProcessingSettings>;
 pub struct InputProcessingSettings {
     pub latest_contact_move_only: AtomicBool,
     pub latest_contact_move_tolerance_ms: AtomicU64,
+    pub hover_move_policy: AtomicU8,
     pub preempt_previous_stroke: AtomicBool,
 }
 
@@ -36,6 +37,7 @@ impl InputProcessingSettings {
             latest_contact_move_tolerance_ms: AtomicU64::new(u64::from(
                 config.latest_contact_move_tolerance_ms,
             )),
+            hover_move_policy: AtomicU8::new(config.hover_move_policy.level()),
             preempt_previous_stroke: AtomicBool::new(config.preempt_previous_stroke),
         }
     }
@@ -659,6 +661,20 @@ impl AppRuntime {
         Ok(())
     }
 
+    pub fn set_hover_move_policy(&self, policy: HoverMovePolicy) -> Result<(), AppError> {
+        let mut config = self
+            .config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))?;
+        config.hover_move_policy = policy;
+        config.normalize();
+        config.save(&self.config_path)?;
+        self.input_processing_settings
+            .hover_move_policy
+            .store(policy.level(), Ordering::Release);
+        Ok(())
+    }
+
     pub fn set_preempt_previous_stroke(&self, enabled: bool) -> Result<(), AppError> {
         let mut config = self
             .config
@@ -908,8 +924,7 @@ fn keyboard_action_from_keys(
         _ => {}
     }
     match binding {
-        BindingId::StylusTrigger(StylusTrigger::FourTap)
-        | BindingId::Gesture(GestureBinding::TwoPan) => Err(AppError::DesktopShell(
+        BindingId::StylusTrigger(StylusTrigger::FourTap) => Err(AppError::DesktopShell(
             "this binding has a fixed system action".to_string(),
         )),
         BindingId::Gesture(GestureBinding::LongPress { .. })
@@ -958,19 +973,32 @@ fn special_action_for_binding(
             button: MouseButton::Right,
             anchor: PointerAnchor::CurrentHoverOrLastInRange,
         },
-        (BindingId::Gesture(GestureBinding::ThreePan), SpecialAction::PointerMove) => {
+        (
+            BindingId::Gesture(GestureBinding::TwoPan | GestureBinding::ThreePan),
+            SpecialAction::RadialMenu,
+        ) => AdvancedAction::ReservedRadialMenu,
+        (
+            BindingId::Gesture(GestureBinding::TwoPan | GestureBinding::ThreePan),
+            SpecialAction::PointerMove,
+        ) => {
             AdvancedAction::PointerDrag {
                 modifiers: keys,
                 button: None,
             }
         }
-        (BindingId::Gesture(GestureBinding::ThreePan), SpecialAction::PointerDragLeft) => {
+        (
+            BindingId::Gesture(GestureBinding::TwoPan | GestureBinding::ThreePan),
+            SpecialAction::PointerDragLeft,
+        ) => {
             AdvancedAction::PointerDrag {
                 modifiers: keys,
                 button: Some(MouseButton::Left),
             }
         }
-        (BindingId::Gesture(GestureBinding::ThreePan), SpecialAction::PointerDragRight) => {
+        (
+            BindingId::Gesture(GestureBinding::TwoPan | GestureBinding::ThreePan),
+            SpecialAction::PointerDragRight,
+        ) => {
             AdvancedAction::PointerDrag {
                 modifiers: keys,
                 button: Some(MouseButton::Right),
@@ -1007,8 +1035,7 @@ fn keyboard_action_without_special(
     keys: Vec<KeyCode>,
 ) -> Result<ShortcutAction, AppError> {
     match binding {
-        BindingId::StylusTrigger(StylusTrigger::FourTap)
-        | BindingId::Gesture(GestureBinding::TwoPan) => Err(AppError::DesktopShell(
+        BindingId::StylusTrigger(StylusTrigger::FourTap) => Err(AppError::DesktopShell(
             "this binding has a fixed system action".to_string(),
         )),
         BindingId::Gesture(GestureBinding::LongPress { .. })

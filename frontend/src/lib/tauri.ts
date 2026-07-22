@@ -1,5 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
+export type HoverMovePolicyLevel = 0 | 1 | 2 | 3;
+
 export interface ShortcutPresetDto {
   id: string;
   name: string;
@@ -67,6 +69,7 @@ export interface AppBootstrapDto {
   showLaunchAtStartupOnMainPage: boolean;
   latestContactMoveOnly: boolean;
   latestContactMoveToleranceMs: number;
+  hoverMovePolicy: HoverMovePolicyLevel;
   preemptPreviousStroke: boolean;
   usbInterface: string;
   ipv4Values: string[];
@@ -170,6 +173,10 @@ export async function setLatestContactMoveOnly(enabled: boolean) {
 
 export async function setLatestContactMoveToleranceMs(toleranceMs: number) {
   return invoke('set_latest_contact_move_tolerance_ms', { toleranceMs });
+}
+
+export async function setHoverMovePolicy(level: HoverMovePolicyLevel) {
+  return invoke('set_hover_move_policy', { level });
 }
 
 export async function setPreemptPreviousStroke(enabled: boolean) {

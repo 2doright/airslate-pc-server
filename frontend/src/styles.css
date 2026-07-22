@@ -2403,6 +2403,35 @@ select:disabled {
   accent-color: var(--accent);
 }
 
+.settings-range-row--hover {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+.settings-range-ticks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 7px;
+  color: var(--faint);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.settings-range-ticks span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-range-ticks span:nth-child(2),
+.settings-range-ticks span:nth-child(3) {
+  text-align: center;
+}
+
+.settings-range-ticks span:last-child {
+  text-align: right;
+}
+
 .settings-range-row p {
   margin: 7px 0 0;
   color: var(--muted);

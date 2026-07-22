@@ -9,7 +9,7 @@ use super::dto::{
 use super::local_ip::lan_ipv4_values;
 use crate::{
     app::AppContext,
-    config::{PressureCurve, PressureCurveControlPoint, UsbInterface},
+    config::{HoverMovePolicy, PressureCurve, PressureCurveControlPoint, UsbInterface},
     error::AppError,
     shortcut::{KeyCode, RadialInnerBindings, SpecialAction},
 };
@@ -195,6 +195,15 @@ pub fn set_latest_contact_move_tolerance_ms(
     state
         .runtime
         .set_latest_contact_move_tolerance_ms(tolerance_ms)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_hover_move_policy(state: State<'_, AppContext>, level: u8) -> Result<(), String> {
+    let policy = HoverMovePolicy::try_from(level).map_err(|error| error.to_string())?;
+    state
+        .runtime
+        .set_hover_move_policy(policy)
         .map_err(error_message)
 }
 

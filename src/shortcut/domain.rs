@@ -851,6 +851,7 @@ pub enum ShortcutAction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpecialAction {
     None,
+    RadialMenu,
     PointerClickLeft,
     PointerClickRight,
     PointerMove,
@@ -864,6 +865,7 @@ impl SpecialAction {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "none" => Some(Self::None),
+            "radialMenu" => Some(Self::RadialMenu),
             "pointerClickLeft" => Some(Self::PointerClickLeft),
             "pointerClickRight" => Some(Self::PointerClickRight),
             "pointerMove" => Some(Self::PointerMove),

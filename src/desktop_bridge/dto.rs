@@ -25,6 +25,7 @@ pub struct AppBootstrapDto {
     pub show_launch_at_startup_on_main_page: bool,
     pub latest_contact_move_only: bool,
     pub latest_contact_move_tolerance_ms: u32,
+    pub hover_move_policy: u8,
     pub preempt_previous_stroke: bool,
     pub usb_interface: String,
     pub ipv4_values: Vec<String>,
@@ -191,6 +192,7 @@ pub fn app_bootstrap(
         show_launch_at_startup_on_main_page: config.show_launch_at_startup_on_main_page,
         latest_contact_move_only: config.latest_contact_move_only,
         latest_contact_move_tolerance_ms: config.latest_contact_move_tolerance_ms,
+        hover_move_policy: config.hover_move_policy.level(),
         preempt_previous_stroke: config.preempt_previous_stroke,
         usb_interface: config.usb_interface.to_string(),
         ipv4_values: lan_ipv4_values(),
@@ -321,7 +323,7 @@ fn binding_label(binding: BindingId) -> String {
             StylusTrigger::FourTap => "笔轻点 ×4".to_string(),
         },
         BindingId::Gesture(gesture) => match gesture {
-            GestureBinding::TwoPan => "双指平移 · 径向菜单".to_string(),
+            GestureBinding::TwoPan => "双指平移".to_string(),
             GestureBinding::ThreePan => "三指平移".to_string(),
             GestureBinding::TwoPinch => "双指捏合".to_string(),
             GestureBinding::TwoRotate => "双指旋转".to_string(),
@@ -339,9 +341,8 @@ fn binding_label(binding: BindingId) -> String {
 
 fn category_label(binding: BindingId) -> &'static str {
     match binding {
-        BindingId::Gesture(GestureBinding::TwoPan) => "Radial Menu",
+        BindingId::Gesture(GestureBinding::TwoPan | GestureBinding::ThreePan) => "Pan",
         BindingId::StylusTrigger(_) => "笔触发",
-        BindingId::Gesture(GestureBinding::ThreePan) => "Pan",
         BindingId::Gesture(GestureBinding::TwoPinch | GestureBinding::TwoRotate) => {
             "Pinch / Rotate"
         }
@@ -582,6 +583,7 @@ fn active_special_action(action: &ShortcutAction) -> &'static str {
         }) => "pointerDragRight",
         ShortcutAction::Advanced(AdvancedAction::PointerWheel { .. }) => "pointerWheel",
         ShortcutAction::Advanced(AdvancedAction::PointerRotate { .. }) => "pointerRotate",
+        ShortcutAction::Advanced(AdvancedAction::ReservedRadialMenu) => "radialMenu",
         _ => "none",
     }
 }
@@ -598,8 +600,9 @@ fn special_action_options(binding: BindingId) -> Vec<SpecialActionOptionDto> {
             ("pointerClickLeft", "鼠标左键"),
             ("pointerClickRight", "鼠标右键"),
         ],
-        BindingId::Gesture(GestureBinding::ThreePan) => &[
+        BindingId::Gesture(GestureBinding::TwoPan | GestureBinding::ThreePan) => &[
             ("none", "无特殊动作"),
+            ("radialMenu", "径向菜单"),
             ("pointerMove", "按手势坐标移动"),
             ("pointerDragLeft", "按住左键移动"),
             ("pointerDragRight", "按住右键移动"),

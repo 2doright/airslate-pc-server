@@ -9,6 +9,7 @@ use std::{
 };
 
 use crate::app::state::{PRESSURE_LUT_SIZE, SharedInputProcessingSettings, SharedPressureSettings};
+use crate::config::HoverMovePolicy;
 
 use tracing::{info, warn};
 
@@ -453,12 +454,25 @@ impl StylusInputPipeline {
             .input_processing_settings
             .latest_contact_move_tolerance_ms
             .load(Ordering::Acquire);
-        let result = if latest_only || preempt {
+        let hover_policy = HoverMovePolicy::try_from(
+            self.input_processing_settings
+                .hover_move_policy
+                .load(Ordering::Acquire),
+        )
+        .expect("runtime hover move policy should be a valid level");
+        let result = if latest_only || preempt || hover_policy != HoverMovePolicy::PreserveAll {
             self.stylus_queue.push_mutating(event, |events, incoming| {
-                compact_stylus_queue(events, incoming, latest_only, tolerance_ms, preempt)
+                compact_stylus_queue(
+                    events,
+                    incoming,
+                    latest_only,
+                    tolerance_ms,
+                    hover_policy,
+                    preempt,
+                )
             })
         } else {
-            self.stylus_queue.push_with(event, can_coalesce_stylus)
+            self.stylus_queue.push(event)
         };
         match result {
             Ok(depth) => self.metrics.record_queue_depth(depth),
@@ -485,6 +499,7 @@ fn compact_stylus_queue(
     incoming: &StylusWorkerEvent,
     latest_only: bool,
     tolerance_ms: u64,
+    hover_policy: HoverMovePolicy,
     preempt: bool,
 ) {
     let StylusWorkerEvent::Stylus { session_id, sample } = incoming else {
@@ -512,26 +527,45 @@ fn compact_stylus_queue(
             }
         }
     }
-}
+    if sample.frame.event_type != StylusEventType::Move
+        || sample.frame.flags.is_contact()
+        || hover_policy == HoverMovePolicy::PreserveAll
+    {
+        return;
+    }
 
-fn can_coalesce_stylus(queued: &StylusWorkerEvent, incoming: &StylusWorkerEvent) -> bool {
-    matches!(
-        (queued, incoming),
-        (
+    for index in (0..events.len()).rev() {
+        let is_consecutive_hover_move = matches!(
+            &events[index],
             StylusWorkerEvent::Stylus {
                 session_id: queued_session,
                 sample: queued_sample,
-            },
-            StylusWorkerEvent::Stylus {
-                session_id: incoming_session,
-                sample: incoming_sample,
-            },
-        ) if queued_session == incoming_session
-            && queued_sample.frame.event_type == StylusEventType::Move
-            && incoming_sample.frame.event_type == StylusEventType::Move
-            && !queued_sample.frame.flags.is_contact()
-            && !incoming_sample.frame.flags.is_contact()
-    )
+            } if queued_session == session_id
+                && queued_sample.frame.event_type == StylusEventType::Move
+                && !queued_sample.frame.flags.is_contact()
+        );
+        if !is_consecutive_hover_move {
+            break;
+        }
+
+        let should_remove = matches!(hover_policy, HoverMovePolicy::Latest)
+            || hover_policy.interval_ms().is_some_and(|interval_ms| {
+                let StylusWorkerEvent::Stylus {
+                    sample: queued_sample,
+                    ..
+                } = &events[index]
+                else {
+                    unreachable!("matching hover event should be stylus data");
+                };
+                sample
+                    .accepted_at
+                    .saturating_duration_since(queued_sample.accepted_at)
+                    < Duration::from_millis(interval_ms)
+            });
+        if should_remove {
+            events.remove(index);
+        }
+    }
 }
 
 fn can_coalesce_shortcut(queued: &ShortcutWorkerEvent, incoming: &ShortcutWorkerEvent) -> bool {
@@ -1241,7 +1275,14 @@ mod tests {
             unreachable!()
         };
         sample.accepted_at = Instant::now() - Duration::from_millis(20);
-        compact_stylus_queue(&mut events, &incoming, true, 10, false);
+        compact_stylus_queue(
+            &mut events,
+            &incoming,
+            true,
+            10,
+            HoverMovePolicy::PreserveAll,
+            false,
+        );
 
         assert_eq!(events.len(), 4);
         assert!(events.iter().any(|event| matches!(event, StylusWorkerEvent::Stylus { sample, .. } if sample.frame.seq == 2)));
@@ -1255,7 +1296,14 @@ mod tests {
             contact_move(2, 2, 0.5),
         ]);
         let incoming = contact_move(3, 3, 0.5);
-        compact_stylus_queue(&mut events, &incoming, true, 100, false);
+        compact_stylus_queue(
+            &mut events,
+            &incoming,
+            true,
+            100,
+            HoverMovePolicy::PreserveAll,
+            false,
+        );
 
         assert_eq!(events.len(), 2);
         assert!(events.iter().any(|event| matches!(event, StylusWorkerEvent::Stylus { sample, .. } if sample.frame.seq == 2)));
@@ -1270,7 +1318,14 @@ mod tests {
             },
         ]);
         let incoming = stylus_worker_event(3, StylusEventType::Down);
-        compact_stylus_queue(&mut events, &incoming, false, 0, true);
+        compact_stylus_queue(
+            &mut events,
+            &incoming,
+            false,
+            0,
+            HoverMovePolicy::PreserveAll,
+            true,
+        );
 
         assert_eq!(events.len(), 1);
         assert!(matches!(
@@ -1280,22 +1335,20 @@ mod tests {
     }
 
     #[test]
-    fn realtime_queue_keeps_only_latest_consecutive_stylus_move() {
+    fn realtime_queue_preserves_all_hover_moves_by_default() {
         let queue = RealtimeQueue::new();
 
         queue
-            .push_with(
-                stylus_worker_event(1, StylusEventType::Move),
-                can_coalesce_stylus,
-            )
+            .push(stylus_worker_event(1, StylusEventType::Move))
             .expect("first move should queue");
         queue
-            .push_with(
-                stylus_worker_event(2, StylusEventType::Move),
-                can_coalesce_stylus,
-            )
-            .expect("latest move should replace queued move");
+            .push(stylus_worker_event(2, StylusEventType::Move))
+            .expect("second move should queue");
 
+        assert!(matches!(
+            queue.recv(),
+            Some(StylusWorkerEvent::Stylus { sample, .. }) if sample.frame.seq == 1
+        ));
         assert!(matches!(
             queue.recv(),
             Some(StylusWorkerEvent::Stylus { sample, .. }) if sample.frame.seq == 2
@@ -1303,7 +1356,77 @@ mod tests {
     }
 
     #[test]
-    fn realtime_queue_preserves_key_events_between_stylus_moves() {
+    fn hover_reduction_policies_use_their_declared_intervals() {
+        let now = Instant::now();
+        for (policy, age_ms, should_remove) in [
+            (HoverMovePolicy::LightReduction, 3, true),
+            (HoverMovePolicy::LightReduction, 5, false),
+            (HoverMovePolicy::BalancedReduction, 5, true),
+            (HoverMovePolicy::BalancedReduction, 9, false),
+        ] {
+            let mut queued = stylus_worker_event(1, StylusEventType::Move);
+            let mut incoming = stylus_worker_event(2, StylusEventType::Move);
+            let StylusWorkerEvent::Stylus {
+                sample: queued_sample,
+                ..
+            } = &mut queued
+            else {
+                unreachable!("helper always creates a stylus event");
+            };
+            queued_sample.accepted_at = now - Duration::from_millis(age_ms);
+            let StylusWorkerEvent::Stylus {
+                sample: incoming_sample,
+                ..
+            } = &mut incoming
+            else {
+                unreachable!("helper always creates a stylus event");
+            };
+            incoming_sample.accepted_at = now;
+
+            let mut events = VecDeque::from([queued]);
+            compact_stylus_queue(&mut events, &incoming, false, 0, policy, false);
+
+            assert_eq!(events.is_empty(), should_remove);
+        }
+    }
+
+    #[test]
+    fn latest_hover_policy_removes_only_the_current_consecutive_hover_run() {
+        let mut events = VecDeque::from([
+            stylus_worker_event(1, StylusEventType::Down),
+            stylus_worker_event(2, StylusEventType::Move),
+            stylus_worker_event(3, StylusEventType::Move),
+            stylus_worker_event(4, StylusEventType::Up),
+            stylus_worker_event(5, StylusEventType::Move),
+        ]);
+        let incoming = stylus_worker_event(6, StylusEventType::Move);
+
+        compact_stylus_queue(
+            &mut events,
+            &incoming,
+            false,
+            0,
+            HoverMovePolicy::Latest,
+            false,
+        );
+
+        assert_eq!(events.len(), 4);
+        assert!(events.iter().any(|event| matches!(
+            event,
+            StylusWorkerEvent::Stylus { sample, .. } if sample.frame.seq == 2
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            StylusWorkerEvent::Stylus { sample, .. } if sample.frame.seq == 3
+        )));
+        assert!(!events.iter().any(|event| matches!(
+            event,
+            StylusWorkerEvent::Stylus { sample, .. } if sample.frame.seq == 5
+        )));
+    }
+
+    #[test]
+    fn realtime_queue_preserves_stylus_events_by_default() {
         let queue = RealtimeQueue::new();
         for (seq, event_type) in [
             (1, StylusEventType::Move),
@@ -1312,13 +1435,14 @@ mod tests {
             (4, StylusEventType::Move),
         ] {
             queue
-                .push_with(stylus_worker_event(seq, event_type), can_coalesce_stylus)
+                .push(stylus_worker_event(seq, event_type))
                 .expect("stylus event should queue");
         }
 
         for (expected_seq, expected_type) in [
             (1, StylusEventType::Move),
             (2, StylusEventType::Up),
+            (3, StylusEventType::Move),
             (4, StylusEventType::Move),
         ] {
             assert!(matches!(
@@ -1335,10 +1459,7 @@ mod tests {
         let queue = RealtimeQueue::new();
         for seq in [1, 2] {
             queue
-                .push_with(
-                    contact_move(seq, 10 + u64::from(seq), seq as f32 / 2.0),
-                    can_coalesce_stylus,
-                )
+                .push(contact_move(seq, 10 + u64::from(seq), seq as f32 / 2.0))
                 .expect("contact move should queue");
         }
 
@@ -1357,10 +1478,7 @@ mod tests {
         let queue = RealtimeQueue::new();
         for seq in 1..=9 {
             queue
-                .push_with(
-                    contact_move(seq, u64::from(seq), seq as f32 / 9.0),
-                    can_coalesce_stylus,
-                )
+                .push(contact_move(seq, u64::from(seq), seq as f32 / 9.0))
                 .expect("contact move should queue");
         }
 
@@ -1377,9 +1495,7 @@ mod tests {
     fn realtime_queue_preserves_contact_moves_regardless_of_age() {
         let queue = RealtimeQueue::new();
         for event in [contact_move(1, 100, 0.8), contact_move(2, 117, 0.5)] {
-            queue
-                .push_with(event, can_coalesce_stylus)
-                .expect("contact move should queue");
+            queue.push(event).expect("contact move should queue");
         }
 
         assert!(matches!(
@@ -1402,9 +1518,7 @@ mod tests {
             stylus_worker_event(2, StylusEventType::Up),
             contact_move(3, 120, 0.5),
         ] {
-            queue
-                .push_with(event, can_coalesce_stylus)
-                .expect("stylus event should queue");
+            queue.push(event).expect("stylus event should queue");
         }
 
         for expected_seq in [1, 2, 3] {

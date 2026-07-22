@@ -145,7 +145,7 @@ mod tests {
     }
 
     #[test]
-    fn keeps_two_pan_reserved_for_future_radial_menu() {
+    fn defaults_two_pan_to_radial_menu() {
         assert_eq!(
             DefaultPreset.action_for(BindingId::Gesture(GestureBinding::TwoPan)),
             ShortcutAction::Advanced(AdvancedAction::ReservedRadialMenu)

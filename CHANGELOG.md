@@ -4,6 +4,11 @@
 
 _No changes yet._
 
+## 1.6.2 - 2026-07-22
+
+- added an Advanced four-level Hover trajectory retention slider: the default preserves every hover point, the two middle levels merge points within 4 ms or 8 ms, and the highest level keeps only the latest queued hover point
+- added two-finger pan to the shortcut list and made the radial menu an optional special action for two- and three-finger pan gestures
+
 ## 1.6.1 - 2026-07-18
 
 - added a persisted General setting for the initial Harmony USB interface signature (class/subclass/protocol), defaulting to `FF/50/01` and applying to the live USB discovery scan
