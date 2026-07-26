@@ -28,6 +28,12 @@ const LOGICAL_COORD_MAX: u16 = 32_767;
 const WINDOWS_PRESSURE_MAX: u32 = 1_024;
 const WINDOWS_TILT_MIN: i32 = -90;
 const WINDOWS_TILT_MAX: i32 = 90;
+// The timer starts only after hover has entered this local region. Four hundred
+// milliseconds keeps ordinary visually guided taps out of the anchored class.
+const PRECISE_ANCHOR_MIN_DURATION_MS: u64 = 400;
+const PRECISE_ANCHOR_MIN_SAMPLES: u16 = 4;
+// 96 logical units are about 0.29% of either normalized tablet axis.
+const PRECISE_ANCHOR_RADIUS: i32 = 96;
 
 pub trait PenInjector: Send + Sync {
     fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError>;
@@ -64,6 +70,168 @@ struct ActivePenState {
     tablet_y: u16,
     in_range: bool,
     is_contact: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PenCoordinate {
+    x: i32,
+    y: i32,
+    tablet_x: u16,
+    tablet_y: u16,
+}
+
+impl From<&PenInjectionCommand> for PenCoordinate {
+    fn from(command: &PenInjectionCommand) -> Self {
+        Self {
+            x: command.x,
+            y: command.y,
+            tablet_x: command.tablet_x,
+            tablet_y: command.tablet_y,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct HoverAnchorCandidate {
+    origin: PenCoordinate,
+    last: PenCoordinate,
+    stable_since_ms: u64,
+    last_timestamp_ms: u64,
+    sample_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct StrokeCoordinateOffset {
+    x: i32,
+    y: i32,
+    tablet_x: i32,
+    tablet_y: i32,
+}
+
+#[derive(Default)]
+struct PreciseAnchorCorrector {
+    hover_candidate: Option<HoverAnchorCandidate>,
+    stroke_offset: Option<StrokeCoordinateOffset>,
+}
+
+impl PreciseAnchorCorrector {
+    fn process(
+        &mut self,
+        frame: &StylusFrame,
+        mut command: PenInjectionCommand,
+        enabled: bool,
+    ) -> PenInjectionCommand {
+        if !enabled {
+            self.reset();
+            return command;
+        }
+
+        if frame.event_type == StylusEventType::Move && command.in_range && !command.is_contact {
+            self.stroke_offset = None;
+            self.observe_hover(frame.timestamp, &command);
+            return command;
+        }
+
+        if frame.event_type == StylusEventType::Down && command.is_contact {
+            self.stroke_offset = self.offset_for_down(&command);
+            self.hover_candidate = None;
+        }
+
+        if let Some(offset) = self.stroke_offset
+            && (command.is_contact
+                || matches!(
+                    frame.event_type,
+                    StylusEventType::Down | StylusEventType::Up | StylusEventType::Cancel
+                ))
+        {
+            apply_coordinate_offset(&mut command, offset);
+        }
+
+        if frame.event_type == StylusEventType::Cancel
+            || (!command.in_range && !command.is_contact)
+        {
+            self.reset();
+        } else if frame.event_type == StylusEventType::Up {
+            self.stroke_offset = None;
+        }
+
+        command
+    }
+
+    fn observe_hover(&mut self, timestamp_ms: u64, command: &PenInjectionCommand) {
+        let current = PenCoordinate::from(command);
+        let Some(candidate) = &mut self.hover_candidate else {
+            self.hover_candidate = Some(HoverAnchorCandidate {
+                origin: current,
+                last: current,
+                stable_since_ms: timestamp_ms,
+                last_timestamp_ms: timestamp_ms,
+                sample_count: 1,
+            });
+            return;
+        };
+
+        if timestamp_ms <= candidate.last_timestamp_ms
+            || squared_tablet_distance(candidate.origin, current)
+                > i64::from(PRECISE_ANCHOR_RADIUS).pow(2)
+        {
+            *candidate = HoverAnchorCandidate {
+                origin: current,
+                last: current,
+                stable_since_ms: timestamp_ms,
+                last_timestamp_ms: timestamp_ms,
+                sample_count: 1,
+            };
+            return;
+        }
+
+        candidate.last = current;
+        candidate.last_timestamp_ms = timestamp_ms;
+        candidate.sample_count = candidate.sample_count.saturating_add(1);
+    }
+
+    fn offset_for_down(&self, down: &PenInjectionCommand) -> Option<StrokeCoordinateOffset> {
+        let candidate = self.hover_candidate?;
+        let stable_duration_ms = candidate
+            .last_timestamp_ms
+            .checked_sub(candidate.stable_since_ms)?;
+        if stable_duration_ms < PRECISE_ANCHOR_MIN_DURATION_MS
+            || candidate.sample_count < PRECISE_ANCHOR_MIN_SAMPLES
+        {
+            return None;
+        }
+
+        Some(StrokeCoordinateOffset {
+            x: down.x - candidate.last.x,
+            y: down.y - candidate.last.y,
+            tablet_x: i32::from(down.tablet_x) - i32::from(candidate.last.tablet_x),
+            tablet_y: i32::from(down.tablet_y) - i32::from(candidate.last.tablet_y),
+        })
+    }
+
+    fn reset(&mut self) {
+        self.hover_candidate = None;
+        self.stroke_offset = None;
+    }
+
+    fn clear_stroke(&mut self) {
+        self.stroke_offset = None;
+    }
+}
+
+fn squared_tablet_distance(left: PenCoordinate, right: PenCoordinate) -> i64 {
+    let delta_x = i64::from(left.tablet_x) - i64::from(right.tablet_x);
+    let delta_y = i64::from(left.tablet_y) - i64::from(right.tablet_y);
+    delta_x * delta_x + delta_y * delta_y
+}
+
+fn apply_coordinate_offset(command: &mut PenInjectionCommand, offset: StrokeCoordinateOffset) {
+    command.x -= offset.x;
+    command.y -= offset.y;
+    command.tablet_x = (i32::from(command.tablet_x) - offset.tablet_x)
+        .clamp(0, i32::from(LOGICAL_COORD_MAX)) as u16;
+    command.tablet_y = (i32::from(command.tablet_y) - offset.tablet_y)
+        .clamp(0, i32::from(LOGICAL_COORD_MAX)) as u16;
 }
 
 enum StylusWorkerEvent {
@@ -408,12 +576,14 @@ impl StylusInputPipeline {
         let stylus_pressure_settings = pressure_settings.clone();
         let stylus_worker_queue = stylus_queue.clone();
         let stylus_worker_metrics = metrics.clone();
+        let stylus_input_processing_settings = input_processing_settings.clone();
         let stylus_worker = thread::spawn(move || {
             StylusWorker::new(
                 stylus_workspace,
                 injector,
                 stylus_pressure_settings,
                 stylus_worker_metrics,
+                stylus_input_processing_settings,
             )
             .run(stylus_worker_queue);
         });
@@ -706,8 +876,10 @@ struct StylusWorker {
     injector: Arc<dyn PenInjector>,
     pressure_settings: SharedPressureSettings,
     metrics: Arc<InputPipelineMetrics>,
+    input_processing_settings: SharedInputProcessingSettings,
     state: Option<ActivePenState>,
     ended_sessions: HashSet<String>,
+    precise_anchor_corrector: PreciseAnchorCorrector,
 }
 
 impl StylusWorker {
@@ -716,14 +888,17 @@ impl StylusWorker {
         injector: Arc<dyn PenInjector>,
         pressure_settings: SharedPressureSettings,
         metrics: Arc<InputPipelineMetrics>,
+        input_processing_settings: SharedInputProcessingSettings,
     ) -> Self {
         Self {
             workspace,
             injector,
             pressure_settings,
             metrics,
+            input_processing_settings,
             state: None,
             ended_sessions: HashSet::new(),
+            precise_anchor_corrector: PreciseAnchorCorrector::default(),
         }
     }
 
@@ -777,6 +952,20 @@ impl StylusWorker {
                 map_stylus_frame(&monitor, &sample.frame, pressure)
             }
         };
+        if self
+            .state
+            .as_ref()
+            .is_some_and(|active| active.session_id != session_id)
+        {
+            self.precise_anchor_corrector.reset();
+        }
+        let correction_enabled = self
+            .input_processing_settings
+            .precise_anchor_correction_enabled
+            .load(Ordering::Acquire);
+        let command =
+            self.precise_anchor_corrector
+                .process(&sample.frame, command, correction_enabled);
         self.record_command_state(&session_id, &command);
 
         let injection_started = self.metrics.injection_started();
@@ -801,6 +990,7 @@ impl StylusWorker {
         if !active.is_contact {
             return;
         }
+        self.precise_anchor_corrector.clear_stroke();
         let cancel = PenInjectionCommand {
             x: active.x,
             y: active.y,
@@ -823,6 +1013,7 @@ impl StylusWorker {
 
     fn handle_session_end(&mut self, session_id: String) {
         self.ended_sessions.insert(session_id.clone());
+        self.precise_anchor_corrector.reset();
 
         let Some(active) = self.state.take() else {
             return;
@@ -1173,6 +1364,189 @@ mod tests {
             flags: StylusFlags(flags),
             reserved_ext: 0,
         }
+    }
+
+    fn pen_command(
+        kind: PenInjectionCommandKind,
+        in_range: bool,
+        is_contact: bool,
+        x: i32,
+        y: i32,
+        tablet_x: u16,
+        tablet_y: u16,
+    ) -> PenInjectionCommand {
+        PenInjectionCommand {
+            x,
+            y,
+            tablet_x,
+            tablet_y,
+            kind,
+            in_range,
+            is_contact,
+            pressure: if is_contact { 512 } else { 0 },
+            tilt_x: 0,
+            tilt_y: 0,
+        }
+    }
+
+    #[test]
+    fn precise_anchor_correction_translates_the_complete_contact_stroke() {
+        let mut corrector = PreciseAnchorCorrector::default();
+        for (timestamp, x, y) in [
+            (1_000, 1_000, 2_000),
+            (1_140, 1_006, 2_004),
+            (1_280, 1_003, 2_008),
+            (1_400, 1_008, 2_006),
+        ] {
+            let mut frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, y);
+            frame.timestamp = timestamp;
+            let command = pen_command(
+                PenInjectionCommandKind::Update,
+                true,
+                false,
+                i32::from(x) * 2,
+                i32::from(y) * 2,
+                x,
+                y,
+            );
+            assert_eq!(corrector.process(&frame, command.clone(), true), command);
+        }
+
+        let mut down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_608, 1_506);
+        down_frame.timestamp = 1_410;
+        let down = pen_command(
+            PenInjectionCommandKind::Down,
+            true,
+            true,
+            3_216,
+            3_012,
+            1_608,
+            1_506,
+        );
+        let corrected_down = corrector.process(&down_frame, down, true);
+        assert_eq!((corrected_down.x, corrected_down.y), (2_016, 4_012));
+        assert_eq!(
+            (corrected_down.tablet_x, corrected_down.tablet_y),
+            (1_008, 2_006)
+        );
+
+        let move_frame = stylus_frame(StylusEventType::Move, 0b0000_0011, 1_658, 1_556);
+        let movement = pen_command(
+            PenInjectionCommandKind::Update,
+            true,
+            true,
+            3_316,
+            3_112,
+            1_658,
+            1_556,
+        );
+        let corrected_move = corrector.process(&move_frame, movement, true);
+        assert_eq!((corrected_move.x, corrected_move.y), (2_116, 4_112));
+        assert_eq!(
+            (corrected_move.tablet_x, corrected_move.tablet_y),
+            (1_058, 2_056)
+        );
+
+        let up_frame = stylus_frame(StylusEventType::Up, 0b0000_0001, 1_688, 1_586);
+        let up = pen_command(
+            PenInjectionCommandKind::Up,
+            true,
+            false,
+            3_376,
+            3_172,
+            1_688,
+            1_586,
+        );
+        let corrected_up = corrector.process(&up_frame, up, true);
+        assert_eq!((corrected_up.x, corrected_up.y), (2_176, 4_172));
+        assert_eq!(
+            (corrected_up.tablet_x, corrected_up.tablet_y),
+            (1_088, 2_086)
+        );
+    }
+
+    #[test]
+    fn precise_anchor_correction_rejects_short_or_moving_hover() {
+        let mut corrector = PreciseAnchorCorrector::default();
+        for (timestamp, x) in [(1_000, 1_000), (1_100, 1_200), (1_180, 1_202)] {
+            let mut frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
+            frame.timestamp = timestamp;
+            let command = pen_command(
+                PenInjectionCommandKind::Update,
+                true,
+                false,
+                i32::from(x),
+                2_000,
+                x,
+                2_000,
+            );
+            corrector.process(&frame, command, true);
+        }
+
+        let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_250, 2_000);
+        let down = pen_command(
+            PenInjectionCommandKind::Down,
+            true,
+            true,
+            1_250,
+            2_000,
+            1_250,
+            2_000,
+        );
+
+        assert_eq!(corrector.process(&down_frame, down.clone(), true), down);
+    }
+
+    #[test]
+    fn precise_anchor_correction_discards_anchor_after_leaving_hover_range() {
+        let mut corrector = PreciseAnchorCorrector::default();
+        for timestamp in [1_000, 1_140, 1_280, 1_400] {
+            let mut frame =
+                stylus_frame(StylusEventType::Move, 0b0000_0001, 1_000, 2_000);
+            frame.timestamp = timestamp;
+            corrector.process(
+                &frame,
+                pen_command(
+                    PenInjectionCommandKind::Update,
+                    true,
+                    false,
+                    1_000,
+                    2_000,
+                    1_000,
+                    2_000,
+                ),
+                true,
+            );
+        }
+
+        let out_of_range = stylus_frame(StylusEventType::Move, 0, 1_000, 2_000);
+        corrector.process(
+            &out_of_range,
+            pen_command(
+                PenInjectionCommandKind::Update,
+                false,
+                false,
+                1_000,
+                2_000,
+                1_000,
+                2_000,
+            ),
+            true,
+        );
+
+        let down_frame =
+            stylus_frame(StylusEventType::Down, 0b0000_0011, 1_500, 2_500);
+        let down = pen_command(
+            PenInjectionCommandKind::Down,
+            true,
+            true,
+            1_500,
+            2_500,
+            1_500,
+            2_500,
+        );
+
+        assert_eq!(corrector.process(&down_frame, down.clone(), true), down);
     }
 
     fn test_pressure_settings() -> SharedPressureSettings {

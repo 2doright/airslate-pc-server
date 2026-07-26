@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-_No changes yet._
+- run the complete Rust test suite on both Windows and macOS before packaging a tagged release
+- added default-on smart pen-down calibration that recognizes a locally anchored hover, removes
+  the HarmonyOS hover-to-touch coordinate discontinuity from the complete stroke, and exposes the
+  behavior in General settings
+- publish semantic-version tags with a prerelease suffix as GitHub Pre-releases without replacing
+  the stable Windows updater manifest
 
 ## 1.6.2 - 2026-07-22
 

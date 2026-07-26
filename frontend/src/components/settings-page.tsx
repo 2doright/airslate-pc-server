@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { AppWindow, Cable, CircleHelp, Eye, ExternalLink, Gauge, MessagesSquare, Power, ScanLine, Star } from 'lucide-react';
+import { AppWindow, Cable, CircleHelp, Crosshair, Eye, ExternalLink, Gauge, MessagesSquare, Power, ScanLine, Star } from 'lucide-react';
 import foregroundIcon from '../assets/foreground.png';
 import { Switch, TextInput } from './ui';
 import { UsbScanDialog } from './usb-scan-dialog';
-import { setHoverMovePolicy, setLaunchAtStartup, setLatestContactMoveOnly, setLatestContactMoveToleranceMs, setPreemptPreviousStroke, setUsbInterface, type AppBootstrapDto, type HoverMovePolicyLevel } from '../lib/tauri';
+import { setHoverMovePolicy, setLaunchAtStartup, setLatestContactMoveOnly, setLatestContactMoveToleranceMs, setPreciseAnchorCorrectionEnabled, setPreemptPreviousStroke, setUsbInterface, type AppBootstrapDto, type HoverMovePolicyLevel } from '../lib/tauri';
 import type { AppUpdaterState } from '../hooks/use-app-updater';
 
 type SettingsTab = 'general' | 'advanced' | 'about';
@@ -99,6 +99,22 @@ export function SettingsPage(props: {
                   checked={props.data.showLaunchAtStartupOnMainPage}
                   disabled={props.busyKey === 'show-launch-at-startup-on-main-page'}
                   onChange={(enabled) => void props.runAction('show-launch-at-startup-on-main-page', () => props.setShowLaunchAtStartupOnMainPage(enabled))}
+                />
+              </div>
+            </section>
+            <section className="settings-section">
+              <div className="settings-section__header">
+                <Crosshair aria-hidden="true" />
+                <h2>笔输入</h2>
+              </div>
+              <div className="settings-toggle-list">
+                <SettingsToggleRow
+                  icon={<Crosshair aria-hidden="true" />}
+                  title="智能落笔校准"
+                  description="识别缓慢悬浮对准后的精确落笔，修正 hover 切换为 touch 时的坐标跳变，使笔迹从悬浮光标位置开始。"
+                  checked={props.data.preciseAnchorCorrectionEnabled}
+                  disabled={props.busyKey === 'precise-anchor-correction'}
+                  onChange={(enabled) => void props.runAction('precise-anchor-correction', () => setPreciseAnchorCorrectionEnabled(enabled))}
                 />
               </div>
             </section>

@@ -28,6 +28,7 @@ pub struct InputProcessingSettings {
     pub latest_contact_move_tolerance_ms: AtomicU64,
     pub hover_move_policy: AtomicU8,
     pub preempt_previous_stroke: AtomicBool,
+    pub precise_anchor_correction_enabled: AtomicBool,
 }
 
 impl InputProcessingSettings {
@@ -39,6 +40,9 @@ impl InputProcessingSettings {
             )),
             hover_move_policy: AtomicU8::new(config.hover_move_policy.level()),
             preempt_previous_stroke: AtomicBool::new(config.preempt_previous_stroke),
+            precise_anchor_correction_enabled: AtomicBool::new(
+                config.precise_anchor_correction_enabled,
+            ),
         }
     }
 }
@@ -685,6 +689,20 @@ impl AppRuntime {
         config.save(&self.config_path)?;
         self.input_processing_settings
             .preempt_previous_stroke
+            .store(enabled, Ordering::Release);
+        Ok(())
+    }
+
+    pub fn set_precise_anchor_correction_enabled(&self, enabled: bool) -> Result<(), AppError> {
+        let mut config = self
+            .config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))?;
+        config.precise_anchor_correction_enabled = enabled;
+        config.normalize();
+        config.save(&self.config_path)?;
+        self.input_processing_settings
+            .precise_anchor_correction_enabled
             .store(enabled, Ordering::Release);
         Ok(())
     }

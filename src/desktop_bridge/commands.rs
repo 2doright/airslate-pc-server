@@ -219,6 +219,17 @@ pub fn set_preempt_previous_stroke(
 }
 
 #[tauri::command]
+pub fn set_precise_anchor_correction_enabled(
+    state: State<'_, AppContext>,
+    enabled: bool,
+) -> Result<(), String> {
+    state
+        .runtime
+        .set_precise_anchor_correction_enabled(enabled)
+        .map_err(error_message)
+}
+
+#[tauri::command]
 pub fn set_usb_interface(state: State<'_, AppContext>, interface: String) -> Result<(), String> {
     let interface = UsbInterface::parse(&interface)
         .map_err(|error| format!("USB 设备接口格式无效：{error}"))?;

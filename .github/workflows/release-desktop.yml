@@ -42,6 +42,9 @@ jobs:
             throw "Release tag $tagVersion does not match tauri.conf.json version $configVersion"
           }
 
+      - name: Run Rust tests
+        run: cargo test --all-features --locked
+
       - name: Build signed MSI
         run: .\frontend\node_modules\.bin\tauri.cmd build --bundles msi --ci
 
@@ -103,6 +106,9 @@ jobs:
             exit 1
           fi
 
+      - name: Run Rust tests
+        run: cargo test --all-features --locked
+
       - name: Build universal macOS packages
         run: >-
           ./frontend/node_modules/.bin/tauri build
@@ -147,6 +153,7 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          IS_PRERELEASE: ${{ contains(github.ref_name, '-') }}
         run: |
           release_assets=(
             release-assets/*.msi
@@ -159,15 +166,36 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               "${release_assets[@]}" \
               --clobber
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              gh release edit "$GITHUB_REF_NAME" \
+                --repo "$GITHUB_REPOSITORY" \
+                --prerelease \
+                --latest=false
+            else
+              gh release edit "$GITHUB_REF_NAME" \
+                --repo "$GITHUB_REPOSITORY" \
+                --prerelease=false
+            fi
           else
-            gh release create "$GITHUB_REF_NAME" \
-              --repo "$GITHUB_REPOSITORY" \
-              "${release_assets[@]}" \
-              --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
-              --generate-notes
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              gh release create "$GITHUB_REF_NAME" \
+                --repo "$GITHUB_REPOSITORY" \
+                "${release_assets[@]}" \
+                --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
+                --generate-notes \
+                --prerelease \
+                --latest=false
+            else
+              gh release create "$GITHUB_REF_NAME" \
+                --repo "$GITHUB_REPOSITORY" \
+                "${release_assets[@]}" \
+                --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
+                --generate-notes
+            fi
           fi
 
       - name: Generate Windows update manifest
+        if: ${{ !contains(github.ref_name, '-') }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -183,6 +211,7 @@ jobs:
             > latest.json
 
       - name: Publish Windows update manifest branch
+        if: ${{ !contains(github.ref_name, '-') }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

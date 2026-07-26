@@ -71,6 +71,7 @@ export interface AppBootstrapDto {
   latestContactMoveToleranceMs: number;
   hoverMovePolicy: HoverMovePolicyLevel;
   preemptPreviousStroke: boolean;
+  preciseAnchorCorrectionEnabled: boolean;
   usbInterface: string;
   ipv4Values: string[];
   pressureCurve: PressureCurveDto;
@@ -181,6 +182,10 @@ export async function setHoverMovePolicy(level: HoverMovePolicyLevel) {
 
 export async function setPreemptPreviousStroke(enabled: boolean) {
   return invoke('set_preempt_previous_stroke', { enabled });
+}
+
+export async function setPreciseAnchorCorrectionEnabled(enabled: boolean) {
+  return invoke('set_precise_anchor_correction_enabled', { enabled });
 }
 
 export async function setUsbInterface(interfaceValue: string) {
