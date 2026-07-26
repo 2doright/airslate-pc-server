@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+_No changes yet._
+
+## 1.6.3 - 2026-07-26
+
 - run the complete Rust test suite on both Windows and macOS before packaging a tagged release
 - added default-on smart pen-down calibration that recognizes a locally anchored hover, removes
   the HarmonyOS hover-to-touch coordinate discontinuity from the complete stroke, and exposes the

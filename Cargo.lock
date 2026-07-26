@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "airslate_pc_server"
-version = "1.6.3-beta.1"
+version = "1.6.3"
 dependencies = [
  "local-ip-address",
  "nusb",
