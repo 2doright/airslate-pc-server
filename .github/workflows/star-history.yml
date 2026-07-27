@@ -1,0 +1,185 @@
+name: Generate Star History
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/star-history.yml"
+  schedule:
+    # GitHub Actions cron uses UTC. Run every six hours, away from the hour.
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: star-history-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    name: Generate native Star History SVG
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out Star History renderer
+        uses: actions/checkout@v4
+        with:
+          repository: star-history/star-history
+          ref: bcddc9d532b10bac7e0187a741288bf9cab17616
+          path: .star-history
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: .star-history/pnpm-lock.yaml
+
+      - name: Adapt token validation to this repository
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          node --input-type=module <<'JS'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const path = ".star-history/backend/token.ts";
+          const source = readFileSync(path, "utf8");
+          const original =
+            'api.getRepoStargazersCount("star-history/star-history", token)';
+          const replacement =
+            "api.getRepoStargazersCount(process.env.GITHUB_REPOSITORY!, token)";
+
+          if (!source.includes(original)) {
+            throw new Error(
+              "Star History token validation changed; review backend/token.ts " +
+                "before updating the pinned renderer commit.",
+            );
+          }
+
+          writeFileSync(path, source.replace(original, replacement), "utf8");
+          JS
+
+      - name: Install Star History dependencies
+        working-directory: .star-history
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Star History SVG
+        shell: bash
+        env:
+          STAR_HISTORY_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+
+          token_file="$RUNNER_TEMP/star-history-token.env"
+          log_file="$RUNNER_TEMP/star-history.log"
+
+          printf '%s\n' "$STAR_HISTORY_TOKEN" > "$token_file"
+          chmod 600 "$token_file"
+
+          (
+            cd .star-history/backend
+            ENVPATH="$token_file" pnpm dev
+          ) >"$log_file" 2>&1 &
+
+          server_pid=$!
+
+          cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+            rm -f "$token_file"
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for _ in $(seq 1 90); do
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "::error::Star History backend exited unexpectedly."
+              cat "$log_file"
+              exit 1
+            fi
+
+            if curl \
+              --silent \
+              --show-error \
+              --max-time 2 \
+              --output /dev/null \
+              "http://127.0.0.1:8080/healthz"
+            then
+              ready=1
+              break
+            fi
+
+            sleep 1
+          done
+
+          if [[ "$ready" != "1" ]]; then
+            echo "::error::Timed out waiting for Star History backend."
+            cat "$log_file"
+            exit 1
+          fi
+
+          mkdir -p assets
+
+          repository="${GITHUB_REPOSITORY,,}"
+          output="$RUNNER_TEMP/star-history.svg"
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --retry 3 \
+            --get \
+            --data-urlencode "repos=$repository" \
+            --data-urlencode "type=date" \
+            --data-urlencode "size=laptop" \
+            --data-urlencode "legend=top-left" \
+            --data-urlencode "theme=light" \
+            "http://127.0.0.1:8080/svg" \
+            --output "$output"
+
+          if ! grep -q '<svg' "$output"; then
+            echo "::error::Generated file is not a valid SVG."
+            cat "$output"
+            cat "$log_file"
+            exit 1
+          fi
+
+          mv "$output" assets/star-history.svg
+
+      - name: Commit generated chart
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config \
+            user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add assets/star-history.svg
+
+          if git diff --cached --quiet; then
+            echo "Star History chart has not changed."
+            exit 0
+          fi
+
+          git commit -m "chore: update star history chart"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-_No changes yet._
+- generate and commit the repository's native Star History SVG every six hours so the README chart no longer depends on the hosted chart endpoint
 
 ## 1.6.3 - 2026-07-26
 

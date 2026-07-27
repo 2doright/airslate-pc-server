@@ -220,10 +220,4 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=2doright%2Fairslate-pc-server&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=2doright/airslate-pc-server&type=date&theme=dark&legend=top-left&sealed_token=h_ObbB1Zq3dQsIzVEr-w2Xojd2TZSjqe4JqMAlaqXkrsoRuRKlYaR7lfTlliuQeD8nC81BzO6Wri_IuEMtdS8FGtOVGQwahjqT7QO18WfIl80N_cJ3Wi6XFNuB8HlPgKYs8OlOLre0Wmsf-GkaHpPDGZ6Z9tmz8J3M0vl0gY-rbGdoEEwRt1zmD5Mj9-" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=2doright/airslate-pc-server&type=date&legend=top-left&sealed_token=h_ObbB1Zq3dQsIzVEr-w2Xojd2TZSjqe4JqMAlaqXkrsoRuRKlYaR7lfTlliuQeD8nC81BzO6Wri_IuEMtdS8FGtOVGQwahjqT7QO18WfIl80N_cJ3Wi6XFNuB8HlPgKYs8OlOLre0Wmsf-GkaHpPDGZ6Z9tmz8J3M0vl0gY-rbGdoEEwRt1zmD5Mj9-" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=2doright/airslate-pc-server&type=date&legend=top-left&sealed_token=h_ObbB1Zq3dQsIzVEr-w2Xojd2TZSjqe4JqMAlaqXkrsoRuRKlYaR7lfTlliuQeD8nC81BzO6Wri_IuEMtdS8FGtOVGQwahjqT7QO18WfIl80N_cJ3Wi6XFNuB8HlPgKYs8OlOLre0Wmsf-GkaHpPDGZ6Z9tmz8J3M0vl0gY-rbGdoEEwRt1zmD5Mj9-" />
- </picture>
-</a>
+[![Star History Chart](./assets/star-history.svg)](https://www.star-history.com/?repos=2doright%2Fairslate-pc-server&type=date&legend=top-left)
