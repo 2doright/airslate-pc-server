@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - ".github/workflows/star-history.yml"
+      - ".gitignore"
   schedule:
     # GitHub Actions cron uses UTC. Run every six hours, away from the hour.
     - cron: "17 */6 * * *"
