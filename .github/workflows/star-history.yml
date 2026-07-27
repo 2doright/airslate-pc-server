@@ -49,7 +49,9 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: .star-history/pnpm-lock.yaml
+          cache-dependency-path: |
+            .star-history/pnpm-lock.yaml
+            .star-history/backend/pnpm-lock.yaml
 
       - name: Adapt token validation to this repository
         shell: bash
@@ -76,8 +78,12 @@ jobs:
           writeFileSync(path, source.replace(original, replacement), "utf8");
           JS
 
-      - name: Install Star History dependencies
+      - name: Install Star History shared dependencies
         working-directory: .star-history
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Star History backend dependencies
+        working-directory: .star-history/backend
         run: pnpm install --frozen-lockfile
 
       - name: Generate Star History SVG
