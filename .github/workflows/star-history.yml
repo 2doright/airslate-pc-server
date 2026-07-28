@@ -88,6 +88,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Star History SVG
+        id: generate
         shell: bash
         env:
           STAR_HISTORY_TOKEN: ${{ github.token }}
@@ -169,9 +170,19 @@ jobs:
             exit 1
           fi
 
+          if [[ -f assets/star-history.svg ]] && \
+            cmp --silent "$output" assets/star-history.svg
+          then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Star History chart has not changed."
+            exit 0
+          fi
+
           mv "$output" assets/star-history.svg
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Commit generated chart
+        if: ${{ steps.generate.outputs.changed == 'true' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -184,8 +195,8 @@ jobs:
           git add assets/star-history.svg
 
           if git diff --cached --quiet; then
-            echo "Star History chart has not changed."
-            exit 0
+            echo "::error::The generator reported a changed chart, but Git found no change."
+            exit 1
           fi
 
           git commit -m "chore: update star history chart"
