@@ -31,7 +31,45 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check Star history data
+        id: star_data
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+
+          signature_file="$RUNNER_TEMP/star-history.sha256"
+
+          gh api \
+            --paginate \
+            --header "Accept: application/vnd.github.star+json" \
+            "repos/${GITHUB_REPOSITORY}/stargazers?per_page=100" \
+            --jq '.[].starred_at' \
+            | LC_ALL=C sort \
+            | sha256sum \
+            | awk '{print $1}' \
+            > "$signature_file"
+
+          current_signature="$(<"$signature_file")"
+          previous_signature=""
+
+          if [[ -f assets/star-history.sha256 ]]; then
+            previous_signature="$(<assets/star-history.sha256)"
+          fi
+
+          if [[ -f assets/star-history.svg ]] && \
+            [[ "$current_signature" == "$previous_signature" ]]
+          then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Star history data has not changed."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Star history data has changed."
+          fi
+
       - name: Check out Star History renderer
+        if: ${{ steps.star_data.outputs.changed == 'true' }}
         uses: actions/checkout@v4
         with:
           repository: star-history/star-history
@@ -40,12 +78,14 @@ jobs:
           persist-credentials: false
 
       - name: Set up pnpm
+        if: ${{ steps.star_data.outputs.changed == 'true' }}
         uses: pnpm/action-setup@v4
         with:
           version: 10
           run_install: false
 
       - name: Set up Node.js
+        if: ${{ steps.star_data.outputs.changed == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -55,6 +95,7 @@ jobs:
             .star-history/backend/pnpm-lock.yaml
 
       - name: Adapt token validation to this repository
+        if: ${{ steps.star_data.outputs.changed == 'true' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -80,14 +121,17 @@ jobs:
           JS
 
       - name: Install Star History shared dependencies
+        if: ${{ steps.star_data.outputs.changed == 'true' }}
         working-directory: .star-history
         run: pnpm install --frozen-lockfile
 
       - name: Install Star History backend dependencies
+        if: ${{ steps.star_data.outputs.changed == 'true' }}
         working-directory: .star-history/backend
         run: pnpm install --frozen-lockfile
 
       - name: Generate Star History SVG
+        if: ${{ steps.star_data.outputs.changed == 'true' }}
         id: generate
         shell: bash
         env:
@@ -179,6 +223,7 @@ jobs:
           fi
 
           mv "$output" assets/star-history.svg
+          mv "$RUNNER_TEMP/star-history.sha256" assets/star-history.sha256
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Commit generated chart
@@ -192,7 +237,7 @@ jobs:
             user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add assets/star-history.svg
+          git add assets/star-history.svg assets/star-history.sha256
 
           if git diff --cached --quiet; then
             echo "::error::The generator reported a changed chart, but Git found no change."

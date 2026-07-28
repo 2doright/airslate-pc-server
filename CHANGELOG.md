@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- generate the repository's native Star History SVG every six hours so the README chart no longer depends on the hosted chart endpoint, and skip the commit and push when the generated image is unchanged
+- generate the repository's native Star History SVG every six hours so the README chart no longer depends on the hosted chart endpoint, and skip rendering, committing, and pushing when the underlying GitHub Star event history is unchanged
 
 ## 1.6.3 - 2026-07-26
 
