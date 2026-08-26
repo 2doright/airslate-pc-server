@@ -1,15 +1,11 @@
-# AirSlate PC Server 开发说明
-
-## 核心约束
-
-### 编程原则
+## 编程原则
 
 - Zero-up refactor, breaking changes. NEVER write defensive, fallback, or patch code. Disregard backward compatibility and unreasonable legacy structures.
 - Runtime truth, no fake compile passes. NEVER optimize for build-green status by adding patches, fake flags, placeholder transitions, or exception wrappers.
 - Event-sourced facts, no simulation. Store state must describe facts, not hopes.
 - Root-cause fixing, no symptom-patching
 
-### 技术栈
+## 技术栈
 
 - Rust + Windows crate
 - 前端位于 `frontend/`
@@ -33,25 +29,30 @@
 
 ### 调试要求
 
-- 修改代码后必须执行与风险相称的真实语法检查、测试和构建。
+- 修改项目工程代码后必须执行与风险相称的真实语法检查、测试
 - 测试必须验证运行时事实，不得使用占位实现、伪造状态或仅为通过编译而添加的开关。
-- 修复失败的根因，并检查相邻调用路径是否具有相同问题。
 
-### 命令
+### 构建要求
+- 仅当用户明确表示构建时，才进行构建。
 
-## 前端检查
+## 命令
+
+### 前端检查
 
 npm --prefix ./frontend run build
 
-## 打包Release
+### 打包Release
 
 cargo tauri build
 
-## 版本与交付
+### 版本
 
 - 调试通过后更新 `CHANGELOG.md`。
 - 修改发布行为时同步维护版本号。
-- 最终交付目标是完整的应用服务，以及可发布到 GitHub Release 的 Windows 安装包和 portable 程序。
+
+### 发布
+- 通过tag触发workflow远程编译release
+- prelease通过tag中-识别
 
 ## 项目文档
 
