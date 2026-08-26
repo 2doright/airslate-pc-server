@@ -49,7 +49,35 @@ jobs:
         run: cargo test --all-features --locked
 
       - name: Build signed MSI
-        run: .\frontend\node_modules\.bin\tauri.cmd build --bundles msi --ci
+        shell: pwsh
+        run: |
+          $appVersion = [System.Management.Automation.SemanticVersion]::Parse(
+            $env:GITHUB_REF_NAME.Substring(1)
+          )
+          if ($appVersion.PreReleaseLabel) {
+            if ($appVersion.PreReleaseLabel -notmatch '^beta\.(?<number>[1-9]\d*)$') {
+              throw "MSI prerelease versions must use beta.N: $appVersion"
+            }
+            $msiBuild = [int]$Matches.number
+            if ($msiBuild -gt 65534) {
+              throw "MSI beta number must not exceed 65534: $msiBuild"
+            }
+          } else {
+            $msiBuild = 65535
+          }
+          $msiVersion = "$($appVersion.Major).$($appVersion.Minor).$($appVersion.Patch).$msiBuild"
+          $msiConfig = @{
+            bundle = @{
+              windows = @{
+                wix = @{ version = $msiVersion }
+              }
+            }
+          }
+          $msiConfig | ConvertTo-Json -Depth 4 | Set-Content '.tauri.windows-release.json'
+          .\frontend\node_modules\.bin\tauri.cmd build `
+            --bundles msi `
+            --config '.tauri.windows-release.json' `
+            --ci
 
       - name: Build portable executable
         run: .\frontend\node_modules\.bin\tauri.cmd build --no-bundle --features portable --ci

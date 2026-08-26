@@ -6,6 +6,7 @@
   stability check using 60 ms endpoint displacement and 120 ms trajectory-center dispersion,
   tolerate brief hover jitter, count quiet time through pen-down, and use the same recognition
   path with a 280 ms threshold during an active writing sequence
+- preserve beta SemVer versions while mapping Windows MSI ProductVersion to a numeric build field
 - generate the repository's native Star History SVG every six hours so the README chart no longer depends on the hosted chart endpoint, and skip rendering, committing, and pushing when the underlying GitHub Star event history is unchanged
 
 ## 1.6.3 - 2026-07-26
