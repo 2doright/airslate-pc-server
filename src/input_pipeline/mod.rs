@@ -28,7 +28,7 @@ const LOGICAL_COORD_MAX: u16 = 32_767;
 const WINDOWS_PRESSURE_MAX: u32 = 1_024;
 const WINDOWS_TILT_MIN: i32 = -90;
 const WINDOWS_TILT_MAX: i32 = 90;
-const PRECISE_ANCHOR_WINDOW_MS: u64 = 300;
+const PRECISE_ANCHOR_WINDOW: Duration = Duration::from_millis(300);
 // 96 logical units are about 0.29% of either normalized tablet axis.
 const PRECISE_ANCHOR_RADIUS: i32 = 96;
 
@@ -90,7 +90,7 @@ impl From<&PenInjectionCommand> for PenCoordinate {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct HoverObservation {
-    timestamp_ms: u64,
+    accepted_at: Instant,
     coordinate: PenCoordinate,
 }
 
@@ -100,47 +100,33 @@ struct HoverAnchorCandidate {
 }
 
 impl HoverAnchorCandidate {
-    fn new(timestamp_ms: u64, coordinate: PenCoordinate) -> Self {
+    fn new(accepted_at: Instant, coordinate: PenCoordinate) -> Self {
         Self {
             observations: VecDeque::from([HoverObservation {
-                timestamp_ms,
+                accepted_at,
                 coordinate,
             }]),
         }
     }
 
-    fn observe(&mut self, timestamp_ms: u64, coordinate: PenCoordinate) {
-        if self
-            .observations
-            .back()
-            .is_some_and(|last| timestamp_ms <= last.timestamp_ms)
-        {
-            self.observations.clear();
-        }
-
+    fn observe(&mut self, accepted_at: Instant, coordinate: PenCoordinate) {
         self.observations.push_back(HoverObservation {
-            timestamp_ms,
+            accepted_at,
             coordinate,
         });
 
-        let history_start_ms = timestamp_ms.saturating_sub(PRECISE_ANCHOR_WINDOW_MS);
-        while self
-            .observations
-            .get(1)
-            .is_some_and(|observation| observation.timestamp_ms <= history_start_ms)
-        {
+        while self.observations.get(1).is_some_and(|observation| {
+            accepted_at.duration_since(observation.accepted_at) >= PRECISE_ANCHOR_WINDOW
+        }) {
             self.observations.pop_front();
         }
     }
 
-    fn anchor_at(&self, down_timestamp_ms: u64) -> Option<PenCoordinate> {
+    fn anchor_at(&self, down_accepted_at: Instant) -> Option<PenCoordinate> {
         let anchor = self.observations.back()?;
-        down_timestamp_ms.checked_sub(anchor.timestamp_ms)?;
-        let window_start_ms = down_timestamp_ms.checked_sub(PRECISE_ANCHOR_WINDOW_MS)?;
-        let window_start_index = self
-            .observations
-            .iter()
-            .rposition(|observation| observation.timestamp_ms <= window_start_ms)?;
+        let window_start_index = self.observations.iter().rposition(|observation| {
+            down_accepted_at.duration_since(observation.accepted_at) >= PRECISE_ANCHOR_WINDOW
+        })?;
         let radius_squared = i64::from(PRECISE_ANCHOR_RADIUS).pow(2);
         self.observations
             .iter()
@@ -171,6 +157,7 @@ impl PreciseAnchorCorrector {
         &mut self,
         frame: &StylusFrame,
         mut command: PenInjectionCommand,
+        accepted_at: Instant,
         enabled: bool,
     ) -> PenInjectionCommand {
         if !enabled {
@@ -180,12 +167,12 @@ impl PreciseAnchorCorrector {
 
         if frame.event_type == StylusEventType::Move && command.in_range && !command.is_contact {
             self.stroke_offset = None;
-            self.observe_hover(frame.timestamp, &command);
+            self.observe_hover(accepted_at, &command);
             return command;
         }
 
         if frame.event_type == StylusEventType::Down && command.is_contact {
-            self.stroke_offset = self.offset_for_down(frame.timestamp, &command);
+            self.stroke_offset = self.offset_for_down(accepted_at, &command);
             self.hover_candidate = None;
         }
 
@@ -209,21 +196,21 @@ impl PreciseAnchorCorrector {
         command
     }
 
-    fn observe_hover(&mut self, timestamp_ms: u64, command: &PenInjectionCommand) {
+    fn observe_hover(&mut self, accepted_at: Instant, command: &PenInjectionCommand) {
         let current = PenCoordinate::from(command);
         let Some(candidate) = &mut self.hover_candidate else {
-            self.hover_candidate = Some(HoverAnchorCandidate::new(timestamp_ms, current));
+            self.hover_candidate = Some(HoverAnchorCandidate::new(accepted_at, current));
             return;
         };
-        candidate.observe(timestamp_ms, current);
+        candidate.observe(accepted_at, current);
     }
 
     fn offset_for_down(
         &self,
-        timestamp_ms: u64,
+        accepted_at: Instant,
         down: &PenInjectionCommand,
     ) -> Option<StrokeCoordinateOffset> {
-        let anchor = self.hover_candidate.as_ref()?.anchor_at(timestamp_ms)?;
+        let anchor = self.hover_candidate.as_ref()?.anchor_at(accepted_at)?;
 
         Some(StrokeCoordinateOffset {
             x: down.x - anchor.x,
@@ -987,9 +974,12 @@ impl StylusWorker {
             .input_processing_settings
             .precise_anchor_correction_enabled
             .load(Ordering::Acquire);
-        let command =
-            self.precise_anchor_corrector
-                .process(&sample.frame, command, correction_enabled);
+        let command = self.precise_anchor_corrector.process(
+            &sample.frame,
+            command,
+            sample.accepted_at,
+            correction_enabled,
+        );
         self.record_command_state(&session_id, &command);
 
         let injection_started = self.metrics.injection_started();
@@ -1413,17 +1403,32 @@ mod tests {
         }
     }
 
+    fn process_at(
+        corrector: &mut PreciseAnchorCorrector,
+        frame: &StylusFrame,
+        command: PenInjectionCommand,
+        timeline_start: Instant,
+        elapsed_ms: u64,
+    ) -> PenInjectionCommand {
+        corrector.process(
+            frame,
+            command,
+            timeline_start + Duration::from_millis(elapsed_ms),
+            true,
+        )
+    }
+
     #[test]
     fn precise_anchor_correction_translates_the_complete_contact_stroke() {
         let mut corrector = PreciseAnchorCorrector::default();
-        for (timestamp, x, y) in [
-            (1_000, 1_000, 2_000),
-            (1_100, 1_006, 2_004),
-            (1_200, 1_003, 2_008),
-            (1_300, 1_008, 2_006),
+        let timeline_start = Instant::now();
+        for (elapsed_ms, x, y) in [
+            (0, 1_000, 2_000),
+            (100, 1_006, 2_004),
+            (200, 1_003, 2_008),
+            (300, 1_008, 2_006),
         ] {
-            let mut frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, y);
-            frame.timestamp = timestamp;
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, y);
             let command = pen_command(
                 PenInjectionCommandKind::Update,
                 true,
@@ -1433,11 +1438,19 @@ mod tests {
                 x,
                 y,
             );
-            assert_eq!(corrector.process(&frame, command.clone(), true), command);
+            assert_eq!(
+                process_at(
+                    &mut corrector,
+                    &frame,
+                    command.clone(),
+                    timeline_start,
+                    elapsed_ms,
+                ),
+                command
+            );
         }
 
-        let mut down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_608, 1_506);
-        down_frame.timestamp = 1_305;
+        let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_608, 1_506);
         let down = pen_command(
             PenInjectionCommandKind::Down,
             true,
@@ -1447,7 +1460,7 @@ mod tests {
             1_608,
             1_506,
         );
-        let corrected_down = corrector.process(&down_frame, down, true);
+        let corrected_down = process_at(&mut corrector, &down_frame, down, timeline_start, 305);
         assert_eq!((corrected_down.x, corrected_down.y), (2_016, 4_012));
         assert_eq!(
             (corrected_down.tablet_x, corrected_down.tablet_y),
@@ -1464,7 +1477,7 @@ mod tests {
             1_658,
             1_556,
         );
-        let corrected_move = corrector.process(&move_frame, movement, true);
+        let corrected_move = process_at(&mut corrector, &move_frame, movement, timeline_start, 306);
         assert_eq!((corrected_move.x, corrected_move.y), (2_116, 4_112));
         assert_eq!(
             (corrected_move.tablet_x, corrected_move.tablet_y),
@@ -1481,7 +1494,7 @@ mod tests {
             1_688,
             1_586,
         );
-        let corrected_up = corrector.process(&up_frame, up, true);
+        let corrected_up = process_at(&mut corrector, &up_frame, up, timeline_start, 307);
         assert_eq!((corrected_up.x, corrected_up.y), (2_176, 4_172));
         assert_eq!(
             (corrected_up.tablet_x, corrected_up.tablet_y),
@@ -1492,9 +1505,9 @@ mod tests {
     #[test]
     fn precise_anchor_correction_rejects_motion_inside_the_recent_window() {
         let mut corrector = PreciseAnchorCorrector::default();
-        for (timestamp, x) in [(1_000, 1_000), (1_100, 1_200), (1_300, 1_202)] {
-            let mut frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
-            frame.timestamp = timestamp;
+        let timeline_start = Instant::now();
+        for (elapsed_ms, x) in [(0, 1_000), (100, 1_200), (300, 1_202)] {
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
             let command = pen_command(
                 PenInjectionCommandKind::Update,
                 true,
@@ -1504,11 +1517,10 @@ mod tests {
                 x,
                 2_000,
             );
-            corrector.process(&frame, command, true);
+            process_at(&mut corrector, &frame, command, timeline_start, elapsed_ms);
         }
 
-        let mut down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_250, 2_000);
-        down_frame.timestamp = 1_300;
+        let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_250, 2_000);
         let down = pen_command(
             PenInjectionCommandKind::Down,
             true,
@@ -1519,14 +1531,23 @@ mod tests {
             2_000,
         );
 
-        assert_eq!(corrector.process(&down_frame, down.clone(), true), down);
+        assert_eq!(
+            process_at(
+                &mut corrector,
+                &down_frame,
+                down.clone(),
+                timeline_start,
+                300,
+            ),
+            down
+        );
     }
 
     #[test]
-    fn precise_anchor_correction_counts_hover_to_down_time_without_a_sample_gate() {
+    fn precise_anchor_correction_uses_pc_receive_time_when_remote_timestamps_do_not_advance() {
         let mut corrector = PreciseAnchorCorrector::default();
-        let mut hover_frame = stylus_frame(StylusEventType::Move, 0b0000_0001, 1_000, 2_000);
-        hover_frame.timestamp = 1_000;
+        let timeline_start = Instant::now();
+        let hover_frame = stylus_frame(StylusEventType::Move, 0b0000_0001, 1_000, 2_000);
         let hover = pen_command(
             PenInjectionCommandKind::Update,
             true,
@@ -1536,10 +1557,9 @@ mod tests {
             1_000,
             2_000,
         );
-        corrector.process(&hover_frame, hover, true);
+        process_at(&mut corrector, &hover_frame, hover, timeline_start, 0);
 
-        let mut down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_200, 2_100);
-        down_frame.timestamp = 1_300;
+        let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_200, 2_100);
         let down = pen_command(
             PenInjectionCommandKind::Down,
             true,
@@ -1550,7 +1570,8 @@ mod tests {
             2_100,
         );
 
-        let corrected = corrector.process(&down_frame, down, true);
+        assert_eq!(hover_frame.timestamp, down_frame.timestamp);
+        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 300);
         assert_eq!((corrected.x, corrected.y), (2_000, 4_000));
         assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_000, 2_000));
     }
@@ -1558,16 +1579,17 @@ mod tests {
     #[test]
     fn precise_anchor_correction_uses_the_last_hover_as_the_window_candidate() {
         let mut corrector = PreciseAnchorCorrector::default();
-        for (timestamp, x) in [
-            (1_000, 1_000),
-            (1_100, 1_000),
-            (1_200, 1_000),
-            (1_250, 1_100),
-            (1_300, 1_005),
+        let timeline_start = Instant::now();
+        for (elapsed_ms, x) in [
+            (0, 1_000),
+            (100, 1_000),
+            (200, 1_000),
+            (250, 1_100),
+            (300, 1_005),
         ] {
-            let mut frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
-            frame.timestamp = timestamp;
-            corrector.process(
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
+            process_at(
+                &mut corrector,
                 &frame,
                 pen_command(
                     PenInjectionCommandKind::Update,
@@ -1578,12 +1600,12 @@ mod tests {
                     x,
                     2_000,
                 ),
-                true,
+                timeline_start,
+                elapsed_ms,
             );
         }
 
-        let mut down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_205, 2_100);
-        down_frame.timestamp = 1_300;
+        let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_205, 2_100);
         let down = pen_command(
             PenInjectionCommandKind::Down,
             true,
@@ -1594,17 +1616,18 @@ mod tests {
             2_100,
         );
 
-        let corrected = corrector.process(&down_frame, down, true);
+        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 300);
         assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_005, 2_000));
     }
 
     #[test]
     fn precise_anchor_correction_ignores_motion_before_the_recent_window() {
         let mut corrector = PreciseAnchorCorrector::default();
-        for (timestamp, x) in [(900, 1_000), (1_000, 2_000), (1_200, 2_000), (1_300, 2_000)] {
-            let mut frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
-            frame.timestamp = timestamp;
-            corrector.process(
+        let timeline_start = Instant::now();
+        for (elapsed_ms, x) in [(0, 1_000), (100, 2_000), (300, 2_000), (400, 2_000)] {
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
+            process_at(
+                &mut corrector,
                 &frame,
                 pen_command(
                     PenInjectionCommandKind::Update,
@@ -1615,12 +1638,12 @@ mod tests {
                     x,
                     2_000,
                 ),
-                true,
+                timeline_start,
+                elapsed_ms,
             );
         }
 
-        let mut down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 2_200, 2_100);
-        down_frame.timestamp = 1_300;
+        let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 2_200, 2_100);
         let down = pen_command(
             PenInjectionCommandKind::Down,
             true,
@@ -1631,17 +1654,18 @@ mod tests {
             2_100,
         );
 
-        let corrected = corrector.process(&down_frame, down, true);
+        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 400);
         assert_eq!((corrected.tablet_x, corrected.tablet_y), (2_000, 2_000));
     }
 
     #[test]
     fn precise_anchor_correction_rejects_motion_inside_the_window_after_a_sampling_gap() {
         let mut corrector = PreciseAnchorCorrector::default();
-        for (timestamp, x) in [(1_000, 1_000), (1_200, 2_000)] {
-            let mut frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
-            frame.timestamp = timestamp;
-            corrector.process(
+        let timeline_start = Instant::now();
+        for (elapsed_ms, x) in [(0, 1_000), (200, 2_000)] {
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
+            process_at(
+                &mut corrector,
                 &frame,
                 pen_command(
                     PenInjectionCommandKind::Update,
@@ -1652,12 +1676,12 @@ mod tests {
                     x,
                     2_000,
                 ),
-                true,
+                timeline_start,
+                elapsed_ms,
             );
         }
 
-        let mut down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 2_100, 2_100);
-        down_frame.timestamp = 1_300;
+        let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 2_100, 2_100);
         let down = pen_command(
             PenInjectionCommandKind::Down,
             true,
@@ -1668,16 +1692,26 @@ mod tests {
             2_100,
         );
 
-        assert_eq!(corrector.process(&down_frame, down.clone(), true), down);
+        assert_eq!(
+            process_at(
+                &mut corrector,
+                &down_frame,
+                down.clone(),
+                timeline_start,
+                300,
+            ),
+            down
+        );
     }
 
     #[test]
     fn precise_anchor_correction_rejects_hover_without_a_full_window() {
         let mut corrector = PreciseAnchorCorrector::default();
-        for (timestamp, x) in [(1_000, 1_000), (1_100, 1_000)] {
-            let mut frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
-            frame.timestamp = timestamp;
-            corrector.process(
+        let timeline_start = Instant::now();
+        for (elapsed_ms, x) in [(0, 1_000), (100, 1_000)] {
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
+            process_at(
+                &mut corrector,
                 &frame,
                 pen_command(
                     PenInjectionCommandKind::Update,
@@ -1688,12 +1722,12 @@ mod tests {
                     x,
                     2_000,
                 ),
-                true,
+                timeline_start,
+                elapsed_ms,
             );
         }
 
-        let mut down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_300, 2_100);
-        down_frame.timestamp = 1_299;
+        let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_300, 2_100);
         let down = pen_command(
             PenInjectionCommandKind::Down,
             true,
@@ -1704,16 +1738,26 @@ mod tests {
             2_100,
         );
 
-        assert_eq!(corrector.process(&down_frame, down.clone(), true), down);
+        assert_eq!(
+            process_at(
+                &mut corrector,
+                &down_frame,
+                down.clone(),
+                timeline_start,
+                299,
+            ),
+            down
+        );
     }
 
     #[test]
     fn precise_anchor_correction_discards_anchor_after_leaving_hover_range() {
         let mut corrector = PreciseAnchorCorrector::default();
-        for timestamp in [1_000, 1_140, 1_280, 1_400] {
-            let mut frame = stylus_frame(StylusEventType::Move, 0b0000_0001, 1_000, 2_000);
-            frame.timestamp = timestamp;
-            corrector.process(
+        let timeline_start = Instant::now();
+        for elapsed_ms in [0, 140, 280, 400] {
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, 1_000, 2_000);
+            process_at(
+                &mut corrector,
                 &frame,
                 pen_command(
                     PenInjectionCommandKind::Update,
@@ -1724,12 +1768,14 @@ mod tests {
                     1_000,
                     2_000,
                 ),
-                true,
+                timeline_start,
+                elapsed_ms,
             );
         }
 
         let out_of_range = stylus_frame(StylusEventType::Move, 0, 1_000, 2_000);
-        corrector.process(
+        process_at(
+            &mut corrector,
             &out_of_range,
             pen_command(
                 PenInjectionCommandKind::Update,
@@ -1740,7 +1786,8 @@ mod tests {
                 1_000,
                 2_000,
             ),
-            true,
+            timeline_start,
+            401,
         );
 
         let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_500, 2_500);
@@ -1754,7 +1801,16 @@ mod tests {
             2_500,
         );
 
-        assert_eq!(corrector.process(&down_frame, down.clone(), true), down);
+        assert_eq!(
+            process_at(
+                &mut corrector,
+                &down_frame,
+                down.clone(),
+                timeline_start,
+                700,
+            ),
+            down
+        );
     }
 
     fn test_pressure_settings() -> SharedPressureSettings {

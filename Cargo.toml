@@ -1,6 +1,6 @@
 [package]
 name = "airslate_pc_server"
-version = "1.6.4-beta.2"
+version = "1.6.4-beta.3"
 edition = "2024"
 default-run = "airslate_pc_server"
 

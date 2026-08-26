@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.6.4-beta.3 - 2026-08-26
+
+- measure smart pen-down calibration dwell time with the PC's monotonic receive clock so a
+  stationary Hover-to-Down pause is counted even when the device sends no intervening Move frames
+
 ## 1.6.4-beta.2 - 2026-08-26
 
 - evaluate smart pen-down calibration in the latest 300 ms window ending at Down, including the
