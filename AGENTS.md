@@ -40,8 +40,8 @@ cargo tauri build
 
 ## 发布
 - release：tag触发workflow远程release编译、发布
-- prelease：通过tag中`版本-beta.数字`识别
-
+- prelease：tag`版本-beta.N`触发
+- MSI 打包时，映射 beta.N -> major.minor.patch.N，正式版映射到同一基础版本的 .65535
 ## 项目文档
 - Windows API 笔输相关文档介绍：`doc/winapi/index.md`
 - Rust for Windows API：<https://microsoft.github.io/windows-docs-rs/doc/windows/>
