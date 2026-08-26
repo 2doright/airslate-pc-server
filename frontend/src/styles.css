@@ -903,6 +903,12 @@ select:disabled {
   color: var(--warning);
 }
 
+.usb-panel__status-icon[data-state="disabled"] {
+  border-color: rgba(100, 116, 139, 0.18);
+  background: rgba(100, 116, 139, 0.08);
+  color: var(--muted);
+}
+
 .usb-panel__status-copy {
   display: grid;
   gap: 5px;

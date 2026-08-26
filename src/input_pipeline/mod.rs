@@ -28,9 +28,9 @@ const LOGICAL_COORD_MAX: u16 = 32_767;
 const WINDOWS_PRESSURE_MAX: u32 = 1_024;
 const WINDOWS_TILT_MIN: i32 = -90;
 const WINDOWS_TILT_MAX: i32 = 90;
-const PRECISE_ANCHOR_WINDOW: Duration = Duration::from_millis(250);
-// 96 logical units are about 0.29% of either normalized tablet axis.
-const PRECISE_ANCHOR_RADIUS: i32 = 96;
+const PRECISE_ANCHOR_WINDOW: Duration = Duration::from_millis(200);
+// 112 logical units are about 0.34% of either normalized tablet axis.
+const PRECISE_ANCHOR_RADIUS: i32 = 112;
 
 pub trait PenInjector: Send + Sync {
     fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError>;
@@ -1424,9 +1424,9 @@ mod tests {
         let timeline_start = Instant::now();
         for (elapsed_ms, x, y) in [
             (0, 1_000, 2_000),
-            (80, 1_006, 2_004),
-            (160, 1_003, 2_008),
-            (250, 1_008, 2_006),
+            (60, 1_006, 2_004),
+            (120, 1_003, 2_008),
+            (200, 1_008, 2_006),
         ] {
             let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, y);
             let command = pen_command(
@@ -1460,7 +1460,7 @@ mod tests {
             1_608,
             1_506,
         );
-        let corrected_down = process_at(&mut corrector, &down_frame, down, timeline_start, 255);
+        let corrected_down = process_at(&mut corrector, &down_frame, down, timeline_start, 205);
         assert_eq!((corrected_down.x, corrected_down.y), (2_016, 4_012));
         assert_eq!(
             (corrected_down.tablet_x, corrected_down.tablet_y),
@@ -1477,7 +1477,7 @@ mod tests {
             1_658,
             1_556,
         );
-        let corrected_move = process_at(&mut corrector, &move_frame, movement, timeline_start, 256);
+        let corrected_move = process_at(&mut corrector, &move_frame, movement, timeline_start, 206);
         assert_eq!((corrected_move.x, corrected_move.y), (2_116, 4_112));
         assert_eq!(
             (corrected_move.tablet_x, corrected_move.tablet_y),
@@ -1494,7 +1494,7 @@ mod tests {
             1_688,
             1_586,
         );
-        let corrected_up = process_at(&mut corrector, &up_frame, up, timeline_start, 257);
+        let corrected_up = process_at(&mut corrector, &up_frame, up, timeline_start, 207);
         assert_eq!((corrected_up.x, corrected_up.y), (2_176, 4_172));
         assert_eq!(
             (corrected_up.tablet_x, corrected_up.tablet_y),
@@ -1571,7 +1571,7 @@ mod tests {
         );
 
         assert_eq!(hover_frame.timestamp, down_frame.timestamp);
-        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 250);
+        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 200);
         assert_eq!((corrected.x, corrected.y), (2_000, 4_000));
         assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_000, 2_000));
     }
@@ -1618,6 +1618,44 @@ mod tests {
 
         let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 250);
         assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_005, 2_000));
+    }
+
+    #[test]
+    fn precise_anchor_correction_accepts_motion_inside_the_expanded_radius() {
+        let mut corrector = PreciseAnchorCorrector::default();
+        let timeline_start = Instant::now();
+        for (elapsed_ms, x) in [(0, 1_000), (100, 1_110), (200, 1_000)] {
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
+            process_at(
+                &mut corrector,
+                &frame,
+                pen_command(
+                    PenInjectionCommandKind::Update,
+                    true,
+                    false,
+                    i32::from(x),
+                    2_000,
+                    x,
+                    2_000,
+                ),
+                timeline_start,
+                elapsed_ms,
+            );
+        }
+
+        let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_200, 2_100);
+        let down = pen_command(
+            PenInjectionCommandKind::Down,
+            true,
+            true,
+            1_200,
+            2_100,
+            1_200,
+            2_100,
+        );
+
+        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 200);
+        assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_000, 2_000));
     }
 
     #[test]
@@ -1744,7 +1782,7 @@ mod tests {
                 &down_frame,
                 down.clone(),
                 timeline_start,
-                249,
+                199,
             ),
             down
         );

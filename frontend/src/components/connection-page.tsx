@@ -98,7 +98,9 @@ function UsbConnectionPanel(props: {
 }) {
   const state = props.status.state;
   const statusLabel = usbStatusLabel(state);
-  const statusCopy = usbStatusCopy(props.status);
+  const statusCopy = props.enabled
+    ? usbStatusCopy(props.status)
+    : { title: '有线模式已关闭', detail: '现在可按常规方式连接设备与电脑并使用' };
   const statusTone = state === 'connected' ? 'success' : state === 'error' ? 'warning' : 'accent';
 
   return (
@@ -142,17 +144,19 @@ function UsbConnectionPanel(props: {
           </>
         )}
       />
-      {props.enabled ? (
-        <div className="usb-panel__status" role="status" aria-live="polite">
-          <div className="usb-panel__status-icon" data-state={state}>
-            {state === 'connected' ? <CheckCircle2 /> : state === 'error' ? <CircleAlert /> : <Cable />}
-          </div>
-          <div className="usb-panel__status-copy">
-            <strong>{statusCopy.title}</strong>
-            <span title={props.status.detail}>{statusCopy.detail}</span>
-          </div>
+      <div className="usb-panel__status" role="status" aria-live="polite">
+        <div className="usb-panel__status-icon" data-state={props.enabled ? state : 'disabled'}>
+          {props.enabled && state === 'connected'
+            ? <CheckCircle2 />
+            : props.enabled && state === 'error'
+              ? <CircleAlert />
+              : <Cable />}
         </div>
-      ) : null}
+        <div className="usb-panel__status-copy">
+          <strong>{statusCopy.title}</strong>
+          <span title={props.enabled ? props.status.detail : statusCopy.detail}>{statusCopy.detail}</span>
+        </div>
+      </div>
     </Panel>
   );
 }

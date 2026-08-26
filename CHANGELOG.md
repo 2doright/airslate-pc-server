@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.6.4-beta.5 - 2026-08-26
+
+- show a clear message when wired mode is off so the device can be connected to and used with the
+  computer normally
+- make smart pen-down calibration respond after 200 ms and tolerate a slightly wider stable hover
+  range
+
 ## 1.6.4-beta.4 - 2026-08-26
 
 - added a default-on switch to the wired connection card; turning it off stops USB scanning and
