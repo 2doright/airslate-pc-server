@@ -42,6 +42,7 @@ cargo tauri build
 - release：`major.minor.patch`tag触发
 - prelease：tag`major.minor.patch-beta.N`tag触发
 - MSI 打包时，映射 beta.N -> major.minor.patch.N，正式版映射到同一基础版本的 .65535
+- 发布文本：重要更新部分，禁止从开发者角度描述，需要用使用用户的角度描述；各分点内容不允许耦合，精简凝练，一点讲一个内容。
 
 ## 项目文档
 - Windows API 笔输相关文档介绍：`doc/winapi/index.md`

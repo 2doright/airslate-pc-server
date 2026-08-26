@@ -2,10 +2,12 @@
 
 ## Unreleased
 
-- replace smart pen-down calibration's fixed 400 ms hover-origin gate with a 220 ms rolling
-  stability check using 60 ms endpoint displacement and 120 ms trajectory-center dispersion,
-  tolerate brief hover jitter, count quiet time through pen-down, and use the same recognition
-  path with a 280 ms threshold during an active writing sequence
+## 1.6.4-beta.2 - 2026-08-26
+
+- evaluate smart pen-down calibration in the latest 300 ms window ending at Down, including the
+  quiet interval after the final Hover; use that final Hover as the correction anchor, require the
+  recent Hover trajectory to remain within 96 logical units of it, and remove the sample-count gate
+- streamline the setup and feature guide so the most common connection steps are easier to scan
 - preserve beta SemVer versions while mapping Windows MSI ProductVersion to a numeric build field
 - generate the repository's native Star History SVG every six hours so the README chart no longer depends on the hosted chart endpoint, and skip rendering, committing, and pushing when the underlying GitHub Star event history is unchanged
 

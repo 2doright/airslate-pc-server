@@ -16,17 +16,11 @@
 
 </div>
 
-遇到 Bug 或异常行为，请在 [GitHub Issues](https://github.com/2doright/airslate-pc-server/issues) 提交问题。想交流想法、提出建议、关注开发动态、提出问题或查找解决方案，可以前往 [GitHub Discussions](https://github.com/2doright/airslate-pc-server/discussions)。
-
-## 主要功能
-
-- 在 Windows 绘画软件中使用鸿蒙平板/手机进行手写或绘制
-- 将平板作为无线数位板使用
-- 通过手势触发常用快捷键
-- 在多显示器环境中指定输入映射到某一块屏幕
-- 为不同软件配置不同的快捷键预设
+遇到 Bug 或异常行为，请在 [GitHub Issues](https://github.com/2doright/airslate-pc-server/issues) 提交问题。想法交流、提出建议、关注开发动态、提出问题或查找解决方案，可以前往 [GitHub Discussions](https://github.com/2doright/airslate-pc-server/discussions)。
 
 ## 功能概览
+
+将鸿蒙设备作为PC端专业数位板使用
 
 | 功能 | 说明 |
 | --- | --- |
@@ -40,18 +34,15 @@
 
 ![AirSlate PC Server 主界面总览](images/01-overview.jpg)
 
-## 开始使用指南
+## 开始使用
 
-这一部分用于说明：当你已经下载好 **鸿蒙端 AirSlate** 和 **GitHub Release 中的 PC Server** 后，应该如何开始使用。
+需下载安装 **鸿蒙端 AirSlate** 和 **GitHub Release 中的 PC Server** 后，再开始使用。
 
 ### 1. 准备设备
 
 请先确认：
 
-- Windows x64 系统
-- 可正常运行 WebView2
-- 安装鸿蒙端应用 **AirSlate**
-- 下载并安装或解压 **AirSlate PC Server**
+- Windows x64 系统、可正常运行 WebView2
 - Windows 电脑和鸿蒙设备处于同一个局域网
 
 > [!TIP]
@@ -76,7 +67,7 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 ![电脑 IPv4 地址](images/02-ip.jpg)
 
-在鸿蒙端 **AirSlate** 中输入这个 IPv4 地址并连接。
+在鸿蒙端 **AirSlate** 中输入此 IPv4 地址并连接。
 
 > [!IMPORTANT]
 > 如果电脑端显示了多个 IPv4 地址，请选择当前网络环境对应的地址。若连接失败，可以逐个尝试列表中的局域网地址。
@@ -87,12 +78,6 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 ![显示器选择](images/03-显示器.jpg)
 
-建议：
-
-- 单显示器：保持默认即可
-- 双屏或多屏：先选择绘图软件所在的屏幕
-- 更换显示器布局后：重新确认一次映射目标
-
 ### 5. 开始书写
 
 连接完成后，即可在鸿蒙端使用笔输入、点击和手势操作。第一次使用建议先保持默认预设，确认连接和落点正常后，再调整压感曲线与快捷键。
@@ -101,17 +86,6 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 > 如果在绘图软件中可以移动光标但没有压感，请将绘图软件的输入设置切换为 **TabletPC / Windows Ink**。这适用于 CSP、SAI2 等默认使用 WinTab API 的软件。
 
 ## 功能说明
-
-### 连接页
-
-连接页用于查看电脑局域网地址、选择显示器、调节压感曲线。
-
-常用检查顺序：
-
-1. 确认 IPv4 地址已显示
-2. 确认鸿蒙端输入的 IP 与电脑端一致
-3. 确认目标显示器选择正确
-4. 确认压感曲线是否符合当前软件手感
 
 ### 压感曲线
 
@@ -137,18 +111,16 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 你可以在这里：
 
-- 切换当前预设
-- 新建自己的预设
-- 恢复当前预设的默认值
-- 录入新的快捷键组合
+- 切换预设
+- 新建预设
+- 恢复预设默认值
+- 录入快捷键组合
 - 配置径向菜单外环与内环行为
 
 建议为不同软件分别建立预设，例如：
 
 - 绘画软件
 - 笔记软件
-- 修图软件
-- 演示或白板软件
 
 ### 手势与分类区域
 
