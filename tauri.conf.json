@@ -2,7 +2,7 @@
   "$schema": "./frontend/node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "AirSlate PC Server",
   "mainBinaryName": "airslate_pc_server",
-  "version": "1.6.3",
+  "version": "1.6.4-beta.1",
   "identifier": "com.airslate.pcserver",
   "build": {
     "beforeDevCommand": "npm run dev",

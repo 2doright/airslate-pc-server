@@ -1,7 +1,7 @@
 {
   "name": "airslate-pc-server-frontend",
   "private": true,
-  "version": "1.6.3",
+  "version": "1.6.4-beta.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
