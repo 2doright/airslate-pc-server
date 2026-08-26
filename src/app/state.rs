@@ -264,6 +264,34 @@ mod tests {
     }
 
     #[test]
+    fn set_wired_connection_enabled_persists_runtime_fact() {
+        let config_path = test_config_path("wired_connection_enabled_round_trip");
+        let runtime = AppRuntime::new(
+            config_path.clone(),
+            Config::default(),
+            test_workspace(),
+            SessionService::shared(),
+        );
+
+        runtime
+            .set_wired_connection_enabled(false)
+            .expect("wired connection setting should persist");
+
+        assert!(
+            !runtime
+                .wired_connection_enabled()
+                .expect("wired connection runtime fact")
+        );
+        assert!(
+            !Config::load(&config_path)
+                .expect("saved config should load")
+                .wired_connection_enabled
+        );
+
+        let _ = fs::remove_file(config_path);
+    }
+
+    #[test]
     fn set_binding_keys_persists_and_reloads_without_serialization_failure() {
         let config_path = test_config_path("binding_keys_round_trip");
         let config = Config::default();
@@ -581,6 +609,14 @@ impl AppRuntime {
             .map(|config| config.usb_interface)
     }
 
+    #[cfg(test)]
+    pub fn wired_connection_enabled(&self) -> Result<bool, AppError> {
+        self.config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))
+            .map(|config| config.wired_connection_enabled)
+    }
+
     pub fn shortcut_presets_snapshot(&self) -> Result<ShortcutPresetLibrary, AppError> {
         self.config_snapshot().map(|config| config.shortcut_presets)
     }
@@ -713,6 +749,16 @@ impl AppRuntime {
             .lock()
             .map_err(|_| AppError::StatePoisoned("config"))?;
         config.usb_interface = interface;
+        config.normalize();
+        config.save(&self.config_path)
+    }
+
+    pub fn set_wired_connection_enabled(&self, enabled: bool) -> Result<(), AppError> {
+        let mut config = self
+            .config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))?;
+        config.wired_connection_enabled = enabled;
         config.normalize();
         config.save(&self.config_path)
     }
@@ -999,30 +1045,24 @@ fn special_action_for_binding(
         (
             BindingId::Gesture(GestureBinding::TwoPan | GestureBinding::ThreePan),
             SpecialAction::PointerMove,
-        ) => {
-            AdvancedAction::PointerDrag {
-                modifiers: keys,
-                button: None,
-            }
-        }
+        ) => AdvancedAction::PointerDrag {
+            modifiers: keys,
+            button: None,
+        },
         (
             BindingId::Gesture(GestureBinding::TwoPan | GestureBinding::ThreePan),
             SpecialAction::PointerDragLeft,
-        ) => {
-            AdvancedAction::PointerDrag {
-                modifiers: keys,
-                button: Some(MouseButton::Left),
-            }
-        }
+        ) => AdvancedAction::PointerDrag {
+            modifiers: keys,
+            button: Some(MouseButton::Left),
+        },
         (
             BindingId::Gesture(GestureBinding::TwoPan | GestureBinding::ThreePan),
             SpecialAction::PointerDragRight,
-        ) => {
-            AdvancedAction::PointerDrag {
-                modifiers: keys,
-                button: Some(MouseButton::Right),
-            }
-        }
+        ) => AdvancedAction::PointerDrag {
+            modifiers: keys,
+            button: Some(MouseButton::Right),
+        },
         (BindingId::Gesture(GestureBinding::TwoPinch), SpecialAction::PointerWheel) => {
             AdvancedAction::PointerWheel { modifiers: keys }
         }

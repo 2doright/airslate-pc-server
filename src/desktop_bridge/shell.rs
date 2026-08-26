@@ -60,6 +60,7 @@ pub fn run(context: AppContext) -> Result<(), AppError> {
             crate::desktop_bridge::commands::set_preempt_previous_stroke,
             crate::desktop_bridge::commands::set_precise_anchor_correction_enabled,
             crate::desktop_bridge::commands::set_usb_interface,
+            crate::desktop_bridge::commands::set_wired_connection_enabled,
             crate::desktop_bridge::commands::disconnect_active_session,
             crate::desktop_bridge::commands::retry_usb_connection,
             crate::desktop_bridge::commands::scan_usb_devices,

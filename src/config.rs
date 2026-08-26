@@ -11,7 +11,7 @@ use crate::{
     shortcut::{ShortcutPresetLibrary, ShortcutProfile},
 };
 
-const CONFIG_VERSION: u32 = 12;
+const CONFIG_VERSION: u32 = 13;
 pub const MAX_LATEST_CONTACT_MOVE_TOLERANCE_MS: u32 = 100;
 const APP_DIR: &str = "AirSlatePcServer";
 const CONFIG_FILE: &str = "config.toml";
@@ -195,6 +195,7 @@ pub struct Config {
     pub hover_move_policy: HoverMovePolicy,
     pub preempt_previous_stroke: bool,
     pub precise_anchor_correction_enabled: bool,
+    pub wired_connection_enabled: bool,
     pub usb_interface: UsbInterface,
     pub selected_monitor_id: Option<String>,
     pub pressure_curve: PressureCurve,
@@ -218,6 +219,7 @@ impl Default for Config {
             hover_move_policy: HoverMovePolicy::default(),
             preempt_previous_stroke: false,
             precise_anchor_correction_enabled: true,
+            wired_connection_enabled: true,
             usb_interface: UsbInterface::default(),
             selected_monitor_id: None,
             pressure_curve: PressureCurve::default(),
@@ -402,6 +404,31 @@ mod tests {
         let restored = toml::from_str::<Config>(&old_raw).expect("old config should deserialize");
 
         assert_eq!(restored.usb_interface, UsbInterface::default());
+    }
+
+    #[test]
+    fn wired_connection_defaults_on_and_round_trips() {
+        let defaults = Config::default();
+        assert!(defaults.wired_connection_enabled);
+
+        let mut configured = defaults;
+        configured.wired_connection_enabled = false;
+        let raw = toml::to_string(&configured).expect("config should serialize");
+        let restored = toml::from_str::<Config>(&raw).expect("config should deserialize");
+
+        assert!(!restored.wired_connection_enabled);
+    }
+
+    #[test]
+    fn old_config_enables_wired_connection() {
+        let config = Config::default();
+        let raw = toml::to_string_pretty(&config).expect("config should serialize");
+        let mut table = toml::from_str::<toml::Table>(&raw).expect("config should be a table");
+        table.remove("wired_connection_enabled");
+        let old_raw = toml::to_string(&table).expect("old config should serialize");
+        let restored = toml::from_str::<Config>(&old_raw).expect("old config should deserialize");
+
+        assert!(restored.wired_connection_enabled);
     }
 
     #[test]

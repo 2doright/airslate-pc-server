@@ -2,7 +2,7 @@ import type { AppBootstrapDto, UsbStatusEvent } from '../lib/tauri';
 import { Cable, CheckCircle2, CircleAlert, CircleHelp, RefreshCw } from 'lucide-react';
 import { setSelectedMonitor } from '../lib/tauri';
 import { PressureCurveCard } from './pressure-curve-card';
-import { Badge, Button, EmptyState, Panel, PanelHeader, SelectField } from './ui';
+import { Badge, Button, EmptyState, Panel, PanelHeader, SelectField, Switch } from './ui';
 
 export function ConnectionPage(props: {
   data: AppBootstrapDto;
@@ -13,6 +13,7 @@ export function ConnectionPage(props: {
   refreshingIpv4: boolean;
   onRefreshIpv4: () => void;
   onRetryUsb: () => void;
+  onSetWiredConnectionEnabled: (enabled: boolean) => void;
 }) {
   const primaryAddress = props.data.ipv4Values[0] ?? null;
   const secondaryAddresses = props.data.ipv4Values.slice(1);
@@ -54,8 +55,11 @@ export function ConnectionPage(props: {
 
       <UsbConnectionPanel
         status={props.usbStatus}
-        busy={props.busyKey === 'usb-retry'}
+        enabled={props.data.wiredConnectionEnabled}
+        retryBusy={props.busyKey === 'usb-retry' || props.busyKey === 'wired-connection'}
+        toggleBusy={props.busyKey === 'wired-connection' || props.busyKey === 'usb-retry'}
         onRetry={props.onRetryUsb}
+        onSetEnabled={props.onSetWiredConnectionEnabled}
       />
 
       <Panel className="monitor-card">
@@ -86,12 +90,16 @@ export function ConnectionPage(props: {
 
 function UsbConnectionPanel(props: {
   status: UsbStatusEvent;
-  busy: boolean;
+  enabled: boolean;
+  retryBusy: boolean;
+  toggleBusy: boolean;
   onRetry: () => void;
+  onSetEnabled: (enabled: boolean) => void;
 }) {
-  const statusLabel = usbStatusLabel(props.status.state);
+  const state = props.status.state;
+  const statusLabel = usbStatusLabel(state);
   const statusCopy = usbStatusCopy(props.status);
-  const statusTone = props.status.state === 'connected' ? 'success' : props.status.state === 'error' ? 'warning' : 'accent';
+  const statusTone = state === 'connected' ? 'success' : state === 'error' ? 'warning' : 'accent';
 
   return (
     <Panel variant="hero" className="usb-panel">
@@ -99,19 +107,29 @@ function UsbConnectionPanel(props: {
         title="有线连接"
         action={(
           <>
-            <Badge tone={statusTone}>{statusLabel}</Badge>
-            {props.status.retryable ? (
-              <Button
-                type="button"
-                tone="ghost"
-                className="ipv4-refresh-button"
-                onClick={props.onRetry}
-                disabled={props.busy}
-                aria-label="刷新有线连接"
-                title="刷新有线连接"
-              >
-                <RefreshCw className={props.busy ? 'shell-lucide-icon shell-lucide-icon--small shell-lucide-icon--spinning' : 'shell-lucide-icon shell-lucide-icon--small'} />
-              </Button>
+            <Switch
+              checked={props.enabled}
+              disabled={props.toggleBusy || (props.enabled && state === 'connected')}
+              ariaLabel="启用或关闭有线连接"
+              onChange={props.onSetEnabled}
+            />
+            {props.enabled ? (
+              <>
+                <Badge tone={statusTone}>{statusLabel}</Badge>
+                {props.status.retryable ? (
+                  <Button
+                    type="button"
+                    tone="ghost"
+                    className="ipv4-refresh-button"
+                    onClick={props.onRetry}
+                    disabled={props.retryBusy}
+                    aria-label="刷新有线连接"
+                    title="刷新有线连接"
+                  >
+                    <RefreshCw className={props.retryBusy ? 'shell-lucide-icon shell-lucide-icon--small shell-lucide-icon--spinning' : 'shell-lucide-icon shell-lucide-icon--small'} />
+                  </Button>
+                ) : null}
+              </>
             ) : null}
             <span
               className="usb-panel__help"
@@ -124,15 +142,17 @@ function UsbConnectionPanel(props: {
           </>
         )}
       />
-      <div className="usb-panel__status" role="status" aria-live="polite">
-        <div className="usb-panel__status-icon" data-state={props.status.state}>
-          {props.status.state === 'connected' ? <CheckCircle2 /> : props.status.state === 'error' ? <CircleAlert /> : <Cable />}
+      {props.enabled ? (
+        <div className="usb-panel__status" role="status" aria-live="polite">
+          <div className="usb-panel__status-icon" data-state={state}>
+            {state === 'connected' ? <CheckCircle2 /> : state === 'error' ? <CircleAlert /> : <Cable />}
+          </div>
+          <div className="usb-panel__status-copy">
+            <strong>{statusCopy.title}</strong>
+            <span title={props.status.detail}>{statusCopy.detail}</span>
+          </div>
         </div>
-        <div className="usb-panel__status-copy">
-          <strong>{statusCopy.title}</strong>
-          <span title={props.status.detail}>{statusCopy.detail}</span>
-        </div>
-      </div>
+      ) : null}
     </Panel>
   );
 }

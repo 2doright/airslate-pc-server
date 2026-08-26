@@ -20,6 +20,7 @@ import {
   setLaunchAtStartup,
   setRadialOuterSlot,
   setShowLaunchAtStartupOnMainPage,
+  setWiredConnectionEnabled,
 } from './lib/tauri';
 
 type PageKey = 'connection' | 'shortcuts' | 'settings';
@@ -311,6 +312,10 @@ export function App() {
               refreshingIpv4={refreshingIpv4}
               onRefreshIpv4={() => void handleRefreshIpv4()}
               onRetryUsb={() => void runAction('usb-retry', retryUsbConnection)}
+              onSetWiredConnectionEnabled={(enabled) => void runAction(
+                'wired-connection',
+                () => setWiredConnectionEnabled(enabled),
+              )}
             />
           ) : page === 'shortcuts' ? (
             <ShortcutsPage

@@ -9,8 +9,8 @@ use std::{
     collections::{HashMap, HashSet},
     io::{Read, Write},
     sync::{
-        Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
+        Arc, Mutex, MutexGuard,
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{self, Receiver, Sender},
     },
     time::{Duration, Instant},
@@ -27,7 +27,10 @@ use serde::Serialize;
 use tracing::{info, warn};
 
 use crate::{
-    app::{lifecycle::SessionLifecycle, state::AppRuntime},
+    app::{
+        lifecycle::{SessionLifecycle, WiredConnectionGate},
+        state::AppRuntime,
+    },
     config::UsbInterface,
     handshake::HandshakeService,
     protocol::{HANDSHAKE_REQUEST_SIZE, Packet, PacketType, decode_packet},
@@ -86,6 +89,17 @@ impl Default for UsbStatusEvent {
             state: "waiting",
             detail: "等待 AirSlate 平板 USB 连接".to_owned(),
             retryable: true,
+            device: None,
+        }
+    }
+}
+
+impl UsbStatusEvent {
+    fn disabled() -> Self {
+        Self {
+            state: "disabled",
+            detail: String::new(),
+            retryable: false,
             device: None,
         }
     }
@@ -154,6 +168,17 @@ impl UsbPhysicalKey {
             bus_id: device.bus_id.clone(),
             port_chain: device.port_chain.clone(),
         }
+    }
+
+    fn from_info(info: &DeviceInfo) -> Self {
+        Self {
+            bus_id: info.bus_id().to_owned(),
+            port_chain: info.port_chain().to_vec(),
+        }
+    }
+
+    fn matches(&self, info: &DeviceInfo) -> bool {
+        self.bus_id == info.bus_id() && self.port_chain == info.port_chain()
     }
 }
 
@@ -270,17 +295,41 @@ impl Default for UsbStatusBus {
     }
 }
 
-#[derive(Default)]
 pub struct UsbSessionControl {
     active: AtomicU64,
     cancelled: AtomicU64,
-    retry_requested: std::sync::atomic::AtomicBool,
+    retry_requested: AtomicBool,
+    wired_gate: Arc<WiredConnectionGate>,
+    operation: Mutex<()>,
+    reenumerated_target: Mutex<Option<UsbPhysicalKey>>,
+}
+
+impl Default for UsbSessionControl {
+    fn default() -> Self {
+        Self::new(true)
+    }
 }
 
 impl UsbSessionControl {
-    pub fn shared() -> Arc<Self> {
-        Arc::new(Self::default())
+    pub fn new(enabled: bool) -> Self {
+        Self::with_gate(WiredConnectionGate::shared(enabled))
     }
+
+    fn with_gate(wired_gate: Arc<WiredConnectionGate>) -> Self {
+        Self {
+            active: AtomicU64::new(0),
+            cancelled: AtomicU64::new(0),
+            retry_requested: AtomicBool::new(false),
+            wired_gate,
+            operation: Mutex::new(()),
+            reenumerated_target: Mutex::new(None),
+        }
+    }
+
+    pub fn shared_with_gate(wired_gate: Arc<WiredConnectionGate>) -> Arc<Self> {
+        Arc::new(Self::with_gate(wired_gate))
+    }
+
     pub fn cancel_active(&self) {
         let active = self.active.load(Ordering::Acquire);
         if active != 0 {
@@ -297,6 +346,67 @@ impl UsbSessionControl {
         self.retry_requested.store(true, Ordering::Release);
     }
 
+    pub fn set_enabled(&self, enabled: bool) {
+        self.wired_gate.set_enabled(enabled);
+        self.request_scan();
+        if !enabled {
+            self.cancel_active();
+        }
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.wired_gate.is_enabled()
+    }
+
+    fn lock_operation(&self) -> Result<MutexGuard<'_, ()>, UsbError> {
+        self.operation
+            .lock()
+            .map_err(|_| UsbError::ControlState("USB operation lock is poisoned"))
+    }
+
+    fn remember_reenumerated_target(&self, info: &DeviceInfo) -> Result<(), UsbError> {
+        let mut target = self
+            .reenumerated_target
+            .lock()
+            .map_err(|_| UsbError::ControlState("USB re-enumeration target is poisoned"))?;
+        *target = Some(UsbPhysicalKey::from_info(info));
+        Ok(())
+    }
+
+    fn observe_initial_interface(&self, info: &DeviceInfo) -> Result<(), UsbError> {
+        let mut target = self
+            .reenumerated_target
+            .lock()
+            .map_err(|_| UsbError::ControlState("USB re-enumeration target is poisoned"))?;
+        if target.as_ref().is_some_and(|target| target.matches(info)) {
+            *target = None;
+        }
+        Ok(())
+    }
+
+    pub fn cancel_and_eject_reenumerated_device(&self) -> Result<(), String> {
+        self.request_scan();
+        self.cancel_active();
+        let _operation = self
+            .operation
+            .lock()
+            .map_err(|_| "USB 操作状态已损坏".to_owned())?;
+        let target = self
+            .reenumerated_target
+            .lock()
+            .map_err(|_| "USB 重枚举目标状态已损坏".to_owned())?
+            .clone();
+        let Some(target) = target else {
+            return Ok(());
+        };
+        eject_reenumerated_device(&target)?;
+        *self
+            .reenumerated_target
+            .lock()
+            .map_err(|_| "USB 重枚举目标状态已损坏".to_owned())? = None;
+        Ok(())
+    }
+
     fn take_retry_requested(&self) -> bool {
         self.retry_requested.swap(false, Ordering::AcqRel)
     }
@@ -304,11 +414,23 @@ impl UsbSessionControl {
     fn is_cancelled(&self, connection_id: u64) -> bool {
         self.cancelled.load(Ordering::Acquire) == connection_id
     }
+
+    fn ensure_enabled(&self) -> Result<(), UsbError> {
+        self.is_enabled().then_some(()).ok_or(UsbError::Cancelled)
+    }
 }
 
 impl UsbStatusBus {
-    pub fn shared() -> Arc<Self> {
-        Arc::new(Self::default())
+    pub fn shared(wired_connection_enabled: bool) -> Arc<Self> {
+        let current = if wired_connection_enabled {
+            UsbStatusEvent::default()
+        } else {
+            UsbStatusEvent::disabled()
+        };
+        Arc::new(Self {
+            subscriber: Mutex::new(None),
+            current: Mutex::new(current),
+        })
     }
     pub fn subscribe(&self) -> Receiver<UsbStatusEvent> {
         let (sender, receiver) = mpsc::channel();
@@ -323,6 +445,14 @@ impl UsbStatusBus {
             .lock()
             .map(|event| event.clone())
             .unwrap_or_default()
+    }
+
+    pub fn publish_disabled(&self) {
+        self.publish_with_device("disabled", "", None);
+    }
+
+    pub fn publish_waiting(&self) {
+        self.publish("waiting", "等待 AirSlate 平板 USB 连接");
     }
 
     fn publish(&self, state: &'static str, detail: impl Into<String>) {
@@ -343,7 +473,7 @@ impl UsbStatusBus {
         let event = UsbStatusEvent {
             state,
             detail: detail.into(),
-            retryable: state != "connected",
+            retryable: !matches!(state, "connected" | "disabled"),
             device,
         };
         let should_publish = match self.current.lock() {
@@ -395,12 +525,29 @@ impl UsbAccessoryService {
 
     pub fn run(&self) {
         info!("formal USBAccessory service started");
-        self.status
-            .publish("waiting", "等待 AirSlate 平板 USB 连接");
         let mut last_discovery_state = None;
         let mut failed_initial_state = None;
         let mut first_scan = true;
         loop {
+            if !self.control.is_enabled() {
+                self.status.publish_disabled();
+                self.wait_while_disabled();
+                last_discovery_state = None;
+                failed_initial_state = None;
+                first_scan = true;
+                continue;
+            }
+            let _operation = match self.control.lock_operation() {
+                Ok(operation) => operation,
+                Err(error) => {
+                    self.status.publish("error", error.to_string());
+                    self.wait_for_retry_or_scan_interval();
+                    continue;
+                }
+            };
+            if !self.control.is_enabled() {
+                continue;
+            }
             let scan_is_initial = first_scan;
             first_scan = false;
             let usb_interface = match self.runtime.usb_interface() {
@@ -412,7 +559,17 @@ impl UsbAccessoryService {
                     continue;
                 }
             };
-            match discover_candidate(usb_interface, &self.scan_history) {
+            let discovery = discover_candidate(usb_interface, &self.scan_history);
+            if let Ok(Discovery::Direct(info)) = &discovery
+                && let Err(error) = self.control.remember_reenumerated_target(info)
+            {
+                self.status.publish("error", error.to_string());
+                continue;
+            }
+            if !self.control.is_enabled() {
+                continue;
+            }
+            match discovery {
                 Ok(Discovery::None {
                     visible_devices,
                     initial_candidates,
@@ -476,7 +633,11 @@ impl UsbAccessoryService {
                             Some(usb_device_info(&info, None, usb_interface)),
                         );
                     }
-                    match negotiate(*info, usb_interface) {
+                    if let Err(error) = self.control.observe_initial_interface(&info) {
+                        self.status.publish("error", error.to_string());
+                        continue;
+                    }
+                    match negotiate(*info, usb_interface, &self.control) {
                         Ok(accessory) => {
                             failed_initial_state = None;
                             info!(
@@ -487,6 +648,11 @@ impl UsbAccessoryService {
                                 "USBAccessory negotiation completed; opening the re-enumerated accessory function"
                             );
                             self.run_candidate(accessory)
+                        }
+                        Err(UsbError::Cancelled) => {
+                            info!(
+                                "USBAccessory negotiation was cancelled because wired mode was disabled"
+                            );
                         }
                         Err(error) => {
                             warn!(error = %error, "USBAccessory negotiation stopped");
@@ -541,6 +707,9 @@ impl UsbAccessoryService {
     fn wait_for_retry_or_scan_interval(&self) -> bool {
         let deadline = Instant::now() + SCAN_INTERVAL;
         while Instant::now() < deadline {
+            if !self.control.is_enabled() {
+                return true;
+            }
             if self.control.take_retry_requested() {
                 return true;
             }
@@ -549,9 +718,26 @@ impl UsbAccessoryService {
         false
     }
 
+    fn wait_while_disabled(&self) {
+        while !self.control.is_enabled() {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let _ = self.control.take_retry_requested();
+    }
+
     fn run_candidate(&self, info: DeviceInfo) {
+        if !self.control.is_enabled() {
+            self.status.publish_disabled();
+            return;
+        }
         let connection_id = NEXT_CONNECTION_ID.fetch_add(1, Ordering::Relaxed);
         self.control.active.store(connection_id, Ordering::Release);
+        if !self.control.is_enabled() {
+            self.control.cancel_active();
+            self.control.active.store(0, Ordering::Release);
+            self.status.publish_disabled();
+            return;
+        }
         info!(
             connection_id,
             vid = format_args!("{:04X}", info.vendor_id()),
@@ -588,7 +774,9 @@ impl UsbAccessoryService {
             warn!(connection_id, error = %error, "failed to clean up USB session state");
         }
         self.control.active.store(0, Ordering::Release);
-        if !session_failed {
+        if !self.control.is_enabled() {
+            self.status.publish_disabled();
+        } else if !session_failed {
             self.status
                 .publish("waiting", "USB 会话已清理，等待 AirSlate 平板");
         }
@@ -1262,7 +1450,12 @@ fn can_enter_direct_bulk_recovery(initial_candidates: usize, accessory_candidate
     initial_candidates == 0 && accessory_candidates == 1
 }
 
-fn negotiate(info: DeviceInfo, initial_interface: UsbInterface) -> Result<DeviceInfo, UsbError> {
+fn negotiate(
+    info: DeviceInfo,
+    initial_interface: UsbInterface,
+    control: &UsbSessionControl,
+) -> Result<DeviceInfo, UsbError> {
+    control.ensure_enabled()?;
     let bus_id = info.bus_id().to_owned();
     let port_chain = info.port_chain().to_vec();
     #[cfg(windows)]
@@ -1294,6 +1487,7 @@ fn negotiate(info: DeviceInfo, initial_interface: UsbInterface) -> Result<Device
             operation: "claiming the selected Harmony interface for endpoint-zero negotiation",
             detail: error.to_string(),
         })?;
+    control.ensure_enabled()?;
     let version = interface
         .control_in(
             ControlIn {
@@ -1314,6 +1508,7 @@ fn negotiate(info: DeviceInfo, initial_interface: UsbInterface) -> Result<Device
         )));
     }
     for (index, value) in ACCESSORY_IDENTITY {
+        control.ensure_enabled()?;
         let mut data = value.as_bytes().to_vec();
         data.push(0);
         interface
@@ -1331,6 +1526,8 @@ fn negotiate(info: DeviceInfo, initial_interface: UsbInterface) -> Result<Device
             .wait()
             .map_err(|error| UsbError::Control("SEND_STRING", error.to_string()))?;
     }
+    control.ensure_enabled()?;
+    control.remember_reenumerated_target(&info)?;
     interface
         .control_out(
             ControlOut {
@@ -1355,6 +1552,7 @@ fn negotiate(info: DeviceInfo, initial_interface: UsbInterface) -> Result<Device
     #[cfg(windows)]
     let mut driver_install_requested = false;
     while started.elapsed() < REENUMERATION_TIMEOUT {
+        control.ensure_enabled()?;
         let devices = nusb::list_devices().wait().map_err(|error| UsbError::Usb {
             operation: "waiting for physical-port re-enumeration",
             detail: error.to_string(),
@@ -1559,6 +1757,51 @@ fn ready_retry_allowed(retries: u8, same_physical_device: bool) -> bool {
     same_physical_device && retries < READY_SUBMIT_RETRY_LIMIT
 }
 
+fn eject_reenumerated_device(target: &UsbPhysicalKey) -> Result<(), String> {
+    let deadline = Instant::now() + REENUMERATION_TIMEOUT;
+    loop {
+        let devices = nusb::list_devices()
+            .wait()
+            .map_err(|error| format!("枚举待弹出的 USB 设备失败：{error}"))?
+            .filter(|info| target.matches(info))
+            .collect::<Vec<_>>();
+        let accessory = devices
+            .iter()
+            .filter(|info| has_interface(info, ACCESSORY_INTERFACE))
+            .collect::<Vec<_>>();
+        match accessory.as_slice() {
+            [info] => {
+                #[cfg(windows)]
+                {
+                    return winusb_tool::windows_app::eject_present_usb_device(info.instance_id());
+                }
+                #[cfg(not(windows))]
+                {
+                    let device = info
+                        .open()
+                        .wait()
+                        .map_err(|error| format!("打开待释放的 USB 配件设备失败：{error}"))?;
+                    return device
+                        .reset()
+                        .wait()
+                        .map_err(|error| format!("释放 USB 配件设备失败：{error}"));
+                }
+            }
+            [] if !devices.is_empty() => return Ok(()),
+            [] if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            [] => return Ok(()),
+            _ => {
+                return Err(format!(
+                    "同一物理 USB 端口出现 {} 个配件设备，拒绝弹出不唯一目标",
+                    accessory.len()
+                ));
+            }
+        }
+    }
+}
+
 fn select_bulk_pair(device: &nusb::Device) -> Result<BulkPair, UsbError> {
     let configuration = device
         .active_configuration()
@@ -1597,6 +1840,8 @@ fn select_bulk_pair(device: &nusb::Device) -> Result<BulkPair, UsbError> {
 
 #[derive(Debug, thiserror::Error)]
 enum UsbError {
+    #[error("USB runtime control state failed: {0}")]
+    ControlState(&'static str),
     #[error(
         "{operation}: {detail}; Windows requires Microsoft inbox WinUSB on the exact re-enumerated LocationPath"
     )]
@@ -1860,6 +2105,27 @@ mod tests {
 
         assert!(!control.is_cancelled(9));
         assert!(control.take_retry_requested());
+    }
+
+    #[test]
+    fn disabling_wired_mode_cancels_active_connection_and_blocks_scanning() {
+        let control = UsbSessionControl::new(true);
+        control
+            .active
+            .store(9, std::sync::atomic::Ordering::Release);
+
+        control.set_enabled(false);
+
+        assert!(!control.is_enabled());
+        assert!(control.is_cancelled(9));
+        assert!(control.take_retry_requested());
+    }
+
+    #[test]
+    fn disabled_status_is_the_initial_runtime_fact_when_wired_mode_is_off() {
+        let status = UsbStatusBus::shared(false);
+
+        assert_eq!(status.snapshot(), UsbStatusEvent::disabled());
     }
 
     #[test]

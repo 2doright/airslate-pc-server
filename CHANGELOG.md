@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 1.6.4-beta.4 - 2026-08-26
+
+- added a default-on switch to the wired connection card; turning it off stops USB scanning and
+  accessory negotiation, releases a device already switched into accessory mode, and is rejected
+  while a wired session is connected so tablet file transfer remains available
+- shorten the smart pen-down calibration rolling window from 300 ms to 250 ms
+- keep stable MSI versions as plain major.minor.patch values while continuing to map beta.N to the
+  fourth numeric version field
+
 ## 1.6.4-beta.3 - 2026-08-26
 
 - measure smart pen-down calibration dwell time with the PC's monotonic receive clock so a

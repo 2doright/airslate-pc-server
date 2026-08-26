@@ -72,6 +72,7 @@ export interface AppBootstrapDto {
   hoverMovePolicy: HoverMovePolicyLevel;
   preemptPreviousStroke: boolean;
   preciseAnchorCorrectionEnabled: boolean;
+  wiredConnectionEnabled: boolean;
   usbInterface: string;
   ipv4Values: string[];
   pressureCurve: PressureCurveDto;
@@ -88,7 +89,7 @@ export interface SessionStatusEvent {
 }
 
 export interface UsbStatusEvent {
-  state: 'waiting' | 'waiting_accessory' | 'authorizing' | 'handshaking' | 'connected' | 'error';
+  state: 'disabled' | 'waiting' | 'waiting_accessory' | 'authorizing' | 'handshaking' | 'connected' | 'error';
   detail: string;
   retryable: boolean;
   device: UsbDeviceInfo | null;
@@ -190,6 +191,10 @@ export async function setPreciseAnchorCorrectionEnabled(enabled: boolean) {
 
 export async function setUsbInterface(interfaceValue: string) {
   return invoke('set_usb_interface', { interface: interfaceValue });
+}
+
+export async function setWiredConnectionEnabled(enabled: boolean) {
+  return invoke('set_wired_connection_enabled', { enabled });
 }
 
 export async function selectShortcutPreset(presetId: string) {

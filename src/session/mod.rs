@@ -107,6 +107,12 @@ impl SessionService {
         self.active.is_some()
     }
 
+    pub fn has_active_usb_session(&self) -> bool {
+        self.active
+            .as_ref()
+            .is_some_and(|active| matches!(active.source, SessionSource::Usb(_)))
+    }
+
     pub fn create_session(
         &mut self,
         client_id: impl Into<String>,

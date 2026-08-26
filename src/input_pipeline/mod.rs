@@ -28,7 +28,7 @@ const LOGICAL_COORD_MAX: u16 = 32_767;
 const WINDOWS_PRESSURE_MAX: u32 = 1_024;
 const WINDOWS_TILT_MIN: i32 = -90;
 const WINDOWS_TILT_MAX: i32 = 90;
-const PRECISE_ANCHOR_WINDOW: Duration = Duration::from_millis(300);
+const PRECISE_ANCHOR_WINDOW: Duration = Duration::from_millis(250);
 // 96 logical units are about 0.29% of either normalized tablet axis.
 const PRECISE_ANCHOR_RADIUS: i32 = 96;
 
@@ -1424,9 +1424,9 @@ mod tests {
         let timeline_start = Instant::now();
         for (elapsed_ms, x, y) in [
             (0, 1_000, 2_000),
-            (100, 1_006, 2_004),
-            (200, 1_003, 2_008),
-            (300, 1_008, 2_006),
+            (80, 1_006, 2_004),
+            (160, 1_003, 2_008),
+            (250, 1_008, 2_006),
         ] {
             let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, y);
             let command = pen_command(
@@ -1460,7 +1460,7 @@ mod tests {
             1_608,
             1_506,
         );
-        let corrected_down = process_at(&mut corrector, &down_frame, down, timeline_start, 305);
+        let corrected_down = process_at(&mut corrector, &down_frame, down, timeline_start, 255);
         assert_eq!((corrected_down.x, corrected_down.y), (2_016, 4_012));
         assert_eq!(
             (corrected_down.tablet_x, corrected_down.tablet_y),
@@ -1477,7 +1477,7 @@ mod tests {
             1_658,
             1_556,
         );
-        let corrected_move = process_at(&mut corrector, &move_frame, movement, timeline_start, 306);
+        let corrected_move = process_at(&mut corrector, &move_frame, movement, timeline_start, 256);
         assert_eq!((corrected_move.x, corrected_move.y), (2_116, 4_112));
         assert_eq!(
             (corrected_move.tablet_x, corrected_move.tablet_y),
@@ -1494,7 +1494,7 @@ mod tests {
             1_688,
             1_586,
         );
-        let corrected_up = process_at(&mut corrector, &up_frame, up, timeline_start, 307);
+        let corrected_up = process_at(&mut corrector, &up_frame, up, timeline_start, 257);
         assert_eq!((corrected_up.x, corrected_up.y), (2_176, 4_172));
         assert_eq!(
             (corrected_up.tablet_x, corrected_up.tablet_y),
@@ -1506,7 +1506,7 @@ mod tests {
     fn precise_anchor_correction_rejects_motion_inside_the_recent_window() {
         let mut corrector = PreciseAnchorCorrector::default();
         let timeline_start = Instant::now();
-        for (elapsed_ms, x) in [(0, 1_000), (100, 1_200), (300, 1_202)] {
+        for (elapsed_ms, x) in [(0, 1_000), (100, 1_200), (250, 1_202)] {
             let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
             let command = pen_command(
                 PenInjectionCommandKind::Update,
@@ -1537,7 +1537,7 @@ mod tests {
                 &down_frame,
                 down.clone(),
                 timeline_start,
-                300,
+                250,
             ),
             down
         );
@@ -1571,7 +1571,7 @@ mod tests {
         );
 
         assert_eq!(hover_frame.timestamp, down_frame.timestamp);
-        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 300);
+        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 250);
         assert_eq!((corrected.x, corrected.y), (2_000, 4_000));
         assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_000, 2_000));
     }
@@ -1582,10 +1582,10 @@ mod tests {
         let timeline_start = Instant::now();
         for (elapsed_ms, x) in [
             (0, 1_000),
-            (100, 1_000),
-            (200, 1_000),
-            (250, 1_100),
-            (300, 1_005),
+            (75, 1_000),
+            (150, 1_000),
+            (200, 1_100),
+            (250, 1_005),
         ] {
             let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
             process_at(
@@ -1616,7 +1616,7 @@ mod tests {
             2_100,
         );
 
-        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 300);
+        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 250);
         assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_005, 2_000));
     }
 
@@ -1662,7 +1662,7 @@ mod tests {
     fn precise_anchor_correction_rejects_motion_inside_the_window_after_a_sampling_gap() {
         let mut corrector = PreciseAnchorCorrector::default();
         let timeline_start = Instant::now();
-        for (elapsed_ms, x) in [(0, 1_000), (200, 2_000)] {
+        for (elapsed_ms, x) in [(0, 1_000), (150, 2_000)] {
             let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
             process_at(
                 &mut corrector,
@@ -1698,7 +1698,7 @@ mod tests {
                 &down_frame,
                 down.clone(),
                 timeline_start,
-                300,
+                250,
             ),
             down
         );
@@ -1744,7 +1744,7 @@ mod tests {
                 &down_frame,
                 down.clone(),
                 timeline_start,
-                299,
+                249,
             ),
             down
         );

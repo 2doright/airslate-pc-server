@@ -1,7 +1,9 @@
 #[cfg(windows)]
 pub(crate) mod windows_app {
     use std::{
+        ffi::OsStr,
         fmt, mem,
+        os::windows::ffi::OsStrExt,
         path::{Path, PathBuf},
     };
 
@@ -9,18 +11,19 @@ pub(crate) mod windows_app {
         Win32::{
             Devices::{
                 DeviceAndDriverInstallation::{
-                    CM_Get_DevNode_Status, CM_PROB_FAILED_INSTALL, CR_SUCCESS, DI_ENUMSINGLEINF,
+                    CM_Get_DevNode_Status, CM_LOCATE_DEVNODE_NORMAL, CM_Locate_DevNodeW,
+                    CM_PROB_FAILED_INSTALL, CM_Request_Device_EjectW, CR_SUCCESS, DI_ENUMSINGLEINF,
                     DI_FLAGSEX_ALLOWEXCLUDEDDRVS, DICS_FLAG_GLOBAL, DIGCF_ALLCLASSES,
                     DIGCF_PRESENT, DIIDFLAG_NOFINISHINSTALLUI, DIREG_DEV, DiInstallDevice,
-                    HDEVINFO, SETUP_DI_DEVICE_INSTALL_FLAGS, SETUP_DI_DEVICE_INSTALL_FLAGS_EX,
-                    SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W, SP_DRVINFO_DATA_V2_W,
-                    SP_DRVINFO_DETAIL_DATA_W, SPDIT_CLASSDRIVER, SetupDiBuildDriverInfoList,
-                    SetupDiCreateDeviceInfoList, SetupDiDestroyDeviceInfoList,
-                    SetupDiDestroyDriverInfoList, SetupDiEnumDeviceInfo, SetupDiEnumDriverInfoW,
-                    SetupDiGetClassDevsW, SetupDiGetDeviceInstallParamsW,
-                    SetupDiGetDeviceInstanceIdW, SetupDiGetDevicePropertyW,
-                    SetupDiGetDriverInfoDetailW, SetupDiGetINFClassW, SetupDiOpenDevRegKey,
-                    SetupDiOpenDeviceInfoW, SetupDiSetDeviceInstallParamsW,
+                    HDEVINFO, PNP_VetoTypeUnknown, SETUP_DI_DEVICE_INSTALL_FLAGS,
+                    SETUP_DI_DEVICE_INSTALL_FLAGS_EX, SP_DEVINFO_DATA, SP_DEVINSTALL_PARAMS_W,
+                    SP_DRVINFO_DATA_V2_W, SP_DRVINFO_DETAIL_DATA_W, SPDIT_CLASSDRIVER,
+                    SetupDiBuildDriverInfoList, SetupDiCreateDeviceInfoList,
+                    SetupDiDestroyDeviceInfoList, SetupDiDestroyDriverInfoList,
+                    SetupDiEnumDeviceInfo, SetupDiEnumDriverInfoW, SetupDiGetClassDevsW,
+                    SetupDiGetDeviceInstallParamsW, SetupDiGetDeviceInstanceIdW,
+                    SetupDiGetDevicePropertyW, SetupDiGetDriverInfoDetailW, SetupDiGetINFClassW,
+                    SetupDiOpenDevRegKey, SetupDiOpenDeviceInfoW, SetupDiSetDeviceInstallParamsW,
                     SetupDiSetSelectedDriverW,
                 },
                 Properties::{
@@ -45,6 +48,41 @@ pub(crate) mod windows_app {
     const AIRSLATE_USB_INTERFACE_GUID: GUID =
         GUID::from_u128(0x9658c676_474f_4d5e_bfcb_3f7747eb5dd8);
     const ACCESSORY_COMPATIBLE_ID: &str = "USB\\Class_FF&SubClass_FF&Prot_00";
+
+    pub(crate) fn eject_present_usb_device(instance_id: &OsStr) -> Result<(), String> {
+        let instance_id = instance_id.encode_wide().chain(Some(0)).collect::<Vec<_>>();
+        let mut devinst = 0;
+        // SAFETY: instance_id is a live, NUL-terminated buffer and devinst points to writable storage.
+        let locate = unsafe {
+            CM_Locate_DevNodeW(
+                &mut devinst,
+                PCWSTR(instance_id.as_ptr()),
+                CM_LOCATE_DEVNODE_NORMAL,
+            )
+        };
+        if locate != CR_SUCCESS {
+            return Err(format!(
+                "无法定位待弹出的 USB 设备，Configuration Manager 返回 {locate:?}"
+            ));
+        }
+
+        let mut veto = PNP_VetoTypeUnknown;
+        let mut veto_name = [0_u16; 260];
+        // SAFETY: devinst was resolved above and both optional output buffers remain valid for the call.
+        let eject =
+            unsafe { CM_Request_Device_EjectW(devinst, Some(&mut veto), Some(&mut veto_name), 0) };
+        if eject != CR_SUCCESS {
+            let veto_length = veto_name
+                .iter()
+                .position(|value| *value == 0)
+                .unwrap_or(veto_name.len());
+            let veto_name = String::from_utf16_lossy(&veto_name[..veto_length]);
+            return Err(format!(
+                "系统拒绝弹出 USB 设备（Configuration Manager {eject:?}，veto={veto:?}，来源={veto_name:?}）"
+            ));
+        }
+        Ok(())
+    }
 
     #[allow(dead_code)]
     pub(crate) fn find_present_usb_location(

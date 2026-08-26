@@ -20,7 +20,7 @@ use crate::{
     workspace::WorkspaceService,
 };
 
-use self::lifecycle::{SessionLifecycle, SessionStatusBus};
+use self::lifecycle::{SessionLifecycle, SessionStatusBus, WiredConnectionGate};
 use self::state::AppRuntime;
 
 #[derive(Clone)]
@@ -76,14 +76,16 @@ pub fn initialize() -> Result<AppContext, AppError> {
         radial_overlay.controller(),
         runtime.input_processing_settings(),
     ));
-    let session_lifecycle = Arc::new(SessionLifecycle::new(
+    let wired_gate = WiredConnectionGate::shared(config.wired_connection_enabled);
+    let session_lifecycle = Arc::new(SessionLifecycle::new_with_wired_gate(
         session.clone(),
         input_sink,
         SessionStatusBus::shared(),
+        wired_gate.clone(),
     ));
-    let usb_status_bus = UsbStatusBus::shared();
+    let usb_status_bus = UsbStatusBus::shared(config.wired_connection_enabled);
     let usb_scan_history = UsbScanHistory::shared();
-    let usb_session_control = UsbSessionControl::shared();
+    let usb_session_control = UsbSessionControl::shared_with_gate(wired_gate);
 
     Ok(AppContext {
         config_path: path,

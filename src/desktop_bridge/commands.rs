@@ -242,6 +242,48 @@ pub fn set_usb_interface(state: State<'_, AppContext>, interface: String) -> Res
 }
 
 #[tauri::command]
+pub fn set_wired_connection_enabled(
+    state: State<'_, AppContext>,
+    enabled: bool,
+) -> Result<(), String> {
+    if enabled {
+        state
+            .runtime
+            .set_wired_connection_enabled(true)
+            .map_err(error_message)?;
+        state.session_lifecycle.set_wired_enabled(true);
+        state.usb_session_control.set_enabled(true);
+        state.usb_status_bus.publish_waiting();
+        return Ok(());
+    }
+
+    state
+        .session_lifecycle
+        .begin_wired_disable()
+        .map_err(|error| match error {
+            AppError::WiredSessionActive => "存在有线会话时无法关闭有线连接".to_owned(),
+            error => error_message(error),
+        })?;
+    if let Err(error) = state
+        .usb_session_control
+        .cancel_and_eject_reenumerated_device()
+    {
+        state.session_lifecycle.set_wired_enabled(true);
+        state.usb_session_control.request_scan();
+        state.usb_status_bus.publish_waiting();
+        return Err(error);
+    }
+    if let Err(error) = state.runtime.set_wired_connection_enabled(false) {
+        state.session_lifecycle.set_wired_enabled(true);
+        state.usb_session_control.request_scan();
+        state.usb_status_bus.publish_waiting();
+        return Err(error_message(error));
+    }
+    state.usb_status_bus.publish_disabled();
+    Ok(())
+}
+
+#[tauri::command]
 pub fn select_shortcut_preset(
     state: State<'_, AppContext>,
     payload: PresetSelectionPayload,

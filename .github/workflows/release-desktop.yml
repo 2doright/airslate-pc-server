@@ -62,10 +62,10 @@ jobs:
             if ($msiBuild -gt 65534) {
               throw "MSI beta number must not exceed 65534: $msiBuild"
             }
+            $msiVersion = "$($appVersion.Major).$($appVersion.Minor).$($appVersion.Patch).$msiBuild"
           } else {
-            $msiBuild = 65535
+            $msiVersion = "$($appVersion.Major).$($appVersion.Minor).$($appVersion.Patch)"
           }
-          $msiVersion = "$($appVersion.Major).$($appVersion.Minor).$($appVersion.Patch).$msiBuild"
           $msiConfig = @{
             bundle = @{
               windows = @{

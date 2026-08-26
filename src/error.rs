@@ -26,6 +26,12 @@ pub enum AppError {
     Workspace(String),
     #[error("session already active")]
     SessionAlreadyActive,
+    #[error(
+        "an active wired session must be disconnected before wired connections can be disabled"
+    )]
+    WiredSessionActive,
+    #[error("wired connections are disabled")]
+    WiredConnectionDisabled,
     #[error("invalid session id: {0}")]
     InvalidSessionId(&'static str),
     #[error("shared state is poisoned: {0}")]

@@ -2,6 +2,7 @@ use std::{
     net::Ipv4Addr,
     sync::{
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, Sender},
     },
 };
@@ -20,6 +21,27 @@ use crate::{
 };
 
 pub const SESSION_STATUS_CHANGED_EVENT: &str = "session-status-changed";
+
+#[derive(Debug)]
+pub struct WiredConnectionGate {
+    enabled: AtomicBool,
+}
+
+impl WiredConnectionGate {
+    pub fn shared(enabled: bool) -> Arc<Self> {
+        Arc::new(Self {
+            enabled: AtomicBool::new(enabled),
+        })
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::Acquire)
+    }
+
+    pub fn set_enabled(&self, enabled: bool) {
+        self.enabled.store(enabled, Ordering::Release);
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -69,23 +91,60 @@ pub struct SessionLifecycle {
     session: SharedSessionService,
     input_sink: Arc<dyn IncomingEventSink>,
     status_bus: Arc<SessionStatusBus>,
+    wired_gate: Arc<WiredConnectionGate>,
 }
 
 impl SessionLifecycle {
+    #[cfg(test)]
     pub fn new(
         session: SharedSessionService,
         input_sink: Arc<dyn IncomingEventSink>,
         status_bus: Arc<SessionStatusBus>,
     ) -> Self {
+        Self::new_with_wired_gate(
+            session,
+            input_sink,
+            status_bus,
+            WiredConnectionGate::shared(true),
+        )
+    }
+
+    pub fn new_with_wired_gate(
+        session: SharedSessionService,
+        input_sink: Arc<dyn IncomingEventSink>,
+        status_bus: Arc<SessionStatusBus>,
+        wired_gate: Arc<WiredConnectionGate>,
+    ) -> Self {
         Self {
             session,
             input_sink,
             status_bus,
+            wired_gate,
         }
     }
 
     pub fn status_bus(&self) -> Arc<SessionStatusBus> {
         self.status_bus.clone()
+    }
+
+    pub fn begin_wired_disable(&self) -> Result<(), AppError> {
+        self.wired_gate.set_enabled(false);
+        let session = match self.session.lock() {
+            Ok(session) => session,
+            Err(_) => {
+                self.wired_gate.set_enabled(true);
+                return Err(AppError::StatePoisoned("session"));
+            }
+        };
+        if session.has_active_usb_session() {
+            self.wired_gate.set_enabled(true);
+            return Err(AppError::WiredSessionActive);
+        }
+        Ok(())
+    }
+
+    pub fn set_wired_enabled(&self, enabled: bool) {
+        self.wired_gate.set_enabled(enabled);
     }
 
     pub fn create_session(
@@ -123,14 +182,19 @@ impl SessionLifecycle {
         client_id: impl Into<String>,
         connection_id: u64,
     ) -> Result<String, AppError> {
-        let session_id = self
+        let mut session = self
             .session
             .lock()
-            .map_err(|_| AppError::StatePoisoned("session"))?
+            .map_err(|_| AppError::StatePoisoned("session"))?;
+        if !self.wired_gate.is_enabled() {
+            return Err(AppError::WiredConnectionDisabled);
+        }
+        let session_id = session
             .create_usb_session(client_id, connection_id)?
             .session_id()
             .as_str()
             .to_owned();
+        drop(session);
         self.status_bus.publish(SessionStatusEvent {
             has_active_session: true,
         });
@@ -324,5 +388,43 @@ mod tests {
 
         assert!(!status.has_active_session);
         assert!(sink.events.lock().expect("sink should lock").is_empty());
+    }
+
+    #[test]
+    fn active_usb_session_prevents_disabling_and_keeps_gate_open() {
+        let session = SessionService::shared();
+        let lifecycle = SessionLifecycle::new(
+            session,
+            Arc::new(RecordingSink::default()),
+            SessionStatusBus::shared(),
+        );
+        lifecycle
+            .create_usb_session("tablet", 41)
+            .expect("USB session should be created");
+
+        assert!(matches!(
+            lifecycle.begin_wired_disable(),
+            Err(AppError::WiredSessionActive)
+        ));
+        assert!(lifecycle.wired_gate.is_enabled());
+    }
+
+    #[test]
+    fn disabled_gate_rejects_a_racing_usb_session_creation() {
+        let session = SessionService::shared();
+        let lifecycle = SessionLifecycle::new(
+            session,
+            Arc::new(RecordingSink::default()),
+            SessionStatusBus::shared(),
+        );
+
+        lifecycle
+            .begin_wired_disable()
+            .expect("inactive USB transport can be disabled");
+
+        assert!(matches!(
+            lifecycle.create_usb_session("tablet", 42),
+            Err(AppError::WiredConnectionDisabled)
+        ));
     }
 }
