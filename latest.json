@@ -1,0 +1,11 @@
+{
+  "version": "1.6.4",
+  "notes": "## What's Changed\n* Add automated Star History chart by @2doright in https://github.com/2doright/airslate-pc-server/pull/20\n\n## New Contributors\n* @2doright made their first contribution in https://github.com/2doright/airslate-pc-server/pull/20\n\n**Full Changelog**: https://github.com/2doright/airslate-pc-server/compare/v1.6.3...v1.6.4",
+  "pub_date": "2026-09-01T06:24:24Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmdpdUN0N0tvRmdLNHBwU0J5dEN0bSt4Zkd1d08wbVlEUEM4NW5zNGtORUwxYituYjFGVHpDaG1WUFl1UmQ0TTFVdUlTUTdFWTBBMlFaZXJxbEVCZUxad0gxUjBFZ1E4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4MjQzNzQ0CWZpbGU6QWlyU2xhdGUgUEMgU2VydmVyXzEuNi40X3g2NF9lbi1VUy5tc2kKeDJDZTZZazB5bUpZcWRRWURQSnRjS3RYNStVTEFrenZlajNUUGpRSTI3NFJ4Z2M3TFVGamU0Zi91Q0FXc3BacEw5WGVxaDVGaFBnWFpqbitObUhRQUE9PQo=",
+      "url": "https://github.com/2doright/airslate-pc-server/releases/download/v1.6.4/AirSlate-PC-Server_1.6.4_windows-x64.msi"
+    }
+  }
+}
