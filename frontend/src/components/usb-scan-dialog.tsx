@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { RefreshCw, X } from 'lucide-react';
 import { scanUsbDevices, type UsbScanDevice } from '../lib/tauri';
+import { UsbScanTracker, usbPhysicalKey } from './usb-scan-tracker';
 
 const USB_SCAN_INTERVAL_MS = 750;
 
@@ -9,9 +10,7 @@ export function UsbScanDialog(props: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
-  const [waitingForInterfacePair, setWaitingForInterfacePair] = useState(false);
-  const baselineKeys = useRef<Set<string> | null>(null);
-  const trackedDevices = useRef(new Map<string, UsbScanDevice>());
+  const tracker = useRef(new UsbScanTracker());
 
   useEffect(() => {
     let disposed = false;
@@ -24,38 +23,13 @@ export function UsbScanDialog(props: { onClose: () => void }) {
       if (!hasSnapshot) setLoading(true);
 
       try {
-        const hdcDevices = (await scanUsbDevices()).filter(isHdcDevice);
-        const nextDevices = hdcDevices.filter(hasInitialAndCurrentInterfaces);
+        const observations = tracker.current.observe(await scanUsbDevices());
         if (disposed) return;
-        setWaitingForInterfacePair(hdcDevices.length > 0 && nextDevices.length === 0);
-
-        const currentKeys = new Set(nextDevices.map(usbPhysicalKey));
-        let baseline = baselineKeys.current;
-        if (baseline === null) {
-          baseline = currentKeys;
-          baselineKeys.current = baseline;
-        } else {
-          for (const key of baseline) {
-            if (!currentKeys.has(key)) baseline.delete(key);
-          }
-        }
-
-        for (const device of nextDevices) {
-          const key = usbPhysicalKey(device);
-          if (!baseline.has(key)) {
-            trackedDevices.current.set(key, device);
-          }
-        }
-        for (const key of trackedDevices.current.keys()) {
-          if (!currentKeys.has(key)) trackedDevices.current.delete(key);
-        }
-
-        setDevices([...trackedDevices.current.values()]);
+        setDevices(observations);
         setError(null);
         hasSnapshot = true;
       } catch (scanError) {
         if (disposed) return;
-        setWaitingForInterfacePair(false);
         setError(scanError instanceof Error ? scanError.message : String(scanError));
         hasSnapshot = true;
       } finally {
@@ -98,7 +72,7 @@ export function UsbScanDialog(props: { onClose: () => void }) {
         <header className="usb-scan-dialog__header">
           <div>
             <h2 id="usb-scan-dialog-title">扫描 USB 设备</h2>
-            <p>自动识别名称为 HDC Device 的设备；完成两阶段识别后显示原始识别接口。</p>
+            <p>自动识别新插入、名称为 HDC Device 的设备，并在重枚举时保留首次识别到的接口。</p>
           </div>
           <div className="usb-scan-dialog__header-actions">
             <button
@@ -120,17 +94,15 @@ export function UsbScanDialog(props: { onClose: () => void }) {
           <span className={error ? 'usb-scan-dialog__status-dot usb-scan-dialog__status-dot--error' : 'usb-scan-dialog__status-dot'} />
           {error
             ? '扫描失败'
-            : waitingForInterfacePair && devices.length === 0
-              ? '持续检测中 · 等待完成两阶段识别'
-              : `持续检测中 · 已发现 ${devices.length} 个识别接口`}
+            : `持续检测中 · 已识别 ${devices.length} 个设备`}
         </div>
 
         <div className="usb-scan-dialog__body">
           {error ? <div className="usb-scan-dialog__error">{error}</div> : null}
           {!loading && !error && devices.length === 0 ? (
             <div className="usb-scan-dialog__empty">
-              <strong>{waitingForInterfacePair ? 'HDC Device 尚未完成两阶段识别' : '暂未检测到新的 HDC Device 设备'}</strong>
-              <span>{waitingForInterfacePair ? '请重新插入设备，直至出现识别接口。' : '保持此窗口打开，然后插入鸿蒙设备。'}</span>
+              <strong>暂未检测到新的 HDC Device 设备</strong>
+              <span>保持此窗口打开，然后插入鸿蒙设备。</span>
             </div>
           ) : null}
           <div className="usb-scan-dialog__devices">
@@ -200,34 +172,6 @@ function formatDeviceName(device: UsbScanDevice, index: number) {
     device.manufacturer,
   ].find((value): value is string => Boolean(value));
   return name ?? `USB 设备 ${index + 1}`;
-}
-
-function isHdcDevice(device: UsbScanDevice) {
-  return [device.product, device.initialProduct]
-    .some((name) => name?.trim().toLowerCase() === 'hdc device');
-}
-
-function hasInitialAndCurrentInterfaces(device: UsbScanDevice) {
-  const initialInterfaces = device.initialInterfaces;
-  return initialInterfaces !== null
-    && initialInterfaces.length > 0
-    && device.interfaces.length > 0
-    && !sameInterfaces(initialInterfaces, device.interfaces);
-}
-
-function sameInterfaces(left: UsbScanDevice['interfaces'], right: UsbScanDevice['interfaces']) {
-  return left.length === right.length && left.every((leftInterface, index) => {
-    const rightInterface = right[index];
-    return rightInterface !== undefined
-      && leftInterface.interfaceNumber === rightInterface.interfaceNumber
-      && leftInterface.classCode === rightInterface.classCode
-      && leftInterface.subclass === rightInterface.subclass
-      && leftInterface.protocol === rightInterface.protocol;
-  });
-}
-
-function usbPhysicalKey(device: UsbScanDevice) {
-  return `${device.busId}\u0000${device.portChain.join('.')}`;
 }
 
 function formatHex(value: number, width: number) {

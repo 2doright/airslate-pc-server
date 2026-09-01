@@ -218,7 +218,7 @@ impl Default for Config {
             latest_contact_move_tolerance_ms: 0,
             hover_move_policy: HoverMovePolicy::default(),
             preempt_previous_stroke: false,
-            precise_anchor_correction_enabled: true,
+            precise_anchor_correction_enabled: false,
             wired_connection_enabled: true,
             usb_interface: UsbInterface::default(),
             selected_monitor_id: None,
@@ -464,20 +464,20 @@ mod tests {
     }
 
     #[test]
-    fn precise_anchor_correction_defaults_on_and_round_trips() {
+    fn precise_anchor_correction_defaults_off_and_round_trips() {
         let defaults = Config::default();
-        assert!(defaults.precise_anchor_correction_enabled);
+        assert!(!defaults.precise_anchor_correction_enabled);
 
         let mut configured = defaults;
-        configured.precise_anchor_correction_enabled = false;
+        configured.precise_anchor_correction_enabled = true;
         let raw = toml::to_string(&configured).expect("config should serialize");
         let restored = toml::from_str::<Config>(&raw).expect("config should deserialize");
 
-        assert!(!restored.precise_anchor_correction_enabled);
+        assert!(restored.precise_anchor_correction_enabled);
     }
 
     #[test]
-    fn old_config_enables_precise_anchor_correction() {
+    fn old_config_leaves_precise_anchor_correction_disabled() {
         let config = Config::default();
         let raw = toml::to_string_pretty(&config).expect("config should serialize");
         let mut table = toml::from_str::<toml::Table>(&raw).expect("config should be a table");
@@ -485,7 +485,7 @@ mod tests {
         let old_raw = toml::to_string(&table).expect("old config should serialize");
         let restored = toml::from_str::<Config>(&old_raw).expect("old config should deserialize");
 
-        assert!(restored.precise_anchor_correction_enabled);
+        assert!(!restored.precise_anchor_correction_enabled);
     }
 
     #[test]

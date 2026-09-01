@@ -29,8 +29,9 @@ const WINDOWS_PRESSURE_MAX: u32 = 1_024;
 const WINDOWS_TILT_MIN: i32 = -90;
 const WINDOWS_TILT_MAX: i32 = 90;
 const PRECISE_ANCHOR_WINDOW: Duration = Duration::from_millis(200);
-// 112 logical units are about 0.34% of either normalized tablet axis.
-const PRECISE_ANCHOR_RADIUS: i32 = 112;
+// A dwell-weighted final 60 ms keeps instantaneous landing hover from moving the aim.
+const PRECISE_ANCHOR_TAIL_WINDOW: Duration = Duration::from_millis(60);
+const PRECISE_ANCHOR_RADIUS_PX: i32 = 10;
 
 pub trait PenInjector: Send + Sync {
     fn inject(&self, command: PenInjectionCommand) -> Result<(), AppError>;
@@ -123,18 +124,65 @@ impl HoverAnchorCandidate {
     }
 
     fn anchor_at(&self, down_accepted_at: Instant) -> Option<PenCoordinate> {
-        let anchor = self.observations.back()?;
         let window_start_index = self.observations.iter().rposition(|observation| {
             down_accepted_at.duration_since(observation.accepted_at) >= PRECISE_ANCHOR_WINDOW
         })?;
-        let radius_squared = i64::from(PRECISE_ANCHOR_RADIUS).pow(2);
+        let anchor = self.tail_anchor_at(down_accepted_at, window_start_index)?;
+        let radius_squared = i64::from(PRECISE_ANCHOR_RADIUS_PX).pow(2);
         self.observations
             .iter()
             .skip(window_start_index)
             .all(|observation| {
-                squared_tablet_distance(observation.coordinate, anchor.coordinate) <= radius_squared
+                squared_screen_distance(observation.coordinate, anchor) <= radius_squared
             })
-            .then_some(anchor.coordinate)
+            .then_some(anchor)
+    }
+
+    fn tail_anchor_at(
+        &self,
+        down_accepted_at: Instant,
+        window_start_index: usize,
+    ) -> Option<PenCoordinate> {
+        let tail_start = down_accepted_at.checked_sub(PRECISE_ANCHOR_TAIL_WINDOW)?;
+        let tail_start_index = self
+            .observations
+            .iter()
+            .rposition(|observation| observation.accepted_at <= tail_start)
+            .unwrap_or(window_start_index)
+            .max(window_start_index);
+        let mut total_weight = 0_i64;
+        let mut weighted_x = 0_i64;
+        let mut weighted_y = 0_i64;
+        let mut weighted_tablet_x = 0_i64;
+        let mut weighted_tablet_y = 0_i64;
+
+        for index in tail_start_index..self.observations.len() {
+            let observation = self.observations.get(index)?;
+            let interval_start = observation.accepted_at.max(tail_start);
+            let interval_end = self
+                .observations
+                .get(index + 1)
+                .map_or(down_accepted_at, |next| next.accepted_at)
+                .min(down_accepted_at);
+            if interval_end <= interval_start {
+                continue;
+            }
+
+            let weight =
+                i64::try_from(interval_end.duration_since(interval_start).as_nanos()).ok()?;
+            total_weight += weight;
+            weighted_x += i64::from(observation.coordinate.x) * weight;
+            weighted_y += i64::from(observation.coordinate.y) * weight;
+            weighted_tablet_x += i64::from(observation.coordinate.tablet_x) * weight;
+            weighted_tablet_y += i64::from(observation.coordinate.tablet_y) * weight;
+        }
+
+        Some(PenCoordinate {
+            x: i32::try_from(weighted_x / total_weight).ok()?,
+            y: i32::try_from(weighted_y / total_weight).ok()?,
+            tablet_x: u16::try_from(weighted_tablet_x / total_weight).ok()?,
+            tablet_y: u16::try_from(weighted_tablet_y / total_weight).ok()?,
+        })
     }
 }
 
@@ -230,9 +278,9 @@ impl PreciseAnchorCorrector {
     }
 }
 
-fn squared_tablet_distance(left: PenCoordinate, right: PenCoordinate) -> i64 {
-    let delta_x = i64::from(left.tablet_x) - i64::from(right.tablet_x);
-    let delta_y = i64::from(left.tablet_y) - i64::from(right.tablet_y);
+fn squared_screen_distance(left: PenCoordinate, right: PenCoordinate) -> i64 {
+    let delta_x = i64::from(left.x) - i64::from(right.x);
+    let delta_y = i64::from(left.y) - i64::from(right.y);
     delta_x * delta_x + delta_y * delta_y
 }
 
@@ -1422,21 +1470,21 @@ mod tests {
     fn precise_anchor_correction_translates_the_complete_contact_stroke() {
         let mut corrector = PreciseAnchorCorrector::default();
         let timeline_start = Instant::now();
-        for (elapsed_ms, x, y) in [
-            (0, 1_000, 2_000),
-            (60, 1_006, 2_004),
-            (120, 1_003, 2_008),
-            (200, 1_008, 2_006),
+        for (elapsed_ms, tablet_x, tablet_y, screen_x, screen_y) in [
+            (0, 1_000, 2_000, 2_000, 4_010),
+            (60, 1_006, 2_004, 2_004, 4_012),
+            (120, 1_003, 2_008, 2_006, 4_015),
+            (200, 1_008, 2_006, 2_006, 4_015),
         ] {
-            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, y);
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, tablet_x, tablet_y);
             let command = pen_command(
                 PenInjectionCommandKind::Update,
                 true,
                 false,
-                i32::from(x) * 2,
-                i32::from(y) * 2,
-                x,
-                y,
+                screen_x,
+                screen_y,
+                tablet_x,
+                tablet_y,
             );
             assert_eq!(
                 process_at(
@@ -1461,10 +1509,10 @@ mod tests {
             1_506,
         );
         let corrected_down = process_at(&mut corrector, &down_frame, down, timeline_start, 205);
-        assert_eq!((corrected_down.x, corrected_down.y), (2_016, 4_012));
+        assert_eq!((corrected_down.x, corrected_down.y), (2_006, 4_015));
         assert_eq!(
             (corrected_down.tablet_x, corrected_down.tablet_y),
-            (1_008, 2_006)
+            (1_003, 2_007)
         );
 
         let move_frame = stylus_frame(StylusEventType::Move, 0b0000_0011, 1_658, 1_556);
@@ -1478,10 +1526,10 @@ mod tests {
             1_556,
         );
         let corrected_move = process_at(&mut corrector, &move_frame, movement, timeline_start, 206);
-        assert_eq!((corrected_move.x, corrected_move.y), (2_116, 4_112));
+        assert_eq!((corrected_move.x, corrected_move.y), (2_106, 4_115));
         assert_eq!(
             (corrected_move.tablet_x, corrected_move.tablet_y),
-            (1_058, 2_056)
+            (1_053, 2_057)
         );
 
         let up_frame = stylus_frame(StylusEventType::Up, 0b0000_0001, 1_688, 1_586);
@@ -1495,10 +1543,10 @@ mod tests {
             1_586,
         );
         let corrected_up = process_at(&mut corrector, &up_frame, up, timeline_start, 207);
-        assert_eq!((corrected_up.x, corrected_up.y), (2_176, 4_172));
+        assert_eq!((corrected_up.x, corrected_up.y), (2_166, 4_175));
         assert_eq!(
             (corrected_up.tablet_x, corrected_up.tablet_y),
-            (1_088, 2_086)
+            (1_083, 2_087)
         );
     }
 
@@ -1506,15 +1554,17 @@ mod tests {
     fn precise_anchor_correction_rejects_motion_inside_the_recent_window() {
         let mut corrector = PreciseAnchorCorrector::default();
         let timeline_start = Instant::now();
-        for (elapsed_ms, x) in [(0, 1_000), (100, 1_200), (250, 1_202)] {
-            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
+        for (elapsed_ms, tablet_x, screen_x) in
+            [(0, 1_000, 1_000), (100, 1_001, 1_020), (250, 1_002, 1_021)]
+        {
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, tablet_x, 2_000);
             let command = pen_command(
                 PenInjectionCommandKind::Update,
                 true,
                 false,
-                i32::from(x),
+                screen_x,
                 2_000,
-                x,
+                tablet_x,
                 2_000,
             );
             process_at(&mut corrector, &frame, command, timeline_start, elapsed_ms);
@@ -1577,17 +1627,17 @@ mod tests {
     }
 
     #[test]
-    fn precise_anchor_correction_uses_the_last_hover_as_the_window_candidate() {
+    fn precise_anchor_correction_uses_the_recent_tail_instead_of_the_window_start() {
         let mut corrector = PreciseAnchorCorrector::default();
         let timeline_start = Instant::now();
-        for (elapsed_ms, x) in [
-            (0, 1_000),
-            (75, 1_000),
-            (150, 1_000),
-            (200, 1_100),
-            (250, 1_005),
+        for (elapsed_ms, tablet_x, screen_x) in [
+            (0, 1_000, 2_000),
+            (75, 1_000, 2_000),
+            (150, 1_000, 2_000),
+            (200, 1_100, 2_005),
+            (250, 1_005, 2_001),
         ] {
-            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, tablet_x, 2_000);
             process_at(
                 &mut corrector,
                 &frame,
@@ -1595,9 +1645,9 @@ mod tests {
                     PenInjectionCommandKind::Update,
                     true,
                     false,
-                    i32::from(x),
-                    2_000,
-                    x,
+                    screen_x,
+                    4_000,
+                    tablet_x,
                     2_000,
                 ),
                 timeline_start,
@@ -1617,15 +1667,21 @@ mod tests {
         );
 
         let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 250);
-        assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_005, 2_000));
+        assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_083, 2_000));
     }
 
     #[test]
-    fn precise_anchor_correction_accepts_motion_inside_the_expanded_radius() {
+    fn precise_anchor_correction_does_not_follow_hover_from_the_landing_jump() {
         let mut corrector = PreciseAnchorCorrector::default();
         let timeline_start = Instant::now();
-        for (elapsed_ms, x) in [(0, 1_000), (100, 1_110), (200, 1_000)] {
-            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, x, 2_000);
+        for (elapsed_ms, tablet_x, tablet_y, screen_x, screen_y) in [
+            (0, 1_000, 2_000, 200, 400),
+            (100, 1_004, 2_003, 200, 400),
+            (190, 1_006, 2_004, 201, 401),
+            (202, 1_060, 2_040, 204, 402),
+            (203, 1_070, 2_050, 205, 403),
+        ] {
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, tablet_x, tablet_y);
             process_at(
                 &mut corrector,
                 &frame,
@@ -1633,9 +1689,85 @@ mod tests {
                     PenInjectionCommandKind::Update,
                     true,
                     false,
-                    i32::from(x),
+                    screen_x,
+                    screen_y,
+                    tablet_x,
+                    tablet_y,
+                ),
+                timeline_start,
+                elapsed_ms,
+            );
+        }
+
+        let down_frame = stylus_frame(StylusEventType::Down, 0b0000_0011, 1_080, 2_060);
+        let down = pen_command(
+            PenInjectionCommandKind::Down,
+            true,
+            true,
+            1_080,
+            2_060,
+            1_080,
+            2_060,
+        );
+
+        let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 204);
+        assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_006, 2_004));
+    }
+
+    #[test]
+    fn precise_anchor_correction_averages_equal_tail_intervals_instead_of_taking_the_last() {
+        let timeline_start = Instant::now();
+        let coordinate = |tablet_x: u16| PenCoordinate {
+            x: 1_000,
+            y: 2_000,
+            tablet_x,
+            tablet_y: 2_000,
+        };
+        let mut candidate = HoverAnchorCandidate::new(timeline_start, coordinate(1_000));
+        for (elapsed_ms, x) in [
+            (100, 1_000),
+            (150, 1_000),
+            (160, 1_000),
+            (170, 1_000),
+            (180, 1_000),
+            (190, 1_060),
+            (200, 1_070),
+        ] {
+            candidate.observe(
+                timeline_start + Duration::from_millis(elapsed_ms),
+                coordinate(x),
+            );
+        }
+
+        assert_eq!(
+            candidate.anchor_at(timeline_start + Duration::from_millis(210)),
+            Some(PenCoordinate {
+                x: 1_000,
+                y: 2_000,
+                tablet_x: 1_021,
+                tablet_y: 2_000,
+            })
+        );
+    }
+
+    #[test]
+    fn precise_anchor_correction_accepts_screen_motion_at_the_radius_boundary() {
+        let mut corrector = PreciseAnchorCorrector::default();
+        let timeline_start = Instant::now();
+        for (elapsed_ms, tablet_x, screen_x) in
+            [(0, 1_000, 1_000), (100, 2_000, 1_010), (200, 2_000, 1_010)]
+        {
+            let frame = stylus_frame(StylusEventType::Move, 0b0000_0001, tablet_x, 2_000);
+            process_at(
+                &mut corrector,
+                &frame,
+                pen_command(
+                    PenInjectionCommandKind::Update,
+                    true,
+                    false,
+                    screen_x,
                     2_000,
-                    x,
+                    tablet_x,
                     2_000,
                 ),
                 timeline_start,
@@ -1655,7 +1787,7 @@ mod tests {
         );
 
         let corrected = process_at(&mut corrector, &down_frame, down, timeline_start, 200);
-        assert_eq!((corrected.tablet_x, corrected.tablet_y), (1_000, 2_000));
+        assert_eq!((corrected.tablet_x, corrected.tablet_y), (2_000, 2_000));
     }
 
     #[test]

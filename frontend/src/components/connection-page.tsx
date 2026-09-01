@@ -135,11 +135,15 @@ function UsbConnectionPanel(props: {
             ) : null}
             <span
               className="usb-panel__help"
-              role="img"
+              tabIndex={0}
               aria-label="USB 接口配置说明"
-              title="无法正常连接时，请前往设置 → 通用 → USB 设备接口，获取当前鸿蒙设备的接口值并填写。"
+              aria-describedby="usb-interface-help-tooltip"
             >
               <CircleHelp aria-hidden="true" />
+              <span id="usb-interface-help-tooltip" className="usb-panel__help-tooltip" role="tooltip">
+                <strong>连接遇到问题？</strong>
+                <span>前往设置 → 通用 → USB 设备接口，获取并填写当前鸿蒙设备的接口值。</span>
+              </span>
             </span>
           </>
         )}

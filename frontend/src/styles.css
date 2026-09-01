@@ -847,22 +847,84 @@ select:disabled {
 }
 
 .usb-panel__help {
+  position: relative;
   display: inline-flex;
   width: 32px;
   height: 32px;
   align-items: center;
   justify-content: center;
+  border-radius: 8px;
   color: var(--muted);
   cursor: help;
+  outline: none;
+  transition: background 160ms ease, color 160ms ease;
 }
 
-.usb-panel__help:hover {
+.usb-panel__help:hover,
+.usb-panel__help:focus-visible {
+  background: rgba(255, 255, 255, 0.72);
   color: var(--ink);
+}
+
+.usb-panel__help:focus-visible {
+  box-shadow: 0 0 0 3px rgba(22, 131, 255, 0.18);
 }
 
 .usb-panel__help svg {
   width: 16px;
   height: 16px;
+}
+
+.usb-panel__help-tooltip {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  width: min(320px, calc(100vw - 48px));
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(23, 23, 27, 0.96);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.2);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.76rem;
+  font-weight: 400;
+  line-height: 1.55;
+  text-align: left;
+  cursor: default;
+  opacity: 0;
+  transform: translateY(-4px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease;
+}
+
+.usb-panel__help-tooltip::before {
+  position: absolute;
+  top: -5px;
+  right: 11px;
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(23, 23, 27, 0.96);
+  content: '';
+}
+
+.usb-panel__help-tooltip strong {
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.usb-panel__help:hover .usb-panel__help-tooltip,
+.usb-panel__help:focus-visible .usb-panel__help-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
 }
 
 .usb-panel__status {

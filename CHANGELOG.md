@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.6.4 - 2026-09-01
+
+- make optional smart pen-down correction follow the final aimed position more reliably, tolerate
+  natural on-screen movement, and remain off until explicitly enabled
+
+- show clear in-app USB interface guidance when hovering or focusing the wired connection help icon
+
+- show newly inserted HDC devices immediately in USB interface scan results, keep the original
+  interface visible while the device switches connection modes, and remove unplugged devices
+
 ## 1.6.4-beta.5 - 2026-08-26
 
 - show a clear message when wired mode is off so the device can be connected to and used with the

@@ -1,10 +1,11 @@
 {
   "name": "airslate-pc-server-frontend",
   "private": true,
-  "version": "1.6.4-beta.5",
+  "version": "1.6.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --test src/components/usb-scan-tracker.test.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri"
