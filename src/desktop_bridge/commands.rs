@@ -100,7 +100,11 @@ pub fn retry_usb_connection(state: State<'_, AppContext>) -> Result<(), String> 
 pub fn scan_usb_devices(
     state: State<'_, AppContext>,
 ) -> Result<Vec<crate::usb_accessory::UsbScanDevice>, String> {
-    crate::usb_accessory::scan_usb_devices(&state.usb_scan_history)
+    let protected_key = state.usb_session_control.reenumeration_target()?;
+    crate::usb_accessory::scan_usb_devices_protecting(
+        &state.usb_scan_history,
+        protected_key.as_ref(),
+    )
 }
 
 #[tauri::command]

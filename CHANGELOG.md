@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- keep the original USB interface visible while a matching device is re-enumerated into accessory mode
+
+## 1.6.6 - 2026-09-08
+
+- keep the original USB interface visible while a matching device is re-enumerated into accessory mode
+
+- keep the original USB interface visible while a matching device is re-enumerated into accessory mode
+
 ## 1.6.5 - 2026-09-08
 
 - recognize Harmony devices whose USB product name includes quotation marks in the interface

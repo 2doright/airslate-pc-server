@@ -157,7 +157,7 @@ struct UsbScanRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct UsbPhysicalKey {
+pub(crate) struct UsbPhysicalKey {
     bus_id: String,
     port_chain: Vec<u8>,
 }
@@ -188,6 +188,14 @@ impl UsbScanHistory {
     }
 
     fn remember_current(&self, current_devices: &[UsbScanDevice]) -> Result<(), String> {
+        self.remember_current_protecting(current_devices, None)
+    }
+
+    fn remember_current_protecting(
+        &self,
+        current_devices: &[UsbScanDevice],
+        protected_key: Option<&UsbPhysicalKey>,
+    ) -> Result<(), String> {
         let current_keys = current_devices
             .iter()
             .map(UsbPhysicalKey::from_device)
@@ -196,7 +204,7 @@ impl UsbScanHistory {
             .records
             .lock()
             .map_err(|_| "USB 扫描历史状态已损坏".to_owned())?;
-        records.retain(|key, _| current_keys.contains(key));
+        records.retain(|key, _| current_keys.contains(key) || Some(key) == protected_key);
 
         for device in current_devices {
             let key = UsbPhysicalKey::from_device(device);
@@ -246,7 +254,10 @@ impl UsbScanHistory {
     }
 }
 
-pub fn scan_usb_devices(history: &UsbScanHistory) -> Result<Vec<UsbScanDevice>, String> {
+pub(crate) fn scan_usb_devices_protecting(
+    history: &UsbScanHistory,
+    protected_key: Option<&UsbPhysicalKey>,
+) -> Result<Vec<UsbScanDevice>, String> {
     let devices = nusb::list_devices()
         .wait()
         .map_err(|error| format!("枚举 USB 设备失败：{error}"))?;
@@ -254,7 +265,7 @@ pub fn scan_usb_devices(history: &UsbScanHistory) -> Result<Vec<UsbScanDevice>, 
     let devices = devices
         .map(|info| usb_scan_device(&info))
         .collect::<Vec<_>>();
-    history.remember_current(&devices)?;
+    history.remember_current_protecting(&devices, protected_key)?;
     history.display_current(&devices)
 }
 
@@ -370,6 +381,21 @@ impl UsbSessionControl {
             .lock()
             .map_err(|_| UsbError::ControlState("USB re-enumeration target is poisoned"))?;
         *target = Some(UsbPhysicalKey::from_info(info));
+        Ok(())
+    }
+
+    pub(crate) fn reenumeration_target(&self) -> Result<Option<UsbPhysicalKey>, String> {
+        self.reenumerated_target
+            .lock()
+            .map(|target| target.clone())
+            .map_err(|_| "USB 重枚举目标状态已损坏".to_owned())
+    }
+
+    fn clear_reenumeration_target(&self) -> Result<(), UsbError> {
+        *self
+            .reenumerated_target
+            .lock()
+            .map_err(|_| UsbError::ControlState("USB re-enumeration target is poisoned"))? = None;
         Ok(())
     }
 
@@ -559,7 +585,19 @@ impl UsbAccessoryService {
                     continue;
                 }
             };
-            let discovery = discover_candidate(usb_interface, &self.scan_history);
+            let protected_key = match self.control.reenumeration_target() {
+                Ok(target) => target,
+                Err(error) => {
+                    self.status.publish("error", error);
+                    self.wait_for_retry_or_scan_interval();
+                    continue;
+                }
+            };
+            let discovery = discover_candidate(
+                usb_interface,
+                &self.scan_history,
+                protected_key.as_ref(),
+            );
             if let Ok(Discovery::Direct(info)) = &discovery
                 && let Err(error) = self.control.remember_reenumerated_target(info)
             {
@@ -650,11 +688,17 @@ impl UsbAccessoryService {
                             self.run_candidate(accessory)
                         }
                         Err(UsbError::Cancelled) => {
+                            if let Err(error) = self.control.clear_reenumeration_target() {
+                                warn!(error = %error, "failed to clear cancelled USB re-enumeration target");
+                            }
                             info!(
                                 "USBAccessory negotiation was cancelled because wired mode was disabled"
                             );
                         }
                         Err(error) => {
+                            if let Err(clear_error) = self.control.clear_reenumeration_target() {
+                                warn!(error = %clear_error, "failed to clear failed USB re-enumeration target");
+                            }
                             warn!(error = %error, "USBAccessory negotiation stopped");
                             self.status.publish("error", error.to_string());
                             failed_initial_state = Some(state);
@@ -766,6 +810,9 @@ impl UsbAccessoryService {
         } else {
             false
         };
+        if let Err(error) = self.control.clear_reenumeration_target() {
+            warn!(connection_id, error = %error, "failed to clear completed USB re-enumeration target");
+        }
         info!(
             connection_id,
             "USB session I/O returned; all session-local nusb Device/Interface/Endpoint handles have been dropped"
@@ -1360,6 +1407,7 @@ fn should_wait_after_initial_failure(
 fn discover_candidate(
     initial_interface: UsbInterface,
     scan_history: &UsbScanHistory,
+    protected_key: Option<&UsbPhysicalKey>,
 ) -> Result<Discovery, UsbError> {
     let devices = nusb::list_devices()
         .wait()
@@ -1370,7 +1418,7 @@ fn discover_candidate(
         .collect::<Vec<_>>();
     let scan_devices = devices.iter().map(usb_scan_device).collect::<Vec<_>>();
     scan_history
-        .remember_current(&scan_devices)
+        .remember_current_protecting(&scan_devices, protected_key)
         .map_err(UsbError::ScanHistory)?;
     let visible_devices = devices.len();
     let summaries = devices
@@ -2035,7 +2083,7 @@ mod tests {
         ACCESSORY_IDENTITY, Completion, DiscoveryState, HANDSHAKE_TIMEOUT_REPORT_INTERVAL,
         HandshakeReadDiagnostics, HandshakeTimeoutReport, PacketStream, READY_SUBMIT_RETRY_LIMIT,
         TransferErrorAction, USB_READY, UsbDeviceInfo, UsbScanDevice, UsbScanHistory,
-        UsbScanInterface, UsbSessionControl, UsbStatusBus, UsbStatusEvent, UsbTransferPhase,
+        UsbPhysicalKey, UsbScanInterface, UsbSessionControl, UsbStatusBus, UsbStatusEvent, UsbTransferPhase,
         VisibleDeviceSummary, advance_usb_ready, can_enter_direct_bulk_recovery,
         discovery_state_changed, is_known_file_transfer_mode, push_completion_and_take_packet,
         ready_disconnected_submit_can_reopen, ready_retry_allowed, should_report_authorizing,
@@ -2210,6 +2258,67 @@ mod tests {
                 .expect("a reconnected USB descriptor should be displayed"),
             vec![reconnected_display]
         );
+    }
+
+    #[test]
+    fn usb_scan_history_keeps_initial_descriptor_during_reenumeration_gap() {
+        let history = UsbScanHistory::default();
+        let initial = scan_test_device(0x1101, 0x50, 0x01, Some("HDC Device"));
+        let final_device = scan_test_device(0x2D00, 0xFF, 0x00, Some("AirSlate"));
+        let key = UsbPhysicalKey::from_device(&initial);
+
+        history
+            .remember_current(std::slice::from_ref(&initial))
+            .expect("initial USB descriptor should be recorded");
+        assert_eq!(
+            history
+                .display_current(std::slice::from_ref(&initial))
+                .expect("the initial descriptor should be displayed"),
+            vec![{
+                let mut displayed = initial.clone();
+                displayed.initial_manufacturer = initial.manufacturer.clone();
+                displayed.initial_product = initial.product.clone();
+                displayed.initial_interfaces = Some(initial.interfaces.clone());
+                displayed
+            }]
+        );
+        history
+            .remember_current_protecting(&[], Some(&key))
+            .expect("the re-enumeration gap should preserve the physical record");
+        history
+            .remember_current_protecting(std::slice::from_ref(&final_device), Some(&key))
+            .expect("the re-enumerated USB descriptor should update the physical record");
+
+        let displayed = history
+            .display_current(std::slice::from_ref(&final_device))
+            .expect("the initial descriptor should remain available after re-enumeration");
+        assert_eq!(displayed[0].initial_interfaces, Some(initial.interfaces.clone()));
+        assert_eq!(displayed[0].interfaces, final_device.interfaces);
+    }
+
+    fn scan_test_device(
+        product_id: u16,
+        subclass: u8,
+        protocol: u8,
+        product: Option<&str>,
+    ) -> UsbScanDevice {
+        UsbScanDevice {
+            vendor_id: 0x12D1,
+            product_id,
+            bus_id: "bus".to_owned(),
+            port_chain: vec![2],
+            manufacturer: Some("Huawei".to_owned()),
+            product: product.map(str::to_owned),
+            interfaces: vec![UsbScanInterface {
+                interface_number: 0,
+                class_code: 0xFF,
+                subclass,
+                protocol,
+            }],
+            initial_manufacturer: None,
+            initial_product: None,
+            initial_interfaces: None,
+        }
     }
 
     #[test]
