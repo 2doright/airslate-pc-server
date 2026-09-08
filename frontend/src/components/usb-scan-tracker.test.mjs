@@ -17,6 +17,44 @@ test('shows a newly inserted HDC device before re-enumeration', () => {
   assert.deepEqual(observed.interfaces, [CUSTOM_INTERFACE]);
 });
 
+// Windows DEVPKEY_Device_BusReportedDeviceDesc on the reported HarmonyOS 6
+// MatePad is literally '"HDC Device"', including both U+0022 characters.
+for (const signature of [DEFAULT_INTERFACE, CUSTOM_INTERFACE]) {
+  test(`shows the MatePad's quoted USB product name with subclass ${signature.subclass}`, () => {
+    const tracker = new UsbScanTracker();
+    tracker.observe([]);
+
+    const devices = tracker.observe([hdcDevice(signature, { product: '"HDC Device"' })]);
+
+    assert.equal(devices.length, 1);
+    assert.equal(devices[0].initialProduct, '"HDC Device"');
+    assert.deepEqual(devices[0].initialInterfaces, [signature]);
+    assert.deepEqual(tracker.observe([]), []);
+  });
+}
+
+test('recognizes a quoted initial product after re-enumeration without replacing its code', () => {
+  const tracker = new UsbScanTracker();
+  tracker.observe([]);
+  const devices = tracker.observe([hdcDevice(REENUMERATED_INTERFACE, {
+    product: 'AirSlate',
+    initialProduct: '"HDC Device"',
+    initialInterfaces: [DEFAULT_INTERFACE],
+  })]);
+
+  assert.equal(devices.length, 1);
+  assert.deepEqual(devices[0].initialInterfaces, [DEFAULT_INTERFACE]);
+  assert.deepEqual(devices[0].interfaces, [REENUMERATED_INTERFACE]);
+});
+
+test('does not recognize unrelated products containing the HDC name', () => {
+  for (const product of [null, 'USB HDC Device', 'HDC Device Pro', '"HDC Device', 'HDC Device"']) {
+    const tracker = new UsbScanTracker();
+    tracker.observe([]);
+    assert.deepEqual(tracker.observe([hdcDevice(DEFAULT_INTERFACE, { product })]), []);
+  }
+});
+
 test('retains the default initial signature when the same device re-enumerates', () => {
   const tracker = new UsbScanTracker();
 

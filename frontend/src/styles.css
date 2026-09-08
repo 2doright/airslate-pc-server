@@ -2192,12 +2192,6 @@ select:disabled {
   font-size: 0.78rem;
 }
 
-.usb-scan-dialog__header-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 8px;
-}
-
 .usb-scan-dialog__close {
   display: inline-flex;
   width: 34px;
@@ -2214,11 +2208,6 @@ select:disabled {
 .usb-scan-dialog__close:hover {
   border-color: rgba(22, 131, 255, 0.36);
   color: var(--blue);
-}
-
-.usb-scan-dialog__close:disabled {
-  cursor: wait;
-  opacity: 0.55;
 }
 
 .usb-scan-dialog__close svg {

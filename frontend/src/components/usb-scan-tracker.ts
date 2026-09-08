@@ -67,7 +67,11 @@ function retainInitialDescriptor(
 
 function isHdcDevice(device: UsbScanDevice) {
   return [device.product, device.initialProduct]
-    .some((name) => name?.trim().toLowerCase() === 'hdc device');
+    .some((name) => {
+      const product = name?.trim().toLowerCase();
+      // Some Harmony devices include literal quotes in the USB product string.
+      return product === 'hdc device' || product === '"hdc device"';
+    });
 }
 
 export function usbPhysicalKey(device: UsbScanDevice) {

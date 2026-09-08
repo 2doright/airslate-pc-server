@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { scanUsbDevices, type UsbScanDevice } from '../lib/tauri';
 import { UsbScanTracker, usbPhysicalKey } from './usb-scan-tracker';
 
@@ -9,7 +9,6 @@ export function UsbScanDialog(props: { onClose: () => void }) {
   const [devices, setDevices] = useState<UsbScanDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshToken, setRefreshToken] = useState(0);
   const tracker = useRef(new UsbScanTracker());
 
   useEffect(() => {
@@ -23,8 +22,9 @@ export function UsbScanDialog(props: { onClose: () => void }) {
       if (!hasSnapshot) setLoading(true);
 
       try {
-        const observations = tracker.current.observe(await scanUsbDevices());
+        const snapshot = await scanUsbDevices();
         if (disposed) return;
+        const observations = tracker.current.observe(snapshot);
         setDevices(observations);
         setError(null);
         hasSnapshot = true;
@@ -44,7 +44,7 @@ export function UsbScanDialog(props: { onClose: () => void }) {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [refreshToken]);
+  }, []);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -74,20 +74,9 @@ export function UsbScanDialog(props: { onClose: () => void }) {
             <h2 id="usb-scan-dialog-title">扫描 USB 设备</h2>
             <p>自动识别新插入、名称为 HDC Device 的设备，并在重枚举时保留首次识别到的接口。</p>
           </div>
-          <div className="usb-scan-dialog__header-actions">
-            <button
-              type="button"
-              className="usb-scan-dialog__close"
-              aria-label="立即刷新"
-              onClick={() => setRefreshToken((value) => value + 1)}
-              disabled={loading}
-            >
-              <RefreshCw aria-hidden="true" />
-            </button>
-            <button type="button" className="usb-scan-dialog__close" aria-label="关闭扫描窗口" onClick={props.onClose}>
-              <X aria-hidden="true" />
-            </button>
-          </div>
+          <button type="button" className="usb-scan-dialog__close" aria-label="关闭扫描窗口" onClick={props.onClose}>
+            <X aria-hidden="true" />
+          </button>
         </header>
 
         <div className="usb-scan-dialog__status" role="status" aria-live="polite">

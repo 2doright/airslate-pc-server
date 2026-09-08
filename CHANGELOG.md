@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.6.5 - 2026-09-08
+
+- recognize Harmony devices whose USB product name includes quotation marks in the interface
+  scanner, and prevent cancelled scans from changing the current device list
+- remove the USB scanner's manual refresh button; automatically show inserted devices and remove
+  unplugged devices while the window is open
+
 ## 1.6.4 - 2026-09-01
 
 - make optional smart pen-down correction follow the final aimed position more reliably, tolerate
