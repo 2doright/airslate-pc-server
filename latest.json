@@ -1,0 +1,11 @@
+{
+  "version": "1.6.6",
+  "notes": "**Full Changelog**: https://github.com/2doright/airslate-pc-server/compare/v1.6.5...v1.6.6",
+  "pub_date": "2026-09-08T05:33:23Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmdpdUN0N0tvRmlxby9teE1lN3RWd1YvSW1ub000N2V0NGhiVkVtLzR1VVZsMmcyeERmVHhMMDN3amtCMHNidnNyQjVXV2p4czg0bE16aFZ3RTVSSnZVU1phY054blFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4ODQ1NDgxCWZpbGU6QWlyU2xhdGUgUEMgU2VydmVyXzEuNi42X3g2NF9lbi1VUy5tc2kKYjZOSFUvYkROM0hxZUVGMkRqNlB0ZWFEcEtHNXlOZ0hOdUdKUnViMDlKTWRKQkdGTjBTUFVXek5MYUJzSmNLamtUZGg4YUdCS29CUlJrSTdLSGRwRGc9PQo=",
+      "url": "https://github.com/2doright/airslate-pc-server/releases/download/v1.6.6/AirSlate-PC-Server_1.6.6_windows-x64.msi"
+    }
+  }
+}
