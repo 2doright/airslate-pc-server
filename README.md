@@ -38,6 +38,9 @@
 
 需下载安装 **鸿蒙端 AirSlate** 和 **GitHub Release 中的 PC Server** 后，再开始使用。
 
+> [!TIP]
+> 大多数连接问题都来自两端不在同一个局域网。优先确认电脑和鸿蒙设备连接的是同一个 Wi-Fi 或同一网络环境。
+
 ### 1. 安装或启动 PC Server
 
 从 [GitHub Releases](https://github.com/2doright/airslate-pc-server/releases) 下载 PC 端程序。
@@ -50,9 +53,6 @@
 | 便携版 `.zip` | 适合临时使用，解压后直接运行 |
 
 启动 **AirSlate PC Server** 后，先停留在“连接”页。
-
-> [!TIP]
-> 大多数连接问题都来自两端不在同一个局域网。优先确认电脑和鸿蒙设备连接的是同一个 Wi-Fi 或同一网络环境。
 
 ### 2. 在鸿蒙端连接电脑
 
