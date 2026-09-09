@@ -11,6 +11,7 @@
 [![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA)
 [![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-24292F?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues)
 [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-24292F?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
+[![开发规划](https://img.shields.io/badge/开发规划-Roadmap-6f42c1?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23)
 
 </div>
 
