@@ -12,25 +12,11 @@
 [![开发规划](https://img.shields.io/badge/开发规划-Roadmap-d29922?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23)
 [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-8250df?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
 
-[![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA) [![Harmony](https://img.shields.io/badge/Harmony-AirSlate-CF0A2C?style=flat-square&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare) [![Bilibili 主页](https://img.shields.io/badge/Bilibili-个人主页-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://space.bilibili.com/663096739) [![小红书主页](https://img.shields.io/badge/小红书-个人主页-FF2442?style=flat-square&logo=xiaohongshu&logoColor=white)](https://www.xiaohongshu.com/user/profile/4422955605)
+[![视频指南](https://img.shields.io/badge/视频指南-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA) [![Harmony](https://img.shields.io/badge/Harmony-AirSlate-CF0A2C?style=flat-square&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare) [![Download](https://img.shields.io/badge/Download-AirSlate-CF0A2C?style=flat-square&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare) [![Bilibili 主页](https://img.shields.io/badge/Bilibili-个人主页-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://space.bilibili.com/663096739) [![小红书主页](https://img.shields.io/badge/小红书-个人主页-FF2442?style=flat-square&logo=xiaohongshu&logoColor=white)](https://www.xiaohongshu.com/user/profile/4422955605)
 
 </div>
 
 想法交流、提出建议或查找解决方案，可以前往 [Discussions](https://github.com/2doright/airslate-pc-server/discussions)。
-
-## 功能概览
-
-将鸿蒙设备作为PC端专业数位板使用
-
-| 功能 | 说明 |
-| --- | --- |
-| 局域网连接 | 鸿蒙端输入电脑 IPv4 地址后连接 PC Server |
-| 显示器映射 | 多屏环境下选择笔输入作用到哪一块显示器 |
-| 压感曲线 | 使用预设或手动曲线调节压感手感 |
-| 快捷键预设 | 为绘画、笔记、修图等软件分别保存快捷键方案 |
-| 手势映射 | 支持点击、平移、捏合、旋转、速划、长按等映射 |
-| 径向菜单 | 通过手势呼出快捷操作菜单，减少键盘依赖 |
-| 开机启动 | 可随 Windows 启动并驻留托盘 |
 
 ![AirSlate PC Server 主界面总览](images/01-overview.jpg)
 
