@@ -12,11 +12,11 @@
 [![开发规划](https://img.shields.io/badge/开发规划-Roadmap-d29922?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23)
 [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-8250df?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
 
-[![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA) [![Harmony](https://img.shields.io/badge/Harmony-AirSlate-CF0A2C?style=flat-square&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
+[![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA) [![Harmony](https://img.shields.io/badge/Harmony-AirSlate-CF0A2C?style=flat-square&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare) [![Bilibili 主页](https://img.shields.io/badge/Bilibili-个人主页-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://space.bilibili.com/663096739) [![小红书主页](https://img.shields.io/badge/小红书-个人主页-FF2442?style=flat-square&logo=xiaohongshu&logoColor=white)](https://www.xiaohongshu.com/user/profile/4422955605)
 
 </div>
 
-想法交流、提出建议、关注开发动态、提出问题或查找解决方案，可以前往 [GitHub Discussions](https://github.com/2doright/airslate-pc-server/discussions)。
+想法交流、提出建议或查找解决方案，可以前往 [Discussions](https://github.com/2doright/airslate-pc-server/discussions)。
 
 ## 功能概览
 
