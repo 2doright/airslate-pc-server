@@ -16,7 +16,7 @@
 
 </div>
 
-遇到 Bug 或异常行为，请在 [GitHub Issues](https://github.com/2doright/airslate-pc-server/issues) 提交问题。想法交流、提出建议、关注开发动态、提出问题或查找解决方案，可以前往 [GitHub Discussions](https://github.com/2doright/airslate-pc-server/discussions)。
+想法交流、提出建议、关注开发动态、提出问题或查找解决方案，可以前往 [GitHub Discussions](https://github.com/2doright/airslate-pc-server/discussions)。
 
 ## 功能概览
 
