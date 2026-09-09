@@ -6,11 +6,9 @@
 
 将你的鸿蒙平板/手机转换为电脑的数位板
 
-[![Harmony](https://img.shields.io/badge/Harmony-AirSlate-CF0A2C?style=for-the-badge&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
-[![Release](https://img.shields.io/badge/Release-PC%20Server-24292F?style=for-the-badge&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/releases)
+[![Release](https://img.shields.io/github/v/release/2doright/airslate-pc-server?style=flat-square&label=Release)](https://github.com/2doright/airslate-pc-server/releases) [![Downloads](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?style=flat-square&label=Downloads)](https://github.com/2doright/airslate-pc-server/releases) [![License](https://img.shields.io/github/license/2doright/airslate-pc-server?style=flat-square&label=License)](LICENSE)
 
 [![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA)
-[![GitHub 下载量](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?style=flat-square&logo=github&label=下载量)](https://github.com/2doright/airslate-pc-server/releases)
 [![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-24292F?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues)
 [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-24292F?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
 
