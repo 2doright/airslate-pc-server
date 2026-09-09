@@ -8,10 +8,11 @@
 
 [![Release](https://img.shields.io/github/v/release/2doright/airslate-pc-server?style=flat-square&label=Release)](https://github.com/2doright/airslate-pc-server/releases) [![Downloads](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?style=flat-square&label=Downloads)](https://github.com/2doright/airslate-pc-server/releases) [![License](https://img.shields.io/github/license/2doright/airslate-pc-server?style=flat-square&label=License)](LICENSE)
 
-[![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA)
 [![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-d73a4a?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues)
+[![开发规划](https://img.shields.io/badge/开发规划-Roadmap-d29922?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23)
 [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-8250df?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
-[![开发规划](https://img.shields.io/badge/开发规划-Roadmap-6f42c1?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23)
+
+[![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA) [![Harmony](https://img.shields.io/badge/Harmony-AirSlate-CF0A2C?style=flat-square&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
 
 </div>
 
