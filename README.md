@@ -9,8 +9,8 @@
 [![Release](https://img.shields.io/github/v/release/2doright/airslate-pc-server?style=flat-square&label=Release)](https://github.com/2doright/airslate-pc-server/releases) [![Downloads](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?style=flat-square&label=Downloads)](https://github.com/2doright/airslate-pc-server/releases) [![License](https://img.shields.io/github/license/2doright/airslate-pc-server?style=flat-square&label=License)](LICENSE)
 
 [![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA)
-[![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-24292F?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues)
-[![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-24292F?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
+[![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-d73a4a?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues)
+[![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-8250df?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
 [![开发规划](https://img.shields.io/badge/开发规划-Roadmap-6f42c1?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23)
 
 </div>
@@ -37,17 +37,7 @@
 
 需下载安装 **鸿蒙端 AirSlate** 和 **GitHub Release 中的 PC Server** 后，再开始使用。
 
-### 1. 准备设备
-
-请先确认：
-
-- Windows x64 系统、可正常运行 WebView2
-- Windows 电脑和鸿蒙设备处于同一个局域网
-
-> [!TIP]
-> 大多数连接问题都来自两端不在同一个局域网。优先确认电脑和鸿蒙设备连接的是同一个 Wi-Fi 或同一网络环境。
-
-### 2. 安装或启动 PC Server
+### 1. 安装或启动 PC Server
 
 从 [GitHub Releases](https://github.com/2doright/airslate-pc-server/releases) 下载 PC 端程序。
 
@@ -60,7 +50,10 @@
 
 启动 **AirSlate PC Server** 后，先停留在“连接”页。
 
-### 3. 在鸿蒙端连接电脑
+> [!TIP]
+> 大多数连接问题都来自两端不在同一个局域网。优先确认电脑和鸿蒙设备连接的是同一个 Wi-Fi 或同一网络环境。
+
+### 2. 在鸿蒙端连接电脑
 
 PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
@@ -71,13 +64,13 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 > [!IMPORTANT]
 > 如果电脑端显示了多个 IPv4 地址，请选择当前网络环境对应的地址。若连接失败，可以逐个尝试列表中的局域网地址。
 
-### 4. 选择目标显示器
+### 3. 选择目标显示器
 
 如果电脑连接了多块屏幕，请在 PC Server 中选择笔输入要映射到的显示器。
 
 ![显示器选择](images/03-显示器.jpg)
 
-### 5. 开始书写
+### 4. 开始书写
 
 连接完成后，即可在鸿蒙端使用笔输入、点击和手势操作。第一次使用建议先保持默认预设，确认连接和落点正常后，再调整压感曲线与快捷键。
 
