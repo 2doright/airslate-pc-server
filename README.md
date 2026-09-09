@@ -6,8 +6,8 @@
 
 将你的鸿蒙平板/手机转换为电脑的数位板
 
-[![华为应用市场](https://img.shields.io/badge/华为应用市场-下载%20AirSlate-CF0A2C?style=for-the-badge&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
-[![GitHub Release](https://img.shields.io/badge/GitHub%20Release-下载%20PC%20Server-24292F?style=for-the-badge&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/releases)
+[![Harmony](https://img.shields.io/badge/Harmony-AirSlate-CF0A2C?style=for-the-badge&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
+[![Release](https://img.shields.io/badge/Release-PC%20Server-24292F?style=for-the-badge&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/releases)
 
 [![介绍视频](https://img.shields.io/badge/介绍视频-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA)
 [![GitHub 下载量](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?style=flat-square&logo=github&label=下载量)](https://github.com/2doright/airslate-pc-server/releases)
@@ -145,18 +145,6 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 如果关闭内环，触发径向菜单的平移手势会更直接地作用于外环快捷键。
 
-## 使用建议
-
-第一次使用时，推荐按这个顺序设置：
-
-1. 先确认 PC 端和鸿蒙端连接正常
-2. 选择目标显示器
-3. 使用默认预设体验一次
-4. 根据常用软件调整快捷键
-5. 最后再微调压感曲线
-
-这样更容易判断问题来自连接、显示器映射、压感设置，还是快捷键映射。
-
 ## 常见问题
 
 ### 鸿蒙端连接不上
@@ -181,14 +169,6 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 ### 可以同时连接多台鸿蒙设备吗
 
 当前只支持连接一台 AirSlate 设备。
-
-## 项目链接
-
-- 鸿蒙端下载：[华为应用市场](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
-- PC 端下载：[GitHub Releases](https://github.com/2doright/airslate-pc-server/releases)
-- 介绍讲解视频：[Bilibili](https://www.bilibili.com/video/BV1nkMi6fEXA)
-- Bug 反馈：[GitHub Issues](https://github.com/2doright/airslate-pc-server/issues)
-- 交流讨论：[GitHub Discussions](https://github.com/2doright/airslate-pc-server/discussions)
 
 ## Star History
 
