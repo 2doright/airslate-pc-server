@@ -124,31 +124,6 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 如果关闭内环，触发径向菜单的平移手势会更直接地作用于外环快捷键。
 
-## 常见问题
-
-### 鸿蒙端连接不上
-
-请依次确认：
-
-- PC Server 已经启动
-- 电脑和鸿蒙设备处于**同一个局域网**
-- 没有选到虚拟网卡、热点、代理或其他无关网络地址
-- 鸿蒙端上次使用时，没有异常退出（如直接退后台）
-
-### 多显示器场景下，落笔位置不对
-
-在 PC Server 的“连接”页重新选择目标显示器。更改 Windows 显示器排列后，也建议重新确认一次。
-
-### 绘图软件没有压感
-
-请在绘图软件中将输入 API 或平板设置切换为 **Windows Ink** （应用中可能使用了其它名称，如TabletPC）。
-
-这类问题常见于 CSP、SAI2 等默认使用 WinTab API 的软件。AirSlate PC Server 输出的是 Windows 笔输入事件，因此绘图软件需要使用 Windows Ink 输入API才能正确接收压感。
-
-### 可以同时连接多台鸿蒙设备吗
-
-当前只支持连接一台 AirSlate 设备。
-
 ## Star History
 
 [![Star History Chart](./assets/star-history.svg)](https://www.star-history.com/?repos=2doright%2Fairslate-pc-server&type=date&legend=top-left)
