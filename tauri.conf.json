@@ -35,14 +35,14 @@
     "createUpdaterArtifacts": "v1Compatible",
     "windows": {
       "wix": {
-        "template": "./windows/tauri-main.wxs"
+        "template": "./assets/windows/tauri-main.wxs"
       }
     },
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/icon.ico",
-      "icons/icon.icns"
+      "assets/icons/32x32.png",
+      "assets/icons/128x128.png",
+      "assets/icons/icon.ico",
+      "assets/icons/icon.icns"
     ]
   },
   "plugins": {

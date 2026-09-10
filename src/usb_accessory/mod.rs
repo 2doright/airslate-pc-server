@@ -56,7 +56,7 @@ const HANDSHAKE_TIMEOUT_REPORT_INTERVAL: u32 = 30;
 const USB_READY: [u8; 8] = [0x54, 0x4C, 0x53, 0x41, 7, 1, 0, 0];
 
 // OpenHarmony official device-side implementation source and the AirSlate wire contract:
-// https://gitee.com/openharmony/usb_manager ; E:/Personal/AirSlate/doc/server.md §7.
+// https://gitee.com/openharmony/usb_manager; the AirSlate wire contract specification §7.
 const ACCESSORY_GET_PROTOCOL: u8 = 51;
 const ACCESSORY_SEND_STRING: u8 = 52;
 const ACCESSORY_START: u8 = 53;

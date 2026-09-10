@@ -38,10 +38,11 @@
 !frontend/*.config.mjs
 !frontend/*.config.ts
 
-# Application icons and bundle templates referenced by tauri.conf.json
-!icons/**
-!windows/tauri-installer.nsi
-!windows/tauri-main.wxs
+# Application icons and Windows installer template referenced by tauri.conf.json
+!assets/icons/
+!assets/icons/**
+!assets/windows/
+!assets/windows/**
 
 # Public README screenshots
 !assets/
@@ -57,8 +58,6 @@
 .cursor/**
 .continue/**
 .github/copilot-instructions.md
-AGENTS.md
-AGENTS.*.md
 CLAUDE.md
 CLAUDE.*.md
 GEMINI.md

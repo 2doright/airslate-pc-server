@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="icons/icon.png" alt="AirSlate PC Server" width="96" height="96">
+<img src="assets/icons/icon.png" alt="AirSlate PC Server" width="96" height="96">
 
 # AirSlate PC Server
 

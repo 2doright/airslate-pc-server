@@ -11,7 +11,7 @@
   <https://github.com/openharmony/usb_usb_manager/blob/d516eeae311ab0e3d0da5e4a07a1a087b4cc53d6/services/native/src/usb_accessory_manager.cpp>
 - 同一官方提交定义的 accessory 身份字段：
   <https://github.com/openharmony/usb_usb_manager/blob/d516eeae311ab0e3d0da5e4a07a1a087b4cc53d6/interfaces/innerkits/native/include/usb_accessory.h>
-- PC/平板正式字节契约以 `E:\Personal\AirSlate\doc\server.md` 第 3～7 节为准。
+- PC/平板正式字节契约以协议规范第 3～7 节为准。
 
 endpoint-zero 协商常量来自 OpenHarmony 官方设备侧 accessory 实现：device-recipient vendor
 `GET_PROTOCOL` request 51（IN，value/index 0，2 字节小端）、`SEND_STRING` request 52

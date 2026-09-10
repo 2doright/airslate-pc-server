@@ -3,6 +3,7 @@
 ## Unreleased
 
 - keep the original USB interface visible while a matching device is re-enumerated into accessory mode
+- organize desktop application assets and installer configuration, and remove the unused installer template
 
 ## 1.6.6 - 2026-09-08
 
