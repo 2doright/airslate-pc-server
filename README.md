@@ -4,13 +4,15 @@
   <img src="assets/banner-light.webp" alt="AirSlate PC Server" width="100%">
 </picture>
 
+<br>
+
 [![Release](https://img.shields.io/github/v/release/2doright/airslate-pc-server?label=Release)](https://github.com/2doright/airslate-pc-server/releases) [![Downloads](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?label=Downloads)](https://github.com/2doright/airslate-pc-server/releases) [![License](https://img.shields.io/github/license/2doright/airslate-pc-server?label=License)](LICENSE) [![Harmony Download](https://img.shields.io/badge/Harmony-Download-CF0A2C?style=flat&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
 
 [![开发规划](https://img.shields.io/badge/开发规划-Roadmap-d29922?logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23) [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-8250df?style=flat&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
 
 ## 快速开始
 
-[![视频指南](https://img.shields.io/badge/视频指南-Bilibili-00A1D6?style=flat&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA) [![Bilibili 主页](https://img.shields.io/badge/Bilibili-个人主页-00A1D6?style=flat&logo=bilibili&logoColor=white)](https://space.bilibili.com/663096739) [![小红书主页](https://img.shields.io/badge/小红书-个人主页-FF2442?style=flat&logo=xiaohongshu&logoColor=white)](https://www.xiaohongshu.com/user/profile/655c2ab1000000000202b57e)
+[视频指南](https://www.bilibili.com/video/BV1nkMi6fEXA) · [Bilibili 主页](https://space.bilibili.com/663096739) · [小红书主页](https://www.xiaohongshu.com/user/profile/655c2ab1000000000202b57e)
 
 当前提供无线、有线两种连接方式。无线通过 IP 建立连接，有线使用数据线连接。
 
