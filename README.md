@@ -16,22 +16,20 @@
 
 ## 开始使用
 
-需下载安装[AirSlate](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
-和[PC Server](https://github.com/2doright/airslate-pc-server/releases)后，再开始使用。
+当前提供无线、有线两种连接方式。无线通过 IP 建立连接，有线使用数据线连接。
 
-当前提供无线、有线两种连接方式。无线通过IP建立连接，有线使用数据线连接。
+1. 下载安装 [AirSlate](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare) 和 [PC Server](https://github.com/2doright/airslate-pc-server/releases) 。
+2. PC Server“无线连接”页会显示当前电脑的局域网 IPv4 地址。在鸿蒙端 **AirSlate** 中输入此 IPv4 地址并连接。
 
-- PC Server“无线连接”页会显示当前电脑的局域网 IPv4 地址。在鸿蒙端 **AirSlate** 中输入此 IPv4 地址并连接。
+   <img src="assets/screenshots/02-ip.jpg" alt="电脑 IPv4 地址" width="360">
 
-<img src="assets/screenshots/02-ip.jpg" alt="电脑 IPv4 地址" width="360">
+   > [!TIP]
+   > 多数无线连接问题都来自两端不在同一个局域网。优先确认电脑和鸿蒙设备处于同一网络环境，或网络开启了隔离。
 
-> [!TIP]
-> 多数无线连接问题都来自两端不在同一个局域网。优先确认电脑和鸿蒙设备处于同一网络环境，或网络开启了隔离。
+3. 连接完成后，鸿蒙端跳转到数位板界面，即可开始数位板的体验。
 
-- 连接完成后，鸿蒙端跳转到数位板界面，即可开始数位板的体验。
-
-> [!TIP]
-> 如果在绘图软件中可以移动光标但没有压感，请将绘图软件的输入设置切换为 **TabletPC / Windows Ink**。这适用于 CSP、SAI2 等默认使用 WinTab API 的软件。
+   > [!TIP]
+   > 如果在绘图软件中可以移动光标但没有压感，请将绘图软件的输入设置切换为 **TabletPC / Windows Ink**。这适用于 CSP、SAI2 等默认使用 WinTab API 的软件。
 
 ## 功能说明
 
