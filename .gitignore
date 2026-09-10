@@ -44,8 +44,8 @@
 !windows/tauri-main.wxs
 
 # Public README screenshots
-!images/**
 !assets/
+!assets/screenshots/**
 !assets/star-history.svg
 !assets/star-history.sha256
 

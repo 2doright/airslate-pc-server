@@ -16,7 +16,7 @@
 
 [![视频指南](https://img.shields.io/badge/视频指南-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA) [![Harmony Download](https://img.shields.io/badge/Harmony-Download-CF0A2C?style=flat-square&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare) [![Bilibili 主页](https://img.shields.io/badge/Bilibili-个人主页-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://space.bilibili.com/663096739) [![小红书主页](https://img.shields.io/badge/小红书-个人主页-FF2442?style=flat-square&logo=xiaohongshu&logoColor=white)](https://www.xiaohongshu.com/user/profile/655c2ab1000000000202b57e)
 
-![AirSlate PC Server 主界面总览](images/01-overview.jpg)
+![AirSlate PC Server 主界面总览](assets/screenshots/01-overview.jpg)
 
 ## 开始使用
 
@@ -42,7 +42,7 @@
 
 PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
-![电脑 IPv4 地址](images/02-ip.jpg)
+![电脑 IPv4 地址](assets/screenshots/02-ip.jpg)
 
 在鸿蒙端 **AirSlate** 中输入此 IPv4 地址并连接。
 
@@ -53,7 +53,7 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 如果电脑连接了多块屏幕，请在 PC Server 中选择笔输入要映射到的显示器。
 
-![显示器选择](images/03-显示器.jpg)
+![显示器选择](assets/screenshots/03-显示器.jpg)
 
 ### 4. 开始书写
 
@@ -68,7 +68,7 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 压感曲线用于调整“手上施加的压力”和“电脑端最终输出的压力”之间的关系。
 
-![压感曲线调节](images/03-pressure-curve.jpg)
+![压感曲线调节](assets/screenshots/03-pressure-curve.jpg)
 
 | 预设 | 适合情况 |
 | --- | --- |
@@ -84,7 +84,7 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 快捷键页用于管理不同软件的手势和按键映射。
 
-![预设管理](images/04-preset.jpg)
+![预设管理](assets/screenshots/04-preset.jpg)
 
 你可以在这里：
 
@@ -103,7 +103,7 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 当前支持的映射类别包括笔、点击、平移、捏合、旋转、速划和长按。
 
-![分类区域](images/05-area.jpg)
+![分类区域](assets/screenshots/05-area.jpg)
 
 录入快捷键时，点击可编辑项后按下目标按键或组合键，松开后完成录入；再次点击当前项可取消。键盘按键可以清空，也可以与该手势支持的特殊动作同时使用。
 
@@ -113,7 +113,7 @@ PC Server 的“连接”页会显示当前电脑的局域网 IPv4 地址。
 
 双指或三指平移可配置为呼出径向菜单，用于快速触发常用操作。
 
-![径向菜单设置](images/05-radial-menu.jpg)
+![径向菜单设置](assets/screenshots/05-radial-menu.jpg)
 
 径向菜单包含：
 
