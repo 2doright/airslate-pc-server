@@ -25,7 +25,7 @@
 
 PC Server 的“无线连接”页会显示当前电脑的局域网 IPv4 地址。在鸿蒙端 **AirSlate** 中输入此 IPv4 地址并连接。
 
-<img src="assets/screenshots/02-ip.jpg" alt="电脑 IPv4 地址" width="480">
+<img src="assets/screenshots/02-ip.jpg" alt="电脑 IPv4 地址" width="360">
 
 > [!TIP]
 > 多数无线连接问题都来自两端不在同一个局域网。优先确认电脑和鸿蒙设备处于同一网络环境，或网络开启了隔离。
