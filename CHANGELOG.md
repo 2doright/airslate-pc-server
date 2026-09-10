@@ -286,7 +286,7 @@
 - replaced the phase 9 `eframe/egui` desktop shell with a fresh Tauri v2 + React + TypeScript + Tailwind desktop UI, rebuilding the visual layer from scratch instead of carrying over the old layout
 - preserved the Rust runtime boundaries while adding a Tauri desktop bridge for bootstrap state, monitor selection, pressure sensitivity, shortcut profile display, category toggles, and preset-to-custom cloning
 - added a tray-driven window lifecycle so the backend can stay alive while closing the main window destroys the WebView and reopening the UI recreates it on demand to avoid idle background CPU use
-- generated standard application icons from `doc/foreground.png` and wired the project for Tauri packaging, frontend builds, and single-instance desktop behavior
+- generated standard application icons from `docs/foreground.png` and wired the project for Tauri packaging, frontend builds, and single-instance desktop behavior
 - verified `npm run build --prefix frontend`, `cargo fmt`, `cargo check`, `cargo test`, and `cargo build` against the new desktop shell
 
 ## 1.1.1 - 2026-04-26

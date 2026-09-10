@@ -45,5 +45,5 @@ cargo tauri build
 - 发布文本：文本结构参考历史release。其中的重要更新部分是主要不同的地方，禁止从开发者角度描述，需要从用户的角度描述，禁止描述开发细节；各点内容不允许耦合，彼此应当毫不相关，文本精简凝练短小清晰。
 
 ## 项目文档
-- Windows API 笔输相关文档介绍：`doc/winapi/index.md`
+- Windows API 笔输相关文档介绍：`docs/winapi/index.md`
 - Rust for Windows API：<https://microsoft.github.io/windows-docs-rs/doc/windows/>
