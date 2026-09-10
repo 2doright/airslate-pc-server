@@ -1,82 +1,32 @@
-# Strict public-source allowlist.
-# Everything is ignored by default. Only files required to build, package,
-# and present the public project are explicitly allowed below.
+# Build and generated output
+/target/
+/gen/
+/.vite/
+/frontend/dist/
+/frontend/node_modules/
 
-*
-!*/
+# Local tooling and machine-specific project files
+/.agents/
+/.codex/
+/.claude/
+/.cursor/
+/.continue/
+/cc-switch/
+/.mcp.json
+/.mcp.*.json
+/CONTEXT*.md
+/CLAUDE.md
+/CLAUDE.*.md
+/GEMINI.md
+/GEMINI.*.md
+/.github/copilot-instructions.md
 
-# Public repository metadata
-!.gitignore
-!.gitmodules
-!.rust-skills
-!.github/
-!.github/workflows/
-!.github/workflows/**
-!AGENTS.md
-!README.md
-!LICENSE
+# Local development notes and design assets
+/docs/archieve
+/docs/foreground.png
+/docs/server.md
 
-# Rust/Tauri source and build configuration
-!Cargo.toml
-!Cargo.lock
-!build.rs
-!tauri.conf.json
-!src/**
-!capabilities/
-!capabilities/**
-
-# Frontend source and build configuration used by Tauri
-!frontend/index.html
-!frontend/package.json
-!frontend/package-lock.json
-!frontend/tsconfig.json
-!frontend/vite.config.ts
-!frontend/src/**
-!frontend/public/**
-!frontend/*.config.js
-!frontend/*.config.cjs
-!frontend/*.config.mjs
-!frontend/*.config.ts
-
-# Application icons and Windows installer template referenced by tauri.conf.json
-!assets/icons/
-!assets/icons/**
-!assets/windows/
-!assets/windows/**
-
-# Public README screenshots
-!assets/
-!assets/screenshots/**
-!assets/star-history.svg
-!assets/star-history.sha256
-
-# Never publish local agent/tooling state, prompts, notes, or machine files
-*CONTEXT*.md
-.agents/**
-.codex/**
-.claude/**
-.cursor/**
-.continue/**
-.github/copilot-instructions.md
-CLAUDE.md
-CLAUDE.*.md
-GEMINI.md
-GEMINI.*.md
-.mcp.json
-.mcp.*.json
-
-# Private docs, plans, generated schemas, and local Tauri outputs
-cc-switch/
-docs/**
-!docs/usb-accessory-probe.md
-!docs/winapi/
-!docs/winapi/**
-gen/**
-target/**
-frontend/dist/**
-frontend/node_modules/**
-
-# Environment and local machine configuration
+# Environment and local configuration
 .env
 .env.*
 !.env.example
@@ -84,7 +34,7 @@ frontend/node_modules/**
 *.local
 *.local.*
 
-# Secrets, certificates, signing material, and archives/installers
+# Certificates, signing material, and packaged installers
 *.pem
 *.key
 *.p12
@@ -114,25 +64,30 @@ frontend/node_modules/**
 *.deb
 *.rpm
 
-# Logs, diagnostics, editor state, and caches
+# Logs, diagnostics, caches, and test coverage
 *.log
-logs/**
+/logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.dmp
 *.pdb
-.vscode/**
-.idea/**
+/.cache/
+/.parcel-cache/
+/.pytest_cache/
+/.ruff_cache/
+/.mypy_cache/
+/coverage/
+/.eslintcache
+*.tsbuildinfo
+
+# Editor and operating-system files
+/.vscode/
+/.idea/
 *.swp
 *.swo
 *~
 .DS_Store
 Thumbs.db
 Desktop.ini
-.cache/**
-.parcel-cache/**
-.pytest_cache/**
-.ruff_cache/**
-.mypy_cache/**

@@ -1,16 +1,12 @@
-<div align="center">
-
-<img src="assets/icons/icon.png" alt="AirSlate PC Server" width="96" height="96">
-
-# AirSlate PC Server
-
-将你的鸿蒙平板/手机转换为电脑的数位板
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.webp">
+  <source media="(prefers-color-scheme: light)" srcset="assets/banner-light.webp">
+  <img src="assets/banner-light.webp" alt="AirSlate PC Server" width="100%">
+</picture>
 
 [![Release](https://img.shields.io/github/v/release/2doright/airslate-pc-server?label=Release)](https://github.com/2doright/airslate-pc-server/releases) [![Downloads](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?label=Downloads)](https://github.com/2doright/airslate-pc-server/releases) [![License](https://img.shields.io/github/license/2doright/airslate-pc-server?label=License)](LICENSE) [![Harmony Download](https://img.shields.io/badge/Harmony-Download-CF0A2C?style=flat&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
 
 [![开发规划](https://img.shields.io/badge/开发规划-Roadmap-d29922?logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23) [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-8250df?style=flat&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions)
-
-</div>
 
 ## 快速开始
 
