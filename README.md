@@ -25,7 +25,7 @@
 
 PC Server 的“无线连接”页会显示当前电脑的局域网 IPv4 地址。在鸿蒙端 **AirSlate** 中输入此 IPv4 地址并连接。
 
-<img src="assets/screenshots/02-ip.jpg" alt="电脑 IPv4 地址" width="600">
+<img src="assets/screenshots/02-ip.jpg" alt="电脑 IPv4 地址" width="480">
 
 > [!TIP]
 > 多数无线连接问题都来自两端不在同一个局域网。优先确认电脑和鸿蒙设备处于同一网络环境，或网络开启了隔离。
@@ -60,7 +60,7 @@ PC Server 的“无线连接”页会显示当前电脑的局域网 IPv4 地址�
 
 当前支持的映射类别包括笔、点击、平移、捏合、旋转、速划和长按。
 
-<img src="assets/screenshots/05-area.jpg" alt="分类区域" width="1000">
+<img src="assets/screenshots/05-area.jpg" alt="分类区域" width="800">
 
 录入快捷键时，再次点击当前项可取消。录入时可额外配置特殊动作，可用项由手势能力决定，包括鼠标左/右键、按手势坐标移动、按住鼠标键移动；
 
