@@ -6,9 +6,9 @@
 
 将你的鸿蒙平板/手机转换为电脑的数位板
 
-[![Release](https://img.shields.io/github/v/release/2doright/airslate-pc-server?style=flat-square&label=Release)](https://github.com/2doright/airslate-pc-server/releases) [![Downloads](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?style=flat-square&label=Downloads)](https://github.com/2doright/airslate-pc-server/releases) [![License](https://img.shields.io/github/license/2doright/airslate-pc-server?style=flat-square&label=License)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/2doright/airslate-pc-server?label=Release)](https://github.com/2doright/airslate-pc-server/releases) [![Downloads](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?label=Downloads)](https://github.com/2doright/airslate-pc-server/releases) [![License](https://img.shields.io/github/license/2doright/airslate-pc-server?label=License)](LICENSE)
 
-[![开发规划](https://img.shields.io/badge/开发规划-Roadmap-d29922?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23) [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-8250df?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions) [![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-d73a4a?style=flat-square&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues)
+[![开发规划](https://img.shields.io/badge/开发规划-Roadmap-d29922?logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23) [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-8250df?logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions) [![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-d73a4a?logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues)
 
 </div>
 
