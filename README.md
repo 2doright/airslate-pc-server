@@ -6,15 +6,15 @@
 
 将你的鸿蒙平板/手机转换为电脑的数位板
 
-[![Release](https://img.shields.io/github/v/release/2doright/airslate-pc-server?label=Release)](https://github.com/2doright/airslate-pc-server/releases) [![Downloads](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?label=Downloads)](https://github.com/2doright/airslate-pc-server/releases) [![License](https://img.shields.io/github/license/2doright/airslate-pc-server?label=License)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/2doright/airslate-pc-server?label=Release)](https://github.com/2doright/airslate-pc-server/releases) [![Downloads](https://img.shields.io/github/downloads/2doright/airslate-pc-server/total?label=Downloads)](https://github.com/2doright/airslate-pc-server/releases) [![License](https://img.shields.io/github/license/2doright/airslate-pc-server?label=License)](LICENSE) [![Harmony Download](https://img.shields.io/badge/Harmony-Download-CF0A2C?style=flat&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare)
 
-[![开发规划](https://img.shields.io/badge/开发规划-Roadmap-d29922?logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23) [![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-8250df?logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions) [![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-d73a4a?logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues)
+[![开发规划](https://img.shields.io/badge/开发规划-Roadmap-d29922?logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions/23) [![Bug 反馈](https://img.shields.io/badge/Bug%20反馈-Issues-d73a4a?logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/issues) [![视频指南](https://img.shields.io/badge/视频指南-Bilibili-00A1D6?style=flat&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA)
 
 </div>
 
 想法交流、提出建议或查找解决方案，可以前往 [Discussions](https://github.com/2doright/airslate-pc-server/discussions)。
 
-[![视频指南](https://img.shields.io/badge/视频指南-Bilibili-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1nkMi6fEXA) [![Harmony Download](https://img.shields.io/badge/Harmony-Download-CF0A2C?style=flat-square&logo=huawei&logoColor=white)](https://appgallery.huawei.com/app/detail?id=com.walkshadow.airslate&channelId=SHARE&source=appshare) [![Bilibili 主页](https://img.shields.io/badge/Bilibili-个人主页-00A1D6?style=flat-square&logo=bilibili&logoColor=white)](https://space.bilibili.com/663096739) [![小红书主页](https://img.shields.io/badge/小红书-个人主页-FF2442?style=flat-square&logo=xiaohongshu&logoColor=white)](https://www.xiaohongshu.com/user/profile/655c2ab1000000000202b57e)
+[![交流讨论](https://img.shields.io/badge/交流讨论-Discussions-8250df?style=flat&logo=github&logoColor=white)](https://github.com/2doright/airslate-pc-server/discussions) [![Bilibili 主页](https://img.shields.io/badge/Bilibili-个人主页-00A1D6?style=flat&logo=bilibili&logoColor=white)](https://space.bilibili.com/663096739) [![小红书主页](https://img.shields.io/badge/小红书-个人主页-FF2442?style=flat&logo=xiaohongshu&logoColor=white)](https://www.xiaohongshu.com/user/profile/655c2ab1000000000202b57e)
 
 ![AirSlate PC Server 主界面总览](assets/screenshots/01-overview.jpg)
 
