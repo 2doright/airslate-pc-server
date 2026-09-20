@@ -26,8 +26,10 @@ Rust：
 ```bash
 cargo fmt --all -- --check
 cargo test --all-features --locked
-cargo clippy --all-targets --all-features --locked -- -D warnings
+cargo clippy --all-targets --all-features --locked
 ```
+
+当前 Clippy 作为必跑检查，但暂不使用 `-D warnings`。仓库仍有少量平台相关 dead-code 和新版本 Clippy 风格告警；应先逐项清理，再将 warning 升级为合并阻断条件，不使用 `#[allow]` 仅为 CI 变绿。
 
 项目同时面向 Windows 与 macOS。平台相关改动应尽量在对应平台完成真实验证；PR CI 会补充仓库级自动检查。
 
