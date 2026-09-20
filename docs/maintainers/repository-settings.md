@@ -25,12 +25,13 @@
 - Block force pushes
 - Restrict deletions
 
-待 PR #26 的 CI 名称稳定后，将以下检查设为 required：
+待 PR #26 的检查名称稳定后，将以下检查设为 required：
 
 - `Frontend`
 - `Rustfmt`
 - `Rust / Windows`
 - `Rust / macOS`
+- `Dependency Review`
 
 个人维护阶段不强制 1 个 approval，否则维护者自己的正常 PR 会被无意义阻塞。未来出现稳定协作者后，再把关键路径提高到 1 个 approval，并使用 CODEOWNERS 请求对应审查。
 
@@ -67,7 +68,7 @@ cargo clippy --all-targets --all-features --locked -- -D warnings
 - Push protection
 - Private vulnerability reporting
 
-Dependency graph 开启后，再增加 `actions/dependency-review-action` 作为 PR 检查；未开启前不要把它设为 required check，否则所有 PR 都会失败。
+Dependency graph 已启用，因此 PR CI 中保留 `actions/dependency-review-action`。当前策略只阻断 PR 新引入的 **high / critical** 已知漏洞，避免让较低严重级别问题在维护基线阶段造成不必要的合并阻塞。Dependency Review 验证稳定后，将 `Dependency Review` 设为 `main` 的 required check。
 
 ## 5. 标签初始化
 
