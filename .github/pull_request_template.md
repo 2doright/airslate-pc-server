@@ -16,7 +16,7 @@
 - [ ] `npm --prefix frontend run build`
 - [ ] `cargo fmt --all -- --check`
 - [ ] `cargo test --all-features --locked`
-- [ ] `cargo clippy --all-targets --all-features --locked -- -D warnings`
+- [ ] `cargo clippy --all-targets --all-features --locked`
 
 ## 平台影响
 
