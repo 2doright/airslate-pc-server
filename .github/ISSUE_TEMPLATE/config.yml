@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 使用问题与交流讨论
+    url: https://github.com/2doright/airslate-pc-server/discussions
+    about: 安装、使用方法、兼容性咨询和一般讨论优先放在 Discussions。
