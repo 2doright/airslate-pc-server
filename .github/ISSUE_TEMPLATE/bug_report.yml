@@ -1,0 +1,101 @@
+name: Bug 报告
+description: 报告可以稳定复现的异常行为
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请尽量提供可复现信息。连接、压感和输入问题通常与平台、连接方式和绘图软件输入 API 有关。
+
+  - type: input
+    id: version
+    attributes:
+      label: PC Server 版本
+      placeholder: 例如 1.6.6
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: PC 系统
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS Apple Silicon
+        - macOS Intel
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: connection
+    attributes:
+      label: 连接方式
+      options:
+        - 无线（局域网）
+        - USB 有线
+        - 两者都会出现
+        - 与连接无关
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: 鸿蒙设备
+      description: 设备型号与系统版本
+      placeholder: 例如 MatePad Pro / HarmonyOS 6.x
+    validations:
+      required: true
+
+  - type: input
+    id: app
+    attributes:
+      label: 相关软件
+      description: 若与绘图、快捷键或输入相关，请填写软件名称及输入 API（如 Windows Ink / TabletPC / WinTab）
+      placeholder: 例如 Krita 5.x / Windows Ink
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 从启动到问题出现，按顺序写出最短复现路径
+      placeholder: |
+        1. 启动 PC Server
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 日志、截图或录屏
+      description: 请移除账号、IP、公网地址、设备序列号等敏感信息后再上传
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索现有 Issue，未找到相同问题
+          required: true
+        - label: 我使用的是当前可获得的最新版，或已说明无法升级的原因
+          required: true
