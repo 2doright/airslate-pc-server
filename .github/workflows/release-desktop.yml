@@ -173,13 +173,13 @@ jobs:
 
     steps:
       - name: Download Windows release assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: airslate-windows-release-assets
           path: release-assets
 
       - name: Download macOS release assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: airslate-macos-release-assets
           path: release-assets
