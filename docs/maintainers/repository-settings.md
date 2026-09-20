@@ -36,6 +36,16 @@
 
 不建议当前开启 merge queue，也不建议要求每次合并前都强制更新到最新 `main`；对当前提交频率，这两项带来的重复 CI 成本大于收益。
 
+### Clippy 收紧路径
+
+当前 Windows/macOS CI 都会运行 Clippy，但暂不使用 `-D warnings`。现有代码存在少量平台相关 dead-code 与新版 Clippy 风格告警。先用独立维护 PR 清理这些告警；清零后再将命令升级为：
+
+```bash
+cargo clippy --all-targets --all-features --locked -- -D warnings
+```
+
+不要通过批量 `#[allow]` 或降低 lint 级别制造“零告警”。
+
 ## 3. Actions 权限
 
 在 **Settings → Actions → General**：
