@@ -96,7 +96,7 @@ jobs:
           Copy-Item -LiteralPath $portableSource -Destination "release-assets/AirSlate-PC-Server_${version}_windows-x64-portable.exe"
 
       - name: Upload Windows release assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: airslate-windows-release-assets
           path: release-assets/*
@@ -160,7 +160,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$app_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.app.zip"
 
       - name: Upload macOS release assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: airslate-macos-release-assets
           path: release-assets/*
