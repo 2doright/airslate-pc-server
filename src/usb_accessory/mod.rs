@@ -593,11 +593,8 @@ impl UsbAccessoryService {
                     continue;
                 }
             };
-            let discovery = discover_candidate(
-                usb_interface,
-                &self.scan_history,
-                protected_key.as_ref(),
-            );
+            let discovery =
+                discover_candidate(usb_interface, &self.scan_history, protected_key.as_ref());
             if let Ok(Discovery::Direct(info)) = &discovery
                 && let Err(error) = self.control.remember_reenumerated_target(info)
             {
@@ -2082,9 +2079,9 @@ mod tests {
     use super::{
         ACCESSORY_IDENTITY, Completion, DiscoveryState, HANDSHAKE_TIMEOUT_REPORT_INTERVAL,
         HandshakeReadDiagnostics, HandshakeTimeoutReport, PacketStream, READY_SUBMIT_RETRY_LIMIT,
-        TransferErrorAction, USB_READY, UsbDeviceInfo, UsbScanDevice, UsbScanHistory,
-        UsbPhysicalKey, UsbScanInterface, UsbSessionControl, UsbStatusBus, UsbStatusEvent, UsbTransferPhase,
-        VisibleDeviceSummary, advance_usb_ready, can_enter_direct_bulk_recovery,
+        TransferErrorAction, USB_READY, UsbDeviceInfo, UsbPhysicalKey, UsbScanDevice,
+        UsbScanHistory, UsbScanInterface, UsbSessionControl, UsbStatusBus, UsbStatusEvent,
+        UsbTransferPhase, VisibleDeviceSummary, advance_usb_ready, can_enter_direct_bulk_recovery,
         discovery_state_changed, is_known_file_transfer_mode, push_completion_and_take_packet,
         ready_disconnected_submit_can_reopen, ready_retry_allowed, should_report_authorizing,
         should_wait_after_initial_failure, transfer_error_action, waiting_status,
@@ -2292,7 +2289,10 @@ mod tests {
         let displayed = history
             .display_current(std::slice::from_ref(&final_device))
             .expect("the initial descriptor should remain available after re-enumeration");
-        assert_eq!(displayed[0].initial_interfaces, Some(initial.interfaces.clone()));
+        assert_eq!(
+            displayed[0].initial_interfaces,
+            Some(initial.interfaces.clone())
+        );
         assert_eq!(displayed[0].interfaces, final_device.interfaces);
     }
 
