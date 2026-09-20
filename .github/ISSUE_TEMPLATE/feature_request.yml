@@ -1,0 +1,59 @@
+name: 功能建议
+description: 描述希望解决的问题和期望行为
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+      description: 先说明当前场景的限制，而不是直接描述实现方案
+      placeholder: 当前在……场景下，我需要……，但现在只能……
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望行为
+      description: 描述用户最终应该能够完成什么
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 主要影响范围
+      options:
+        - Windows
+        - macOS
+        - USB 有线连接
+        - 无线连接 / 网络
+        - 笔输入 / 压感
+        - 快捷键 / 手势
+        - 前端界面
+        - 发布 / 更新
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 当前替代方案
+      description: 如果已有临时解决方法，请说明
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充信息
+      description: 可附截图、交互草图、相关协议或项目链接
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索现有 Issue / Discussions，未找到相同建议
+          required: true
