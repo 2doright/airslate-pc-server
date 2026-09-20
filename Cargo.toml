@@ -20,7 +20,7 @@ tauri-plugin-single-instance = "2.4.1"
 tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
 thiserror = "2.0"
-toml = "0.9"
+toml = "1.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 uuid = { version = "1.18", features = ["v4"] }
