@@ -31,7 +31,7 @@ export default defineConfig(({ command }) => ({
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
   build: {
     target: buildTarget,
-    minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
+    minify: !process.env.TAURI_ENV_DEBUG ? 'oxc' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
   },
 }));
