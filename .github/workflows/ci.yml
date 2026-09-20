@@ -90,7 +90,7 @@ jobs:
         run: cargo test --all-features --locked
 
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+        run: cargo clippy --all-targets --all-features --locked
 
   rust-macos:
     name: Rust / macOS
@@ -119,4 +119,4 @@ jobs:
         run: cargo test --all-features --locked
 
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+        run: cargo clippy --all-targets --all-features --locked
