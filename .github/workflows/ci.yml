@@ -26,7 +26,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -38,6 +38,14 @@ jobs:
 
       - name: Build frontend
         run: npm --prefix frontend run build
+
+      - name: Upload frontend dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          if-no-files-found: error
+          retention-days: 1
 
   rustfmt:
     name: Rustfmt
@@ -57,11 +65,18 @@ jobs:
 
   rust-windows:
     name: Rust / Windows
+    needs: frontend
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -79,11 +94,18 @@ jobs:
 
   rust-macos:
     name: Rust / macOS
+    needs: frontend
     runs-on: macos-14
     timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
