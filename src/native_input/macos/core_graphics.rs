@@ -49,8 +49,7 @@ pub(super) const NS_POINTING_DEVICE_TYPE_PEN: i64 = 1;
 
 // CoreGraphics tablet event fields follow the Wacom-compatible path used by
 // OpenTabletDriver's macOS backend: https://github.com/OpenTabletDriver/OpenTabletDriver
-pub(super) const WACOM_CAPABILITY_MASK: i64 =
-    0x001 | 0x002 | 0x004 | 0x040 | 0x080 | 0x100 | 0x400;
+pub(super) const WACOM_CAPABILITY_MASK: i64 = 0x001 | 0x002 | 0x004 | 0x040 | 0x080 | 0x100 | 0x400;
 pub(super) const WACOM_VENDOR_POINTER_TYPE_GENERAL_STYLUS: i64 = 0x802;
 pub(super) const MACOS_TABLET_DEVICE_ID: i64 = 5_303_613_955_435_230_461;
 
