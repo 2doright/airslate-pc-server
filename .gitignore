@@ -81,6 +81,7 @@ pnpm-debug.log*
 /coverage/
 /.eslintcache
 *.tsbuildinfo
+*.archieve
 
 # Editor and operating-system files
 /.vscode/
