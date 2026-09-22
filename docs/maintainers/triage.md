@@ -1,59 +1,54 @@
 # Issue Triage
 
-目标是让每个可执行 Issue 快速回答三个问题：**是什么、影响哪里、现在该怎么处理**。标签应服务检索和决策，不追求数量。
+目标是让 Issue 和 Pull Request 用少量、稳定的标签回答两个问题：**这是什么**、**影响哪里**。标签用于检索、自动化和维护动作，不承担排期系统的职责。
 
 ## 标签体系
 
-### 类型
-
-优先复用 GitHub 默认标签：
+### 工作性质
 
 - `bug`：可复现的错误行为
 - `enhancement`：新增或改进能力
-- `documentation`：仅文档相关
-- `question`：不适合作为执行项的问题；通常迁移或引导到 Discussions
+- `documentation`：文档相关变更
+- `question`：使用或支持问题；通常应引导到 Discussions
+- `dependencies`：依赖升级
+- `ci`：CI、自动化和仓库维护
+
+### 产品与技术范围
+
+- `frontend`：前端界面和 Web 代码
+- `rust`：Rust 应用代码
+- `usb`：USB 有线连接与 accessory mode
+- `network`：局域网发现、UDP 与网络传输
+- `input`：笔输入、压感、手势与快捷键
+- `windows`：Windows 特有行为
+- `macos`：macOS 特有行为
+
+一个 Issue 或 PR 可以同时拥有多个范围标签，例如 Rust USB 修复可以同时标记 `rust` 和 `usb`。
+
+### 维护动作
+
+- `needs-info`：缺少继续判断所需的信息或复现
+- `blocked`：被外部依赖、平台限制或其他工作阻塞
 - `duplicate`：已有相同跟踪项
+- `invalid`：不是有效或可执行的问题
+- `wontfix`：已明确不计划处理
+- `good first issue`：适合首次贡献
+- `help wanted`：明确欢迎外部贡献
+- `skip-changelog`：PR 不应进入自动生成的发布说明
 
-### 状态
+## 自动化
 
-建议新增：
-
-- `status: needs-triage`：尚未完成维护者分类
-- `status: needs-info`：缺少继续判断所需的信息
-- `status: blocked`：被外部依赖、平台限制或其他 Issue 阻塞
-
-### 范围
-
-建议新增：
-
-- `area: windows`
-- `area: macos`
-- `area: usb`
-- `area: network`
-- `area: input`
-
-前端、发布等范围只有在 Issue 数量明显增加后再拆分，避免过早产生低使用率标签。
-
-### 优先级
-
-建议新增：
-
-- `priority: high`：影响核心路径、数据/安全或大量用户，维护者计划优先处理
-- `priority: normal`：已确认且应进入常规计划
-- `priority: low`：有效，但影响有限或近期没有计划
-
-优先级表示维护顺序，不表示严重程度或承诺发布日期。
-
-### 维护与贡献
-
-继续使用 `good first issue`、`help wanted`；依赖升级可使用 `dependencies`。自动生成发布说明时，不应出现的 PR 可标记 `skip-changelog`。
+- Bug / Feature Issue Form 分别自动添加 `bug` / `enhancement`。
+- 新 Issue 根据表单中的系统、连接方式和影响范围自动补充 `windows`、`macos`、`usb`、`network`、`input` 或 `frontend`。
+- Pull Request 根据 changed files 自动添加范围标签。
+- Dependabot PR 使用 `dependencies` 加对应的 `rust`、`frontend` 或 `ci`。
+- 标签定义由 `.github/labels.yml` 管理，不在 GitHub UI 中维护第二套命名规则。
 
 ## Triage 流程
 
-1. 判断内容应留在 Issue 还是转到 Discussions。
-2. 确认能否复现或需求是否足够明确；缺信息时标记 `status: needs-info`。
-3. 为可执行项保留一个主要类型标签，并添加最相关的 area 标签。
-4. 只有在维护者已经判断处理顺序时再添加 priority。
-5. 重复项保留原始跟踪 Issue，新提交标记 `duplicate` 并链接过去。
+1. 保留一个最主要的工作性质标签，并添加确实有检索价值的范围标签。
+2. 缺少复现或关键信息时加 `needs-info`；有明确外部阻塞时加 `blocked`。
+3. 重复项标记 `duplicate` 并链接原 Issue；明确不处理时使用 `wontfix` 或关闭为 not planned。
+4. 只有明确适合外部贡献时才使用 `good first issue` / `help wanted`。
 
-不要求每个 Issue 拥有所有维度的标签。标签缺失比错误标签更容易修正。
+不使用 `area:*`、`status:*`、`priority:*` 命名空间。优先级和排期需要时放在 GitHub Projects / Milestones，而不是长期维护一组容易过期的标签。
