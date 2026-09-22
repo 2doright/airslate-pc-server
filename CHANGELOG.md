@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- determine desktop updater support from the native application platform instead of the embedded webview user agent
 - separate Windows and macOS native input backends so platform-specific pen and shortcut handling can evolve independently without changing input behavior
 - keep the original USB interface visible while a matching device is re-enumerated into accessory mode
 - organize desktop application assets and installer configuration, and remove the unused installer template
