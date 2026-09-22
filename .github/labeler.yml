@@ -7,11 +7,7 @@ documentation:
 ci:
   - changed-files:
       - any-glob-to-any-file:
-          - ".github/workflows/**"
-          - ".github/dependabot.yml"
-          - ".github/labeler.yml"
-          - ".github/labels.yml"
-          - ".github/release.yml"
+          - ".github/**"
 
 frontend:
   - changed-files:
@@ -25,6 +21,9 @@ rust:
           - "Cargo.toml"
           - "Cargo.lock"
           - "build.rs"
+          - "tauri.conf.json"
+          - "capabilities/**"
+          - "assets/**"
 
 dependencies:
   - changed-files:
