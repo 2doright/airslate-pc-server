@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- enable in-app updates on macOS and move desktop update manifests to GitHub Release assets
+
 - determine desktop updater support from the native application platform instead of the embedded webview user agent
 - separate Windows and macOS native input backends so platform-specific pen and shortcut handling can evolve independently without changing input behavior
 - keep the original USB interface visible while a matching device is re-enumerated into accessory mode
