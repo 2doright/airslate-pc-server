@@ -8,18 +8,14 @@ mod macos;
 mod windows;
 
 #[cfg(target_os = "macos")]
-use macos::{
-    MacosPenInjector as PlatformPenInjector, MacosShortcutExecutor as PlatformShortcutExecutor,
-};
+use macos as platform;
 #[cfg(windows)]
-use windows::{
-    WindowsPenInjector as PlatformPenInjector, WindowsShortcutExecutor as PlatformShortcutExecutor,
-};
+use windows as platform;
 
 pub fn create_pen_injector() -> Result<Arc<dyn PenInjector>, AppError> {
-    Ok(Arc::new(PlatformPenInjector::new()?))
+    platform::create_pen_injector()
 }
 
 pub fn create_shortcut_executor() -> Arc<dyn ShortcutExecutor> {
-    Arc::new(PlatformShortcutExecutor::new())
+    platform::create_shortcut_executor()
 }
