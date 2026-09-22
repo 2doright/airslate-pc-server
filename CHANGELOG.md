@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.6.7-beta.1 - 2026-09-22
+
 - enable in-app updates on macOS and move desktop update manifests to GitHub Release assets
 
 - determine desktop updater support from the native application platform instead of the embedded webview user agent
