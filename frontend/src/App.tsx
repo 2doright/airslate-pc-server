@@ -51,7 +51,7 @@ export function App() {
   const [newPresetName, setNewPresetName] = useState('');
   const [recordingTarget, setRecordingTarget] = useState<RecordingTarget | null>(null);
   const usbStatusRevision = useRef(0);
-  const updater = useAppUpdater(data?.distribution, /Windows/i.test(navigator.userAgent));
+  const updater = useAppUpdater(data?.distribution, data?.updaterSupported ?? false);
 
   const applySessionStatus = (nextStatus: boolean) => {
     setHasActiveSession(nextStatus);

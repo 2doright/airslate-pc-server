@@ -19,6 +19,7 @@ use super::local_ip::lan_ipv4_values;
 pub struct AppBootstrapDto {
     pub app_name: String,
     pub distribution: AppDistributionDto,
+    pub updater_supported: bool,
     pub config_version: u32,
     pub config_path: String,
     pub launch_at_startup: bool,
@@ -188,6 +189,7 @@ pub fn app_bootstrap(
     Ok(AppBootstrapDto {
         app_name: config.app_name,
         distribution: app_distribution(),
+        updater_supported: cfg!(windows),
         config_version: config.config_version,
         config_path: config_path.to_string(),
         launch_at_startup: config.launch_at_startup,
