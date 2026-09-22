@@ -6,37 +6,26 @@
 
 ## 技术栈
 - Rust + Windows crate
-- 前端位于 `frontend/`
+- 前端目录: `frontend/`
 - 目标平台为 Windows、MacOS
 
 ## Rust Skills
 本项目通过 `.rust-skills` Git submodule 使用
-[`actionbook/rust-skills`](https://github.com/actionbook/rust-skills)。所有 Rust 问题、设计、实现、
-调试和代码审查任务都必须使用该 Skill 系统。
-
-### Rust skill 流程
-1. 完整阅读 `.rust-skills/AGENTS.md`
-2. 使用 `.rust-skills/skills/rust-router/SKILL.md` 路由问题
-3. 根据路由结果任务类型，继续完整阅读对应的 `.rust-skills/skills/*/SKILL.md`
-4. 遵循相关 Skill 的实现、检查和测试要求
+[`actionbook/rust-skills`](https://github.com/actionbook/rust-skills)。所有 Rust 问题、实现和代码审查任务都必须使用该 Skill路由问题，遵循相关 Skill 的实现、检查和测试要求。
 
 ## 实现与验证
-### 调试
-- 修改项目工程代码后必须执行与风险相称的真实语法检查、测试
-- 测试必须验证运行时事实，不得使用占位实现、伪造状态或仅为通过编译而添加的开关。
-
-### 构建
-- 仅当用户明确表示构建时，才进行构建。
+代码编写完成后应通过PR进行远程CI验证(除非用户表示要本地进行)
+### 本地CI调试
+- 修改项目工程代码后必须执行真实语法检查、测试
+- 仅当用户明确表示本地build时，才进行build
 
 ### 版本
-- 调试通过后更新 `CHANGELOG.md`。
+- CI通过后更新 `CHANGELOG.md`。
 - 修改发布行为时同步维护版本号。
 
 ## 命令
-### 前端检查
-npm --prefix ./frontend run build
-### 编译
-cargo tauri build
+前端检查:npm --prefix ./frontend run build
+编译:cargo tauri build
 
 ## 发布
 - release：`major.minor.patch`tag触发
@@ -44,6 +33,6 @@ cargo tauri build
 - MSI 打包时，映射 beta.N -> major.minor.patch.N，正式版无需后缀
 - 发布文本：文本结构参考历史release。其中的重要更新部分是主要不同的地方，禁止从开发者角度描述，需要从用户的角度描述，禁止描述开发细节；各点内容不允许耦合，彼此应当毫不相关，文本精简凝练短小清晰。
 
-## 项目文档
+## 相关文档
 - Windows API 笔输相关文档介绍：`docs/winapi/index.md`
 - Rust for Windows API：<https://microsoft.github.io/windows-docs-rs/doc/windows/>
