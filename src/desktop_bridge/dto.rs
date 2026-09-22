@@ -189,7 +189,7 @@ pub fn app_bootstrap(
     Ok(AppBootstrapDto {
         app_name: config.app_name,
         distribution: app_distribution(),
-        updater_supported: cfg!(windows),
+        updater_supported: cfg!(any(windows, target_os = "macos")),
         config_version: config.config_version,
         config_path: config_path.to_string(),
         launch_at_startup: config.launch_at_startup,
