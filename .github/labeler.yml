@@ -1,0 +1,63 @@
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/dependabot.yml"
+          - ".github/labeler.yml"
+          - ".github/labels.yml"
+          - ".github/release.yml"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "frontend/**"
+
+rust:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/**"
+          - "Cargo.toml"
+          - "Cargo.lock"
+          - "build.rs"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "Cargo.toml"
+          - "Cargo.lock"
+          - "frontend/package.json"
+          - "frontend/package-lock.json"
+          - ".github/dependabot.yml"
+
+usb:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/usb_accessory/**"
+          - "docs/usb-accessory-probe.md"
+
+network:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/udp_ingest/**"
+
+input:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/input_pipeline/**"
+          - "src/windows_injector/**"
+          - "src/shortcut/**"
+          - "src/radial_overlay/**"
+          - "docs/winapi/**"
+
+windows:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/windows_injector/**"
+          - "docs/winapi/**"
+          - "assets/windows/**"
