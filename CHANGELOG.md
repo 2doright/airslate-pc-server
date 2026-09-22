@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- name the macOS updater release asset explicitly as `macos-updater`
+
 ## 1.7.0 - 2026-09-22
 
 - allow tagged releases to use curated user-facing release notes stored in the repository
