@@ -1,0 +1,83 @@
+- name: bug
+  color: "#D73A4A"
+  description: Something is not working
+
+- name: enhancement
+  color: "#A2EEEF"
+  description: New feature or improvement
+
+- name: documentation
+  color: "#0075CA"
+  description: Documentation-only changes
+
+- name: question
+  color: "#D876E3"
+  description: Usage or support question
+
+- name: duplicate
+  color: "#CFD3D7"
+  description: This issue or pull request already exists
+
+- name: invalid
+  color: "#E4E669"
+  description: Not a valid or actionable report
+
+- name: wontfix
+  color: "#FFFFFF"
+  description: Closed without planned work
+
+- name: needs-info
+  color: "#D4C5F9"
+  description: More information or a reproduction is needed
+
+- name: blocked
+  color: "#B60205"
+  description: Blocked by an external dependency or prerequisite
+
+- name: good first issue
+  color: "#7057FF"
+  description: Good for newcomers
+
+- name: help wanted
+  color: "#008672"
+  description: External contribution is welcome
+
+- name: dependencies
+  color: "#0366D6"
+  description: Dependency updates
+
+- name: skip-changelog
+  color: "#EDEDED"
+  description: Exclude from generated release notes
+
+- name: ci
+  color: "#5319E7"
+  description: CI, automation, and repository maintenance
+
+- name: frontend
+  color: "#1D76DB"
+  description: Frontend UI and web code
+
+- name: rust
+  color: "#DEA584"
+  description: Rust application code
+
+- name: usb
+  color: "#0E8A16"
+  description: USB wired connection and accessory mode
+
+- name: network
+  color: "#006B75"
+  description: LAN discovery, UDP, and network transport
+
+- name: input
+  color: "#0052CC"
+  description: Pen input, pressure, gestures, and shortcuts
+
+- name: windows
+  color: "#0078D4"
+  description: Windows-specific behavior
+
+- name: macos
+  color: "#24292F"
+  description: macOS-specific behavior
