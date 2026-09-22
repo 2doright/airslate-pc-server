@@ -162,8 +162,8 @@ jobs:
           updater_sig_path="${updater_path}.sig"
           cp "$dmg_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.dmg"
           ditto -c -k --sequesterRsrc --keepParent "$app_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.app.zip"
-          cp "$updater_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.app.tar.gz"
-          cp "$updater_sig_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.app.tar.gz.sig"
+          cp "$updater_path" "release-assets/AirSlate-PC-Server_${version}_macos-updater.tar.gz"
+          cp "$updater_sig_path" "release-assets/AirSlate-PC-Server_${version}_macos-updater.tar.gz.sig"
 
       - name: Upload macOS release assets
         uses: actions/upload-artifact@v7
@@ -203,7 +203,7 @@ jobs:
             release-assets/*.exe
             release-assets/*.dmg
             release-assets/*.app.zip
-            release-assets/*.app.tar.gz
+            release-assets/*_macos-updater.tar.gz
           )
           notes_file=".github/release-notes/${GITHUB_REF_NAME}.md"
           if [ -f "$notes_file" ]; then
@@ -255,10 +255,10 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           windows_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_windows-x64.msi.sig)
-          macos_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_macos-universal.app.tar.gz.sig)
+          macos_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_macos-updater.tar.gz.sig)
           notes=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
           windows_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_windows-x64.msi"
-          macos_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_macos-universal.app.tar.gz"
+          macos_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_macos-updater.tar.gz"
           jq -n \
             --arg version "$version" \
             --arg notes "$notes" \
