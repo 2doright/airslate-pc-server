@@ -105,6 +105,9 @@ jobs:
   build-macos:
     name: Build macOS universal packages
     runs-on: macos-14
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
     steps:
       - name: Check out repository
@@ -148,7 +151,6 @@ jobs:
           ./frontend/node_modules/.bin/tauri build
           --target universal-apple-darwin
           --bundles app,dmg
-          --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
       - name: Prepare macOS release assets
         run: |
@@ -156,8 +158,12 @@ jobs:
           mkdir -p release-assets
           dmg_path=$(find target/universal-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)
           app_path=$(find target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)
+          updater_path=$(find target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app.tar.gz' -print -quit)
+          updater_sig_path="${updater_path}.sig"
           cp "$dmg_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.dmg"
           ditto -c -k --sequesterRsrc --keepParent "$app_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.app.zip"
+          cp "$updater_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.app.tar.gz"
+          cp "$updater_sig_path" "release-assets/AirSlate-PC-Server_${version}_macos-universal.app.tar.gz.sig"
 
       - name: Upload macOS release assets
         uses: actions/upload-artifact@v7
@@ -194,6 +200,7 @@ jobs:
             release-assets/*.exe
             release-assets/*.dmg
             release-assets/*.app.zip
+            release-assets/*.app.tar.gz
           )
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" \
@@ -228,39 +235,50 @@ jobs:
             fi
           fi
 
-      - name: Generate Windows update manifest
+      - name: Generate update manifest
         if: ${{ !contains(github.ref_name, '-') }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${GITHUB_REF_NAME#v}"
-          signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_windows-x64.msi.sig)
+          windows_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_windows-x64.msi.sig)
+          macos_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_macos-universal.app.tar.gz.sig)
           notes=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
+          windows_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_windows-x64.msi"
+          macos_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_macos-universal.app.tar.gz"
           jq -n \
             --arg version "$version" \
             --arg notes "$notes" \
-            --arg signature "$signature" \
-            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_windows-x64.msi" \
-            '{version:$version,notes:$notes,pub_date:(now|todate),platforms:{"windows-x86_64":{signature:$signature,url:$url}}}' \
-            > latest.json
+            --arg windows_signature "$windows_signature" \
+            --arg windows_url "$windows_url" \
+            --arg macos_signature "$macos_signature" \
+            --arg macos_url "$macos_url" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: (now | todate),
+              platforms: {
+                "windows-x86_64": {
+                  signature: $windows_signature,
+                  url: $windows_url
+                },
+                "darwin-x86_64": {
+                  signature: $macos_signature,
+                  url: $macos_url
+                },
+                "darwin-aarch64": {
+                  signature: $macos_signature,
+                  url: $macos_url
+                }
+              }
+            }' > latest.json
 
-      - name: Publish Windows update manifest branch
+      - name: Publish update manifest release asset
         if: ${{ !contains(github.ref_name, '-') }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh auth setup-git
-          manifest_repo="$RUNNER_TEMP/update-manifest-repo"
-          git clone --depth 1 "https://github.com/${GITHUB_REPOSITORY}.git" "$manifest_repo"
-          cd "$manifest_repo"
-          git checkout -B update-manifest
-          cp "$GITHUB_WORKSPACE/latest.json" latest.json
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -f latest.json
-          if git diff --cached --quiet; then
-            echo 'The update manifest is already current.'
-          else
-            git commit -m "Update manifest for ${GITHUB_REF_NAME}"
-          fi
-          git push origin HEAD:update-manifest --force
+          gh release upload "$GITHUB_REF_NAME" \
+            latest.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
