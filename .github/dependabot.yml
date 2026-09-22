@@ -8,6 +8,14 @@ updates:
     labels:
       - dependencies
       - rust
+    groups:
+      cargo-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /frontend
@@ -17,6 +25,14 @@ updates:
     labels:
       - dependencies
       - frontend
+    groups:
+      npm-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: github-actions
     directory: /
@@ -26,3 +42,11 @@ updates:
     labels:
       - dependencies
       - ci
+    groups:
+      actions-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
