@@ -1,11 +1,11 @@
 {
-  "version": "1.6.6",
-  "notes": "**Full Changelog**: https://github.com/2doright/airslate-pc-server/compare/v1.6.5...v1.6.6",
-  "pub_date": "2026-09-08T05:33:23Z",
+  "version": "1.7.0",
+  "notes": "## 重点更新\n\n- macOS 从本版本起支持应用内更新；安装 1.7.0 后，后续稳定版可与 Windows 一样直接在应用内检查并安装。\n\n## 完整变更\n\nhttps://github.com/2doright/airslate-pc-server/compare/v1.6.6...v1.7.0",
+  "pub_date": "2026-09-22T08:26:08Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmdpdUN0N0tvRmlxby9teE1lN3RWd1YvSW1ub000N2V0NGhiVkVtLzR1VVZsMmcyeERmVHhMMDN3amtCMHNidnNyQjVXV2p4czg0bE16aFZ3RTVSSnZVU1phY054blFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4ODQ1NDgxCWZpbGU6QWlyU2xhdGUgUEMgU2VydmVyXzEuNi42X3g2NF9lbi1VUy5tc2kKYjZOSFUvYkROM0hxZUVGMkRqNlB0ZWFEcEtHNXlOZ0hOdUdKUnViMDlKTWRKQkdGTjBTUFVXek5MYUJzSmNLamtUZGg4YUdCS29CUlJrSTdLSGRwRGc9PQo=",
-      "url": "https://github.com/2doright/airslate-pc-server/releases/download/v1.6.6/AirSlate-PC-Server_1.6.6_windows-x64.msi"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdmdpdUN0N0tvRnR3WHZwcnZWOUZrU2RZMjVGSXZPVjV4bUM0UkVURzh2SWpkSmI4cFR2WXdkWko0ekhhbis5cGRzL01ra3ZUcFZGTHM3THplM1NSbVRpeFI3QUJUZXdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMDY1NDUwCWZpbGU6QWlyU2xhdGUgUEMgU2VydmVyXzEuNy4wX3g2NF9lbi1VUy5tc2kKRFovUWd2TGg5ZVVVOWpzaXFZYmtISVBNc0MwRUlLQWJhajVRY1dwTk5QNG53dkxXTnB2L0FnUDhUV2lZQnhzVjEvNm9WMHRYb251WTlVU1MwTkRtQXc9PQo=",
+      "url": "https://github.com/2doright/airslate-pc-server/releases/download/v1.7.0/AirSlate-PC-Server_1.7.0_windows-x64.msi"
     }
   }
 }
