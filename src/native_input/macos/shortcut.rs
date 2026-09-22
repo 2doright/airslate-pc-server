@@ -55,8 +55,7 @@ fn post_key_event(key: KeyCode, key_up: bool) -> Result<(), AppError> {
     let virtual_key = macos_key_code(key)?;
     // SAFETY: A null event source requests the default CoreGraphics source. `virtual_key` is a
     // platform key code produced by `macos_key_code`.
-    let event =
-        unsafe { CGEventCreateKeyboardEvent(std::ptr::null_mut(), virtual_key, !key_up) };
+    let event = unsafe { CGEventCreateKeyboardEvent(std::ptr::null_mut(), virtual_key, !key_up) };
     post_event(event)
 }
 
@@ -114,8 +113,7 @@ fn mouse_button(button: MouseButton) -> u32 {
 fn post_mouse_event(event_type: u32, button: u32, point: CGPoint) -> Result<(), AppError> {
     // SAFETY: A null source requests the default CoreGraphics source. `event_type`, `button`,
     // and `point` are constructed from the supported shortcut command variants above.
-    let event =
-        unsafe { CGEventCreateMouseEvent(std::ptr::null_mut(), event_type, point, button) };
+    let event = unsafe { CGEventCreateMouseEvent(std::ptr::null_mut(), event_type, point, button) };
     post_event(event)
 }
 
