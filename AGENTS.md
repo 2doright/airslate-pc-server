@@ -14,14 +14,11 @@
 [`actionbook/rust-skills`](https://github.com/actionbook/rust-skills)。所有 Rust 问题、实现和代码审查任务都必须使用该 Skill路由问题，遵循相关 Skill 的实现、检查和测试要求。
 
 ## 实现与验证
-代码编写完成后应通过PR进行远程CI验证(除非用户表示要本地进行)
+代码编写完成后更新`CHANGELOG.md`
+随后通过PR进行远程CI验证(除非用户表示要本地进行)
 ### 本地CI调试
 - 修改项目工程代码后必须执行真实语法检查、测试
 - 仅当用户明确表示本地build时，才进行build
-
-### 版本
-- CI通过后更新 `CHANGELOG.md`。
-- 修改发布行为时同步维护版本号。
 
 ## 命令
 前端检查:npm --prefix ./frontend run build
