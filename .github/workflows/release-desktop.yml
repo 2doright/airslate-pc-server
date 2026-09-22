@@ -244,7 +244,7 @@ jobs:
                 --repo "$GITHUB_REPOSITORY" \
                 "${release_assets[@]}" \
                 --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
-                "${notes_args[@]}"
+                "${create_notes_args[@]}"
             fi
           fi
 
