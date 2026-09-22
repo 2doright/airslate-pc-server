@@ -64,6 +64,7 @@ export interface PressureCurveDto {
 
 export interface AppBootstrapDto {
   distribution: 'installed' | 'portable';
+  updaterSupported: boolean;
   configVersion: number;
   launchAtStartup: boolean;
   showLaunchAtStartupOnMainPage: boolean;
