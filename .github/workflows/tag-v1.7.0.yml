@@ -1,0 +1,44 @@
+name: Create v1.7.0 tag
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/tag-v1.7.0.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  tag-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Verify release version
+        run: |
+          version="$(jq -r .version tauri.conf.json)"
+          if [ "$version" != "1.7.0" ]; then
+            echo "Expected tauri.conf.json version 1.7.0, got $version"
+            exit 1
+          fi
+
+      - name: Create v1.7.0 tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git ls-remote --exit-code --tags origin refs/tags/v1.7.0 >/dev/null 2>&1; then
+            echo "v1.7.0 already exists"
+          else
+            git tag v1.7.0 "$GITHUB_SHA"
+            git push origin refs/tags/v1.7.0
+          fi
+
+      - name: Dispatch release workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release-desktop.yml --ref v1.7.0
