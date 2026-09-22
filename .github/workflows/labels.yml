@@ -1,0 +1,93 @@
+name: Sync Labels
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/labels.yml"
+      - ".github/workflows/labels.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    name: Sync repository labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Sync label definitions
+        uses: crazy-max/ghaction-github-labeler@548a7c3603594ec17c819e1239f281a3b801ab4d # v6.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          yaml-file: .github/labels.yml
+          skip-delete: true
+
+      - name: Migrate legacy labels
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const migrations = new Map([
+              ['area: windows', 'windows'],
+              ['area: macos', 'macos'],
+              ['area: usb', 'usb'],
+              ['area: network', 'network'],
+              ['area: input', 'input'],
+              ['status: needs-info', 'needs-info'],
+              ['status: blocked', 'blocked'],
+            ]);
+
+            for (const [legacy, replacement] of migrations) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: legacy,
+                });
+              } catch (error) {
+                if (error.status === 404) continue;
+                throw error;
+              }
+
+              const items = await github.paginate(github.rest.issues.listForRepo, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'all',
+                labels: legacy,
+                per_page: 100,
+              });
+
+              for (const item of items) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: item.number,
+                  labels: [replacement],
+                });
+              }
+
+              await github.rest.issues.deleteLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: legacy,
+              });
+            }
+
+            for (const legacy of [
+              'status: needs-triage',
+              'priority: high',
+              'priority: normal',
+              'priority: low',
+            ]) {
+              try {
+                await github.rest.issues.deleteLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: legacy,
+                });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+            }
