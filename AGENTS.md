@@ -27,7 +27,7 @@
 ## 发布
 - release：`major.minor.patch`tag触发
 - prelease：tag`major.minor.patch-beta.N`tag触发
-- 修改发布行为时同步维护版本号。
+- 发布时同步维护版本号。
 - MSI 打包时，映射 beta.N -> major.minor.patch.N，正式版无需后缀
 - 发布文本：文本结构参考历史release。其中的重要更新部分是主要不同的地方，禁止从开发者角度描述，需要从用户的角度描述，禁止描述开发细节；各点内容不允许耦合，彼此应当毫不相关，文本精简凝练短小清晰。
 
