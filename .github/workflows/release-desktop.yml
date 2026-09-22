@@ -207,9 +207,11 @@ jobs:
           )
           notes_file=".github/release-notes/${GITHUB_REF_NAME}.md"
           if [ -f "$notes_file" ]; then
-            notes_args=(--notes-file "$notes_file")
+            create_notes_args=(--notes-file "$notes_file")
+            edit_notes_args=(--notes-file "$notes_file")
           else
-            notes_args=(--generate-notes)
+            create_notes_args=(--generate-notes)
+            edit_notes_args=()
           fi
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" \
@@ -219,13 +221,13 @@ jobs:
             if [ "$IS_PRERELEASE" = "true" ]; then
               gh release edit "$GITHUB_REF_NAME" \
                 --repo "$GITHUB_REPOSITORY" \
-                "${notes_args[@]}" \
+                "${edit_notes_args[@]}" \
                 --prerelease \
                 --latest=false
             else
               gh release edit "$GITHUB_REF_NAME" \
                 --repo "$GITHUB_REPOSITORY" \
-                "${notes_args[@]}" \
+                "${edit_notes_args[@]}" \
                 --prerelease=false
             fi
           else
@@ -234,7 +236,7 @@ jobs:
                 --repo "$GITHUB_REPOSITORY" \
                 "${release_assets[@]}" \
                 --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
-                "${notes_args[@]}" \
+                "${create_notes_args[@]}" \
                 --prerelease \
                 --latest=false
             else
