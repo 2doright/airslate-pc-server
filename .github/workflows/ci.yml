@@ -9,14 +9,60 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      rust: ${{ steps.filter.outputs.rust }}
+      rustfmt: ${{ steps.filter.outputs.rustfmt }}
+      dependencies: ${{ steps.filter.outputs.dependencies }}
+    steps:
+      - name: Check out repository for non-PR events
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: actions/checkout@v7
+
+      - name: Detect affected areas
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+            rust:
+              - 'src/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'build.rs'
+              - 'tauri.conf.json'
+              - 'capabilities/**'
+              - 'assets/**'
+              - '.github/workflows/ci.yml'
+            rustfmt:
+              - '**/*.rs'
+              - '.github/workflows/ci.yml'
+            dependencies:
+              - '**/Cargo.toml'
+              - '**/Cargo.lock'
+              - '**/package.json'
+              - '**/package-lock.json'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/dependency-review.yml'
+              - '.github/dependency-review-config.yml'
+
   frontend:
     name: Frontend
+    needs: changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -34,6 +80,7 @@ jobs:
         run: npm ci --prefix frontend
 
       - name: Run frontend tests
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true' }}
         run: npm --prefix frontend test
 
       - name: Build frontend
@@ -49,6 +96,8 @@ jobs:
 
   rustfmt:
     name: Rustfmt
+    needs: changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.rustfmt == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -65,7 +114,8 @@ jobs:
 
   rust-windows:
     name: Rust / Windows
-    needs: frontend
+    needs: [changes, frontend]
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true') && needs.frontend.result == 'success' }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -94,7 +144,8 @@ jobs:
 
   rust-macos:
     name: Rust / macOS
-    needs: frontend
+    needs: [changes, frontend]
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true') && needs.frontend.result == 'success' }}
     runs-on: macos-14
     timeout-minutes: 30
     steps:
@@ -120,3 +171,18 @@ jobs:
 
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features --locked
+
+  dependency-review:
+    name: Dependency Review
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.dependencies == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
