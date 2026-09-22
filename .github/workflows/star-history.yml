@@ -79,7 +79,7 @@ jobs:
 
       - name: Set up pnpm
         if: ${{ steps.star_data.outputs.changed == 'true' }}
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
           run_install: false
