@@ -178,6 +178,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
       - name: Download Windows release assets
         uses: actions/download-artifact@v8
         with:
@@ -202,6 +205,14 @@ jobs:
             release-assets/*.app.zip
             release-assets/*.app.tar.gz
           )
+          notes_file=".github/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$notes_file" ]; then
+            create_notes_args=(--notes-file "$notes_file")
+            edit_notes_args=(--notes-file "$notes_file")
+          else
+            create_notes_args=(--generate-notes)
+            edit_notes_args=()
+          fi
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" \
               --repo "$GITHUB_REPOSITORY" \
@@ -210,11 +221,13 @@ jobs:
             if [ "$IS_PRERELEASE" = "true" ]; then
               gh release edit "$GITHUB_REF_NAME" \
                 --repo "$GITHUB_REPOSITORY" \
+                "${edit_notes_args[@]}" \
                 --prerelease \
                 --latest=false
             else
               gh release edit "$GITHUB_REF_NAME" \
                 --repo "$GITHUB_REPOSITORY" \
+                "${edit_notes_args[@]}" \
                 --prerelease=false
             fi
           else
@@ -223,7 +236,7 @@ jobs:
                 --repo "$GITHUB_REPOSITORY" \
                 "${release_assets[@]}" \
                 --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
-                --generate-notes \
+                "${create_notes_args[@]}" \
                 --prerelease \
                 --latest=false
             else
@@ -231,7 +244,7 @@ jobs:
                 --repo "$GITHUB_REPOSITORY" \
                 "${release_assets[@]}" \
                 --title "AirSlate PC Server ${GITHUB_REF_NAME}" \
-                --generate-notes
+                "${create_notes_args[@]}"
             fi
           fi
 
