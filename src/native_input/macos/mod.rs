@@ -1,10 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
-    error::AppError,
-    input_pipeline::PenInjector,
-    shortcut::ShortcutExecutor,
-};
+use crate::{error::AppError, input_pipeline::PenInjector, shortcut::ShortcutExecutor};
 
 mod core_graphics;
 mod pen;
