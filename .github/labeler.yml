@@ -32,7 +32,6 @@ dependencies:
           - "Cargo.lock"
           - "frontend/package.json"
           - "frontend/package-lock.json"
-          - ".github/dependabot.yml"
 
 usb:
   - changed-files:
