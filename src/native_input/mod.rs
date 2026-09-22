@@ -1,10 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
-    error::AppError,
-    input_pipeline::PenInjector,
-    shortcut::ShortcutExecutor,
-};
+use crate::{error::AppError, input_pipeline::PenInjector, shortcut::ShortcutExecutor};
 
 #[cfg(target_os = "macos")]
 mod macos;
@@ -13,13 +9,11 @@ mod windows;
 
 #[cfg(target_os = "macos")]
 use macos::{
-    MacosPenInjector as PlatformPenInjector,
-    MacosShortcutExecutor as PlatformShortcutExecutor,
+    MacosPenInjector as PlatformPenInjector, MacosShortcutExecutor as PlatformShortcutExecutor,
 };
 #[cfg(windows)]
 use windows::{
-    WindowsPenInjector as PlatformPenInjector,
-    WindowsShortcutExecutor as PlatformShortcutExecutor,
+    WindowsPenInjector as PlatformPenInjector, WindowsShortcutExecutor as PlatformShortcutExecutor,
 };
 
 pub fn create_pen_injector() -> Result<Arc<dyn PenInjector>, AppError> {
