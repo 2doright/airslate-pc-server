@@ -1,0 +1,73 @@
+name: Label Issues and Pull Requests
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  issues:
+    types: [opened]
+
+jobs:
+  pull-request:
+    if: ${{ github.event_name == 'pull_request_target' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Label changed areas
+        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          sync-labels: true
+
+  issue:
+    if: ${{ github.event_name == 'issues' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Label structured issue fields
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const labels = new Set();
+
+            function field(name) {
+              const match = body.match(new RegExp('### ' + name + '\\s*\\n+([^\\n]+)', 'i'));
+              return match?.[1]?.trim() || '';
+            }
+
+            const os = field('PC 系统');
+            if (os.startsWith('Windows')) labels.add('windows');
+            if (os.startsWith('macOS')) labels.add('macos');
+
+            const connection = field('连接方式');
+            if (connection === 'USB 有线') labels.add('usb');
+            if (connection === '无线（局域网）') labels.add('network');
+            if (connection === '两者都会出现') {
+              labels.add('usb');
+              labels.add('network');
+            }
+
+            const area = field('主要影响范围');
+            const areaLabels = new Map([
+              ['Windows', 'windows'],
+              ['macOS', 'macos'],
+              ['USB 有线连接', 'usb'],
+              ['无线连接 / 网络', 'network'],
+              ['笔输入 / 压感', 'input'],
+              ['快捷键 / 手势', 'input'],
+              ['前端界面', 'frontend'],
+            ]);
+
+            if (areaLabels.has(area)) labels.add(areaLabels.get(area));
+
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [...labels],
+              });
+            }
