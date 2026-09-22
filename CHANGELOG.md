@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 1.7.0 - 2026-09-22
+
+- allow tagged releases to use curated user-facing release notes stored in the repository
+
 - enable in-app updates on macOS and move desktop update manifests to GitHub Release assets
 
 - determine desktop updater support from the native application platform instead of the embedded webview user agent
