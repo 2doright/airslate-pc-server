@@ -48,7 +48,7 @@ input:
   - changed-files:
       - any-glob-to-any-file:
           - "src/input_pipeline/**"
-          - "src/windows_injector/**"
+          - "src/native_input/**"
           - "src/shortcut/**"
           - "src/radial_overlay/**"
           - "docs/winapi/**"
@@ -56,6 +56,13 @@ input:
 windows:
   - changed-files:
       - any-glob-to-any-file:
-          - "src/windows_injector/**"
+          - "src/native_input/windows/**"
+          - "src/workspace/windows.rs"
           - "docs/winapi/**"
           - "assets/windows/**"
+
+macos:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/native_input/macos/**"
+          - "src/workspace/macos.rs"

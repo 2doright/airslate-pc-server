@@ -6,13 +6,13 @@ mod desktop_bridge;
 mod error;
 mod handshake;
 mod input_pipeline;
+mod native_input;
 mod protocol;
 mod radial_overlay;
 mod session;
 mod shortcut;
 mod udp_ingest;
 mod usb_accessory;
-mod windows_injector;
 mod workspace;
 
 use std::process::ExitCode;
@@ -47,6 +47,8 @@ fn run() -> Result<(), error::AppError> {
 
 #[cfg(windows)]
 fn init_dpi_awareness() -> Result<(), error::AppError> {
+    // SAFETY: This configures process-wide DPI awareness before any application windows are
+    // created and uses a documented Windows DPI awareness context.
     unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) }?;
     Ok(())
 }

@@ -10,13 +10,12 @@ use crate::{
     config::{Config, config_path},
     error::AppError,
     handshake::HandshakeService,
-    input_pipeline::{PenInjector, StylusInputPipeline},
+    input_pipeline::StylusInputPipeline,
+    native_input::{create_pen_injector, create_shortcut_executor},
     radial_overlay::RadialOverlayService,
     session::SessionService,
-    shortcut::ShortcutExecutor,
     udp_ingest::{IncomingEventSink, UdpIngestService},
     usb_accessory::{UsbAccessoryService, UsbScanHistory, UsbSessionControl, UsbStatusBus},
-    windows_injector::{WindowsPenInjector, WindowsShortcutExecutor},
     workspace::WorkspaceService,
 };
 
@@ -65,8 +64,8 @@ pub fn initialize() -> Result<AppContext, AppError> {
         session.clone(),
     );
     let radial_overlay = Arc::new(RadialOverlayService::new()?);
-    let injector: Arc<dyn PenInjector> = Arc::new(WindowsPenInjector::new()?);
-    let shortcut_executor: Arc<dyn ShortcutExecutor> = Arc::new(WindowsShortcutExecutor::new());
+    let injector = create_pen_injector()?;
+    let shortcut_executor = create_shortcut_executor();
     let input_sink: Arc<dyn IncomingEventSink> = Arc::new(StylusInputPipeline::new_with_settings(
         workspace.clone(),
         injector,
