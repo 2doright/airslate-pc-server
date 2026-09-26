@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod app;
 mod config;
@@ -40,6 +40,8 @@ fn main() -> ExitCode {
 
 fn run() -> Result<(), error::AppError> {
     init_dpi_awareness()?;
+    #[cfg(target_os = "linux")]
+    apply_wayland_webview_workaround();
     let context = app::initialize()?;
     app::start_services(&context)?;
     desktop_bridge::shell::run(context)
@@ -63,4 +65,71 @@ fn init_tracing() {
         .with_max_level(Level::INFO)
         .with_target(false)
         .init();
+}
+
+#[cfg(target_os = "linux")]
+fn apply_wayland_webview_workaround() {
+    // The NVIDIA proprietary driver cannot complete the explicit-sync negotiation
+    // webkit's dmabuf renderer performs with the Wayland compositor, so the webview
+    // dies with "Error 71 (Protocol error) dispatching to Wayland display" before any
+    // window appears. Disabling the dmabuf renderer selects the shared-memory painting
+    // path, which works on every driver; the workaround is therefore limited to the
+    // affected configuration so X11 sessions and other drivers keep the accelerated
+    // path.
+    if !(is_wayland_session() && has_nvidia_proprietary_driver()) {
+        return;
+    }
+
+    // SAFETY: runs before the Tauri application and webkit are built, while the process
+    // is still single threaded, so no concurrent reader observes a torn environment.
+    unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+    tracing::info!("disabled the webkit dmabuf renderer for the NVIDIA Wayland session");
+}
+
+#[cfg(target_os = "linux")]
+fn is_wayland_session() -> bool {
+    is_wayland_environment(
+        std::env::var_os("WAYLAND_DISPLAY").is_some(),
+        std::env::var_os("XDG_SESSION_TYPE").as_deref(),
+    )
+}
+
+#[cfg(target_os = "linux")]
+fn is_wayland_environment(
+    has_wayland_display: bool,
+    session_type: Option<&std::ffi::OsStr>,
+) -> bool {
+    has_wayland_display || session_type == Some(std::ffi::OsStr::new("wayland"))
+}
+
+#[cfg(target_os = "linux")]
+fn has_nvidia_proprietary_driver() -> bool {
+    std::path::Path::new("/proc/driver/nvidia/version").exists()
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wayland_display_alone_marks_a_wayland_session() {
+        assert!(is_wayland_environment(true, None));
+    }
+
+    #[test]
+    fn session_type_alone_marks_a_wayland_session() {
+        assert!(is_wayland_environment(
+            false,
+            Some(std::ffi::OsStr::new("wayland"))
+        ));
+    }
+
+    #[test]
+    fn a_session_without_any_wayland_signal_is_not_wayland() {
+        assert!(!is_wayland_environment(
+            false,
+            Some(std::ffi::OsStr::new("x11"))
+        ));
+        assert!(!is_wayland_environment(false, None));
+    }
 }

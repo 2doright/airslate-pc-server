@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+#[cfg(target_os = "linux")]
+mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
 mod model;

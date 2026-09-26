@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- bring AirSlate PC Server to Linux: install the deb, rpm, or AppImage package and connect to the AirSlate app over Wi-Fi or a USB cable
+- draw with pressure, tilt, and pen buttons in Linux drawing applications through a virtual tablet device
+- trigger the configured shortcuts on Linux with the same gestures and key mappings as on Windows and macOS
+- detect Linux monitors on both X11 and Wayland sessions, including multi-monitor desktops
+- start correctly on Linux computers with NVIDIA graphics without any manual environment setup
+
 - name the macOS updater release asset explicitly as `macos-updater`
 
 ## 1.7.0 - 2026-09-22

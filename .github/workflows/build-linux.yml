@@ -1,0 +1,62 @@
+name: Build Linux Packages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [linux-port]
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux:
+    name: Build Linux packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libsoup-3.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev rpm patchelf
+          # Tauri's AppImage bundler runs linuxdeploy tools that are themselves AppImages,
+          # which need libfuse2 at runtime (ubuntu-24.04 ships fuse3 only).
+          sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Run Rust tests
+        run: cargo test --all-features --locked
+
+      - name: Build Linux packages
+        run: ./frontend/node_modules/.bin/tauri build --bundles deb,rpm,appimage --ci
+
+      - name: Prepare package assets
+        run: |
+          mkdir -p release-assets
+          cp target/release/bundle/deb/*.deb release-assets/
+          cp target/release/bundle/rpm/*.rpm release-assets/
+          cp target/release/bundle/appimage/*.AppImage release-assets/
+
+      - name: Upload Linux package artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: airslate-linux-packages
+          path: release-assets/*
+          if-no-files-found: error
