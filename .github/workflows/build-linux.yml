@@ -41,6 +41,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci --prefix frontend
 
+      - name: Build frontend
+        run: npm --prefix frontend run build
+
       - name: Run Rust tests
         run: cargo test --all-features --locked
 
