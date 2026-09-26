@@ -28,11 +28,13 @@ body:
       options:
         - Windows
         - macOS
+        - Linux
         - USB 有线连接
         - 无线连接 / 网络
         - 笔输入 / 压感
         - 快捷键 / 手势
         - 前端界面
+        - 后端 / 核心服务
         - 发布 / 更新
         - 其他
     validations:

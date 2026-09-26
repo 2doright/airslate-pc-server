@@ -26,6 +26,7 @@ body:
         - Windows 10
         - macOS Apple Silicon
         - macOS Intel
+        - Linux
         - 其他
     validations:
       required: true

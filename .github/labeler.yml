@@ -14,14 +14,14 @@ frontend:
       - any-glob-to-any-file:
           - "frontend/**"
 
-rust:
+backend:
   - changed-files:
       - any-glob-to-any-file:
           - "src/**"
           - "Cargo.toml"
           - "Cargo.lock"
           - "build.rs"
-          - "tauri.conf.json"
+          - "tauri*.conf.json"
           - "capabilities/**"
           - "assets/**"
 
@@ -66,3 +66,12 @@ macos:
       - any-glob-to-any-file:
           - "src/native_input/macos/**"
           - "src/workspace/macos.rs"
+
+linux:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/native_input/linux/**"
+          - "src/workspace/linux/**"
+          - "tauri.linux.conf.json"
+          - ".github/workflows/build-linux.yml"
+          - "assets/linux/**"

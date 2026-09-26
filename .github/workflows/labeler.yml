@@ -41,6 +41,7 @@ jobs:
             const os = field('PC 系统');
             if (os.startsWith('Windows')) labels.add('windows');
             if (os.startsWith('macOS')) labels.add('macos');
+            if (os.startsWith('Linux')) labels.add('linux');
 
             const connection = field('连接方式');
             if (connection === 'USB 有线') labels.add('usb');
@@ -54,11 +55,13 @@ jobs:
             const areaLabels = new Map([
               ['Windows', 'windows'],
               ['macOS', 'macos'],
+              ['Linux', 'linux'],
               ['USB 有线连接', 'usb'],
               ['无线连接 / 网络', 'network'],
               ['笔输入 / 压感', 'input'],
               ['快捷键 / 手势', 'input'],
               ['前端界面', 'frontend'],
+              ['后端 / 核心服务', 'backend'],
             ]);
 
             if (areaLabels.has(area)) labels.add(areaLabels.get(area));
