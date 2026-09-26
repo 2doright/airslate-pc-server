@@ -30,6 +30,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ secrets.STAR_HISTORY_PAT }}
 
       - name: Check Star history data
         id: star_data
