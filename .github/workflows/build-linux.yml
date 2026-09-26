@@ -47,8 +47,8 @@ jobs:
       - name: Run Rust tests
         run: cargo test --all-features --locked
 
-      - name: Build Linux packages
-        run: ./frontend/node_modules/.bin/tauri build --bundles deb,rpm,appimage --ci
+      - name: Build Linux packages without updater artifacts (signing keys live in the release workflow)
+        run: ./frontend/node_modules/.bin/tauri build --bundles deb,rpm,appimage --ci --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
       - name: Prepare package assets
         run: |
