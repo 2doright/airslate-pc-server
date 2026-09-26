@@ -59,6 +59,8 @@
 
    写入规则后重新插拔平板即可。
 
+> **使用顺序**：先启动 PC Server，再打开绘图软件。Linux 的虚拟平板在 PC Server 启动时才创建，Krita 等绘图软件不会动态发现之后出现的平板设备；若在绘图软件运行途中启动或重启 PC Server，需要重启绘图软件才能重新识别。
+
 > NVIDIA 专有驱动 + Wayland 用户：程序已自动处理该兼容问题，无需任何设置。若仍遇到窗口不显示（日志出现 `Error 71`），可尝试启动时手动加环境变量 `WEBKIT_DISABLE_DMABUF_RENDERER=1`；Intel/AMD 无需此变量。
 
 ## ✨功能
