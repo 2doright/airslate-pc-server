@@ -52,10 +52,14 @@ jobs:
 
       - name: Prepare package assets
         run: |
+          version="$(node -p "require('./tauri.conf.json').version")"
           mkdir -p release-assets
-          cp target/release/bundle/deb/*.deb release-assets/
-          cp target/release/bundle/rpm/*.rpm release-assets/
-          cp target/release/bundle/appimage/*.AppImage release-assets/
+          deb="$(find target/release/bundle/deb -name '*.deb' -print -quit)"
+          rpm="$(find target/release/bundle/rpm -name '*.rpm' -print -quit)"
+          appimage="$(find target/release/bundle/appimage -maxdepth 1 -name '*.AppImage' -print -quit)"
+          cp "$deb" "release-assets/AirSlate-PC-Server_${version}_linux-amd64.deb"
+          cp "$rpm" "release-assets/AirSlate-PC-Server_${version}_linux-amd64.rpm"
+          cp "$appimage" "release-assets/AirSlate-PC-Server_${version}_linux-amd64.AppImage"
 
       - name: Upload Linux package artifacts
         uses: actions/upload-artifact@v7
