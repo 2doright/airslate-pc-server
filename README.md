@@ -27,6 +27,42 @@
 
    > 如果在绘图软件中可以移动光标但没有压感，请将绘图软件的输入设置切换为 **TabletPC / Windows Ink**。这适用于 CSP、SAI2 等默认使用 WinTab API 的软件。
 
+## 平台支持
+
+| 平台 | 无线连接 | 有线连接 | 安装包 |
+| --- | --- | --- | --- |
+| Windows | ✅ | ✅ | `.msi` 安装版 / `.exe` 便携版 |
+| macOS | ✅ | ✅ | Universal `.dmg` / `.app.zip` |
+| Linux | ✅ | ✅ | `deb` / `rpm` / `AppImage` |
+
+三个平台的笔输（压感、倾斜、笔按键）与快捷键行为一致。Linux 通过 uinput 虚拟平板注入输入，覆盖 GNOME/KDE 的 X11 与 Wayland 会话。
+
+### ⚠️ Linux 用户请注意
+
+首次使用前需要两步系统级配置（Windows、macOS 无需）：
+
+1. **输入注入**：将用户加入 `input` 组并重新登录，否则无法创建虚拟平板设备。
+
+   ```bash
+   sudo usermod -aG input $USER
+   ```
+
+2. **有线连接**（使用数据线连接时）：授权 USB 设备，并阻止 ModemManager 探测华为接口（否则平板每数秒重连，无法稳定连接）。
+
+   ```bash
+   sudo tee /etc/udev/rules.d/91-airslate-usb.rules > /dev/null <<'EOF'
+   SUBSYSTEM=="usb", ATTR{idVendor}=="12d1", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="input"
+   SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="input"
+   EOF
+   sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=usb
+   ```
+
+   写入规则后重新插拔平板即可。
+
+> **使用顺序**：先启动 PC Server，再打开绘图软件。Linux 的虚拟平板在 PC Server 启动时才创建，Krita 等绘图软件不会动态发现之后出现的平板设备；若在绘图软件运行途中启动或重启 PC Server，需要重启绘图软件才能重新识别。
+
+> NVIDIA 专有驱动 + Wayland 用户：程序已自动处理该兼容问题，无需任何设置。若仍遇到窗口不显示（日志出现 `Error 71`），可尝试启动时手动加环境变量 `WEBKIT_DISABLE_DMABUF_RENDERER=1`；Intel/AMD 无需此变量。
+
 ## ✨功能
 
 ### 压感曲线

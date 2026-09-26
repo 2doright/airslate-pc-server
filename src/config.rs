@@ -300,6 +300,18 @@ fn config_base_dir() -> Result<PathBuf, AppError> {
         .join("Application Support"))
 }
 
+#[cfg(target_os = "linux")]
+fn config_base_dir() -> Result<PathBuf, AppError> {
+    if let Some(dir) = env::var_os("XDG_CONFIG_HOME")
+        && !dir.is_empty()
+    {
+        return Ok(PathBuf::from(dir));
+    }
+
+    let home = env::var_os("HOME").ok_or(AppError::MissingConfigBase("HOME"))?;
+    Ok(PathBuf::from(home).join(".config"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
