@@ -3,6 +3,7 @@
 ## Unreleased
 
 - enable Linux packages and signed AppImage updates through the shared release configuration
+- use native signed updater artifacts for Linux deb, rpm, and AppImage installations
 
 - set up Linux virtual-tablet and wired USB permissions automatically when installing the deb or rpm package
 - bring AirSlate PC Server to Linux: install the deb, rpm, or AppImage package and connect to the AirSlate app over Wi-Fi or a USB cable

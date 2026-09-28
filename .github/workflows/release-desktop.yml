@@ -230,13 +230,15 @@ jobs:
           deb_path=$(find target/release/bundle/deb -maxdepth 1 -name '*.deb' -print -quit)
           rpm_path=$(find target/release/bundle/rpm -maxdepth 1 -name '*.rpm' -print -quit)
           appimage_path=$(find target/release/bundle/appimage -maxdepth 1 -name '*.AppImage' -print -quit)
-          updater_path=$(find target/release/bundle/appimage -maxdepth 1 -name '*.AppImage.tar.gz' -print -quit)
-          updater_sig_path="${updater_path}.sig"
+          deb_signature_path="${deb_path}.sig"
+          rpm_signature_path="${rpm_path}.sig"
+          appimage_signature_path="${appimage_path}.sig"
           cp "$deb_path" "release-assets/AirSlate-PC-Server_${version}_linux-amd64.deb"
+          cp "$deb_signature_path" "release-assets/AirSlate-PC-Server_${version}_linux-amd64.deb.sig"
           cp "$rpm_path" "release-assets/AirSlate-PC-Server_${version}_linux-amd64.rpm"
+          cp "$rpm_signature_path" "release-assets/AirSlate-PC-Server_${version}_linux-amd64.rpm.sig"
           cp "$appimage_path" "release-assets/AirSlate-PC-Server_${version}_linux-amd64.AppImage"
-          cp "$updater_path" "release-assets/AirSlate-PC-Server_${version}_linux-x86_64.AppImage.tar.gz"
-          cp "$updater_sig_path" "release-assets/AirSlate-PC-Server_${version}_linux-x86_64.AppImage.tar.gz.sig"
+          cp "$appimage_signature_path" "release-assets/AirSlate-PC-Server_${version}_linux-amd64.AppImage.sig"
 
       - name: Upload Linux release assets
         uses: actions/upload-artifact@v7
@@ -286,7 +288,6 @@ jobs:
             release-assets/*.rpm
             release-assets/*.AppImage
             release-assets/*_macos-updater.tar.gz
-            release-assets/*_linux-x86_64.AppImage.tar.gz
           )
           notes_file=".github/release-notes/${GITHUB_REF_NAME}.md"
           if [ -f "$notes_file" ]; then
@@ -339,11 +340,15 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           windows_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_windows-x64.msi.sig)
           macos_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_macos-updater.tar.gz.sig)
-          linux_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_linux-x86_64.AppImage.tar.gz.sig)
+          linux_appimage_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_linux-amd64.AppImage.sig)
+          linux_deb_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_linux-amd64.deb.sig)
+          linux_rpm_signature=$(tr -d '\r\n' < release-assets/AirSlate-PC-Server_${version}_linux-amd64.rpm.sig)
           notes=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
           windows_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_windows-x64.msi"
           macos_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_macos-updater.tar.gz"
-          linux_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_linux-x86_64.AppImage.tar.gz"
+          linux_appimage_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_linux-amd64.AppImage"
+          linux_deb_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_linux-amd64.deb"
+          linux_rpm_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_linux-amd64.rpm"
           jq -n \
             --arg version "$version" \
             --arg notes "$notes" \
@@ -351,8 +356,12 @@ jobs:
             --arg windows_url "$windows_url" \
             --arg macos_signature "$macos_signature" \
             --arg macos_url "$macos_url" \
-            --arg linux_signature "$linux_signature" \
-            --arg linux_url "$linux_url" \
+            --arg linux_appimage_signature "$linux_appimage_signature" \
+            --arg linux_appimage_url "$linux_appimage_url" \
+            --arg linux_deb_signature "$linux_deb_signature" \
+            --arg linux_deb_url "$linux_deb_url" \
+            --arg linux_rpm_signature "$linux_rpm_signature" \
+            --arg linux_rpm_url "$linux_rpm_url" \
             '{
               version: $version,
               notes: $notes,
@@ -370,9 +379,17 @@ jobs:
                   signature: $macos_signature,
                   url: $macos_url
                 },
-                "linux-x86_64": {
-                  signature: $linux_signature,
-                  url: $linux_url
+                "linux-x86_64-appimage": {
+                  signature: $linux_appimage_signature,
+                  url: $linux_appimage_url
+                },
+                "linux-x86_64-deb": {
+                  signature: $linux_deb_signature,
+                  url: $linux_deb_url
+                },
+                "linux-x86_64-rpm": {
+                  signature: $linux_rpm_signature,
+                  url: $linux_rpm_url
                 }
               }
             }' > latest.json
