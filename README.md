@@ -39,25 +39,22 @@
 
 ### ⚠️ Linux 用户请注意
 
-首次使用前需要两步系统级配置（Windows、macOS 无需）：
+使用 `.deb` 或 `.rpm` 安装时，PC Server 会自动配置虚拟平板和有线 USB 所需的设备权限。无需把用户加入 `input` 组，也无需注销或重启。
 
-1. **输入注入**：将用户加入 `input` 组并重新登录，否则无法创建虚拟平板设备。
+直接运行 AppImage 的用户需要一次性安装同一份 udev 规则：
 
-   ```bash
-   sudo usermod -aG input $USER
-   ```
+```bash
+sudo tee /etc/udev/rules.d/70-airslate.rules > /dev/null <<'EOF'
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
+SUBSYSTEM=="usb", ATTR{idVendor}=="12d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
+EOF
+sudo modprobe uinput
+sudo udevadm control --reload-rules
+sudo udevadm trigger --action=add --subsystem-match=misc --sysname-match=uinput
+```
 
-2. **有线连接**（使用数据线连接时）：授权 USB 设备，并阻止 ModemManager 探测华为接口（否则平板每数秒重连，无法稳定连接）。
-
-   ```bash
-   sudo tee /etc/udev/rules.d/91-airslate-usb.rules > /dev/null <<'EOF'
-   SUBSYSTEM=="usb", ATTR{idVendor}=="12d1", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="input"
-   SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="input"
-   EOF
-   sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=usb
-   ```
-
-   写入规则后重新插拔平板即可。
+规则安装后即可启动 PC Server；如果平板的数据线在安装规则前已经连接，请重新插拔一次，让新的 USB 权限和 ModemManager 忽略规则生效。
 
 > **使用顺序**：先启动 PC Server，再打开绘图软件。Linux 的虚拟平板在 PC Server 启动时才创建，Krita 等绘图软件不会动态发现之后出现的平板设备；若在绘图软件运行途中启动或重启 PC Server，需要重启绘图软件才能重新识别。
 
