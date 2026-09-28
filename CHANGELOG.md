@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- enable Linux packages and signed AppImage updates through the shared release configuration
+
 - set up Linux virtual-tablet and wired USB permissions automatically when installing the deb or rpm package
 - bring AirSlate PC Server to Linux: install the deb, rpm, or AppImage package and connect to the AirSlate app over Wi-Fi or a USB cable
 - draw with pressure, tilt, and pen buttons in Linux drawing applications through a virtual tablet device
