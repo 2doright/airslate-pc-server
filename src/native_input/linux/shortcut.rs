@@ -23,14 +23,22 @@ const WHEEL_NOTCH: i32 = 120;
 
 pub(super) struct LinuxShortcutExecutor {
     workspace: WorkspaceService,
-    device: Mutex<ShortcutDevice>,
+    state: Mutex<LinuxShortcutState>,
+}
+
+struct LinuxShortcutState {
+    device: ShortcutDevice,
+    wheel_remainder: i32,
 }
 
 impl LinuxShortcutExecutor {
     pub(super) fn new(workspace: WorkspaceService) -> Self {
         Self {
             workspace,
-            device: Mutex::new(ShortcutDevice::new()),
+            state: Mutex::new(LinuxShortcutState {
+                device: ShortcutDevice::new(),
+                wheel_remainder: 0,
+            }),
         }
     }
 }
@@ -38,12 +46,12 @@ impl LinuxShortcutExecutor {
 impl ShortcutExecutor for LinuxShortcutExecutor {
     fn execute(&self, command: ShortcutCommand) -> Result<(), AppError> {
         let geometry = ScreenGeometry::from_workspace(&self.workspace)?;
-        let device = self
-            .device
+        let mut state = self
+            .state
             .lock()
             .map_err(|_| AppError::StatePoisoned("linux_shortcut_executor"))?;
-        let events = build_events(&command, &geometry)?;
-        device.write(&events, "failed to write virtual keyboard events")
+        let events = build_events(&command, &geometry, &mut state.wheel_remainder)?;
+        state.device.write(&events, "failed to write virtual keyboard events")
     }
 }
 
@@ -99,7 +107,12 @@ fn create_keyboard_device() -> Result<UInputHandle<File>, AppError> {
     device
         .set_evbit(EventKind::Relative)
         .map_err(|error| io_error("failed to enable EV_REL on the virtual keyboard", error))?;
-    for axis in [RelativeAxis::X, RelativeAxis::Y, RelativeAxis::Wheel] {
+    for axis in [
+        RelativeAxis::X,
+        RelativeAxis::Y,
+        RelativeAxis::Wheel,
+        RelativeAxis::WheelHiRes,
+    ] {
         device
             .set_relbit(axis)
             .map_err(|error| io_error("failed to declare a virtual keyboard axis", error))?;
@@ -157,6 +170,7 @@ fn key_capabilities() -> Vec<Key> {
 fn build_events(
     command: &ShortcutCommand,
     geometry: &ScreenGeometry,
+    wheel_remainder: &mut i32,
 ) -> Result<Vec<sys::input_event>, AppError> {
     let mut events = Vec::new();
     match command {
@@ -184,7 +198,14 @@ fn build_events(
             events.push(syn_event());
         }
         ShortcutCommand::MouseWheel { delta } => {
-            events.push(rel_event(RelativeAxis::Wheel, delta / WHEEL_NOTCH));
+            events.push(rel_event(RelativeAxis::WheelHiRes, *delta));
+
+            let accumulated = i64::from(*wheel_remainder) + i64::from(*delta);
+            let detents = accumulated / i64::from(WHEEL_NOTCH);
+            *wheel_remainder = (accumulated % i64::from(WHEEL_NOTCH)) as i32;
+            if detents != 0 {
+                events.push(rel_event(RelativeAxis::Wheel, detents as i32));
+            }
             events.push(syn_event());
         }
         ShortcutCommand::MouseButtonDown(button) => {
@@ -250,7 +271,8 @@ mod tests {
     }
 
     fn build(command: ShortcutCommand) -> Vec<sys::input_event> {
-        build_events(&command, &geometry()).expect("events")
+        let mut wheel_remainder = 0;
+        build_events(&command, &geometry(), &mut wheel_remainder).expect("events")
     }
 
     fn syn_count(events: &[sys::input_event]) -> usize {
@@ -303,12 +325,46 @@ mod tests {
     }
 
     #[test]
-    fn wheel_converts_windows_notches() {
+    fn wheel_emits_high_res_and_legacy_detents() {
         let events = build(ShortcutCommand::MouseWheel { delta: 240 });
         assert_eq!(syn_count(&events), 1);
+        assert!(has(&events, RelativeAxis::WheelHiRes.code(), 240));
         assert!(has(&events, RelativeAxis::Wheel.code(), 2));
+
         let negative = build(ShortcutCommand::MouseWheel { delta: -120 });
+        assert!(has(&negative, RelativeAxis::WheelHiRes.code(), -120));
         assert!(has(&negative, RelativeAxis::Wheel.code(), -1));
+    }
+
+    #[test]
+    fn wheel_accumulates_sub_notch_deltas_for_legacy_events() {
+        let geometry = geometry();
+        let mut wheel_remainder = 0;
+
+        for _ in 0..9 {
+            let events = build_events(
+                &ShortcutCommand::MouseWheel { delta: 12 },
+                &geometry,
+                &mut wheel_remainder,
+            )
+            .expect("events");
+            assert!(has(&events, RelativeAxis::WheelHiRes.code(), 12));
+            assert!(
+                !events
+                    .iter()
+                    .any(|event| event.code == RelativeAxis::Wheel.code())
+            );
+        }
+
+        let events = build_events(
+            &ShortcutCommand::MouseWheel { delta: 12 },
+            &geometry,
+            &mut wheel_remainder,
+        )
+        .expect("events");
+        assert!(has(&events, RelativeAxis::WheelHiRes.code(), 12));
+        assert!(has(&events, RelativeAxis::Wheel.code(), 1));
+        assert_eq!(wheel_remainder, 0);
     }
 
     #[test]
