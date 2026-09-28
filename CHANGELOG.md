@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- configure Linux virtual-tablet and wired USB permissions automatically when installing the deb or rpm package
+- set up Linux virtual-tablet and wired USB permissions automatically when installing the deb or rpm package
 - bring AirSlate PC Server to Linux: install the deb, rpm, or AppImage package and connect to the AirSlate app over Wi-Fi or a USB cable
 - draw with pressure, tilt, and pen buttons in Linux drawing applications through a virtual tablet device
 - trigger the configured shortcuts on Linux with the same gestures and key mappings as on Windows and macOS
