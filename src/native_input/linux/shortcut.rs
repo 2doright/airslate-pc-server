@@ -51,7 +51,9 @@ impl ShortcutExecutor for LinuxShortcutExecutor {
             .lock()
             .map_err(|_| AppError::StatePoisoned("linux_shortcut_executor"))?;
         let events = build_events(&command, &geometry, &mut state.wheel_remainder)?;
-        state.device.write(&events, "failed to write virtual keyboard events")
+        state
+            .device
+            .write(&events, "failed to write virtual keyboard events")
     }
 }
 
