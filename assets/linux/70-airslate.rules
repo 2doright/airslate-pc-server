@@ -1,0 +1,9 @@
+# AirSlate needs uinput to create its virtual tablet. uaccess grants the
+# physically active desktop session access without adding the user to input.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
+
+# AirSlate wired transport uses Huawei HDC before switching to Android Open
+# Accessory. Keep ModemManager away from both stages and grant the active
+# desktop session direct USB access.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="12d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="18d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"

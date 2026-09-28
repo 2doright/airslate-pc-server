@@ -50,7 +50,7 @@ pub enum AppError {
     MacosInputPermissionDenied,
     #[error("shortcut preset failed: {0}")]
     ShortcutPreset(String),
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     #[error("shortcut key {key} is not supported on {platform}")]
     UnsupportedShortcutKey {
         platform: &'static str,

@@ -172,6 +172,41 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features --locked
 
+  rust-linux:
+    name: Rust / Linux
+    needs: [changes, frontend]
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.rust == 'true') && needs.frontend.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libsoup-3.0-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --all-features --locked
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features --locked
+
   dependency-review:
     name: Dependency Review
     needs: changes

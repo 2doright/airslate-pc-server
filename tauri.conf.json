@@ -31,11 +31,25 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["msi"],
-    "createUpdaterArtifacts": "v1Compatible",
+    "targets": ["msi", "deb", "rpm", "appimage"],
+    "createUpdaterArtifacts": true,
     "windows": {
       "wix": {
         "template": "./assets/windows/tauri-main.wxs"
+      }
+    },
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/lib/udev/rules.d/70-airslate.rules": "assets/linux/70-airslate.rules"
+        },
+        "postInstallScript": "assets/linux/post-install.sh"
+      },
+      "rpm": {
+        "files": {
+          "/usr/lib/udev/rules.d/70-airslate.rules": "assets/linux/70-airslate.rules"
+        },
+        "postInstallScript": "assets/linux/post-install.sh"
       }
     },
     "icon": [

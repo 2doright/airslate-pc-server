@@ -5,9 +5,8 @@
 - Root-cause fixing, no symptom-patching
 
 ## 技术栈
-- Rust + Windows crate
+- Rust + Tauri v2，目标平台 Windows、macOS、Linux（GNOME/KDE，X11 与 Wayland）
 - 前端目录: `frontend/`
-- 目标平台为 Windows、MacOS
 
 ## Rust Skills
 本项目通过 `.rust-skills` Git submodule 使用
@@ -23,14 +22,16 @@
 ## 命令
 前端检查:npm --prefix ./frontend run build
 编译:cargo tauri build
-
+语法检查:cargo check
+测试:cargo test
 ## 发布
 - release：`major.minor.patch`tag触发
 - prelease：tag`major.minor.patch-beta.N`tag触发
 - 发布时同步维护版本号。
-- MSI 打包时，映射 beta.N -> major.minor.patch.N，正式版无需后缀
+- Windows MSI 打包时，映射 beta.N -> major.minor.patch.N，正式版无需后缀
 - 发布文本：文本结构参考历史release。其中的重要更新部分是主要不同的地方，禁止从开发者角度描述，需要从用户的角度描述，禁止描述开发细节；各点内容不允许耦合，彼此应当毫不相关，文本精简凝练短小清晰。
 
 ## 相关文档
-- Windows API 笔输相关文档介绍：`docs/winapi/index.md`
-- Rust for Windows API：<https://microsoft.github.io/windows-docs-rs/doc/windows/>
+- Linux 笔输注入：Kernel `uinput` 文档（Documentation/input/uinput.rst）、libinput tablet support
+- Windows API 笔输相关文档介绍：`docs/winapi/index.md`（仅 Windows 后端参考）
+- Rust for Windows API：<https://microsoft.github.io/windows-docs-rs/doc/windows/>（仅 Windows 后端参考）
