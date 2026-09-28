@@ -5,5 +5,5 @@ KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinpu
 # AirSlate wired transport uses Huawei HDC before switching to Android Open
 # Accessory. Keep ModemManager away from both stages and grant the active
 # desktop session direct USB access.
-SUBSYSTEM=="usb", ATTR{idVendor}=="12d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="12d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="18d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"

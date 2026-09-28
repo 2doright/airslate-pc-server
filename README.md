@@ -46,12 +46,13 @@
 ```bash
 sudo tee /etc/udev/rules.d/70-airslate.rules > /dev/null <<'EOF'
 KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
-SUBSYSTEM=="usb", ATTR{idVendor}=="12d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
-SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="12d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="18d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"
 EOF
 sudo modprobe uinput
 sudo udevadm control --reload-rules
 sudo udevadm trigger --action=add --subsystem-match=misc --sysname-match=uinput
+sudo udevadm settle
 ```
 
 规则安装后即可启动 PC Server；如果平板的数据线在安装规则前已经连接，请重新插拔一次，让新的 USB 权限和 ModemManager 忽略规则生效。
