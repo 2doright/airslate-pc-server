@@ -16,14 +16,15 @@
 ### 产品与技术范围
 
 - `frontend`：前端界面和 Web 代码
-- `rust`：Rust 应用代码
+- `backend`：后端应用代码、传输、输入处理和系统集成
 - `usb`：USB 有线连接与 accessory mode
 - `network`：局域网发现、UDP 与网络传输
 - `input`：笔输入、压感、手势与快捷键
 - `windows`：Windows 特有行为
 - `macos`：macOS 特有行为
+- `linux`：Linux 特有行为
 
-一个 Issue 或 PR 可以同时拥有多个范围标签，例如 Rust USB 修复可以同时标记 `rust` 和 `usb`。
+一个 Issue 或 PR 可以同时拥有多个范围标签，例如 Linux 后端 USB 修复可以同时标记 `backend`、`linux` 和 `usb`。
 
 ### 维护动作
 
@@ -39,9 +40,9 @@
 ## 自动化
 
 - Bug / Feature Issue Form 分别自动添加 `bug` / `enhancement`。
-- 新 Issue 根据表单中的系统、连接方式和影响范围自动补充 `windows`、`macos`、`usb`、`network`、`input` 或 `frontend`。
+- 新 Issue 根据表单中的系统、连接方式和影响范围自动补充 `windows`、`macos`、`linux`、`usb`、`network`、`input`、`frontend` 或 `backend`。
 - Pull Request 根据 changed files 自动添加范围标签。
-- Dependabot PR 使用 `dependencies` 加对应的 `rust`、`frontend` 或 `ci`。
+- Dependabot PR 使用 `dependencies` 加对应的 `backend`、`frontend` 或 `ci`。
 - 标签定义由 `.github/labels.yml` 管理，不在 GitHub UI 中维护第二套命名规则。
 
 ## Triage 流程
