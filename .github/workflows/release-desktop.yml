@@ -294,7 +294,25 @@ jobs:
             create_notes_args=(--notes-file "$notes_file")
             edit_notes_args=(--notes-file "$notes_file")
           else
-            create_notes_args=(--generate-notes)
+            version="${GITHUB_REF_NAME#v}"
+            notes_file="$(mktemp)"
+            cat > "$notes_file" <<EOF
+          ## 下载
+
+          | 平台 | 文件 | 适合场景 |
+          | --- | --- | --- |
+          | Windows x64 | [安装版 \`.msi\`](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_windows-x64.msi) | 推荐大多数 Windows 用户 |
+          | Windows x64 | [Portable \`.exe\`](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_windows-x64-portable.exe) | 无需安装，直接运行 |
+          | macOS Intel / Apple Silicon | [Universal \`.dmg\`](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_macos-universal.dmg) | 推荐 macOS 用户 |
+          | macOS Intel / Apple Silicon | [Universal \`.app.zip\`](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_macos-universal.app.zip) | 手动解压使用 |
+          | Linux x64 | [Debian \`.deb\`](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_linux-amd64.deb) | Debian、Ubuntu 等发行版 |
+          | Linux x64 | [RPM \`.rpm\`](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_linux-amd64.rpm) | Fedora、RHEL 等发行版 |
+          | Linux x64 | [AppImage](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/AirSlate-PC-Server_${version}_linux-amd64.AppImage) | 其他 Linux 发行版 |
+          EOF
+            printf '\n' >> "$notes_file"
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$GITHUB_REF_NAME" --jq .body >> "$notes_file"
+            create_notes_args=(--notes-file "$notes_file")
             edit_notes_args=()
           fi
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
