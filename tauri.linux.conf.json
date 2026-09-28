@@ -1,5 +1,19 @@
 {
   "bundle": {
-    "targets": ["deb", "appimage", "rpm"]
+    "targets": ["deb", "appimage", "rpm"],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/lib/udev/rules.d/70-airslate.rules": "assets/linux/70-airslate.rules"
+        },
+        "postInstallScript": "assets/linux/post-install.sh"
+      },
+      "rpm": {
+        "files": {
+          "/usr/lib/udev/rules.d/70-airslate.rules": "assets/linux/70-airslate.rules"
+        },
+        "postInstallScript": "assets/linux/post-install.sh"
+      }
+    }
   }
 }
