@@ -58,9 +58,9 @@
   color: "#1D76DB"
   description: Frontend UI and web code
 
-- name: rust
-  color: "#DEA584"
-  description: Rust application code
+- name: backend
+  color: "#D93F0B"
+  description: Backend application code and system integration
 
 - name: usb
   color: "#0E8A16"
@@ -81,3 +81,7 @@
 - name: macos
   color: "#24292F"
   description: macOS-specific behavior
+
+- name: linux
+  color: "#FCC624"
+  description: Linux-specific behavior

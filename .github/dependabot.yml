@@ -7,7 +7,7 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - dependencies
-      - rust
+      - backend
     groups:
       cargo-minor-and-patch:
         applies-to: version-updates

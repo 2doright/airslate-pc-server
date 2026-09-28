@@ -33,8 +33,10 @@ jobs:
         with:
           script: |
             const migrations = new Map([
+              ['rust', 'backend'],
               ['area: windows', 'windows'],
               ['area: macos', 'macos'],
+              ['area: linux', 'linux'],
               ['area: usb', 'usb'],
               ['area: network', 'network'],
               ['area: input', 'input'],
