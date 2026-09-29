@@ -9,7 +9,7 @@ import {
   type AppUpdateInfo,
 } from '../lib/updater';
 
-export type AppDistribution = 'installed' | 'portable';
+export type AppDistribution = 'installed' | 'portable' | 'appImage';
 export type UpdatePhase = 'idle' | 'checking' | 'up-to-date' | 'available' | 'installing' | 'error';
 
 export interface AppUpdaterState {

@@ -47,6 +47,7 @@ pub struct AppBootstrapDto {
 pub enum AppDistributionDto {
     Installed,
     Portable,
+    AppImage,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -214,7 +215,9 @@ pub fn app_bootstrap(
 }
 
 fn app_distribution() -> AppDistributionDto {
-    if cfg!(feature = "portable") {
+    if cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_some() {
+        AppDistributionDto::AppImage
+    } else if cfg!(feature = "portable") {
         AppDistributionDto::Portable
     } else {
         AppDistributionDto::Installed
