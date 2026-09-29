@@ -263,6 +263,11 @@ export function SettingsPage(props: {
                 <span><strong>给项目点个 Star</strong><small>如果 AirSlate 对你有所帮助，欢迎在 GitHub 点亮 Star，支持项目持续改进。</small></span>
                 <ExternalLink aria-hidden="true" />
               </button>
+              <button type="button" className="settings-about-community__item" onClick={props.onOpenRoadmap}>
+                <Map aria-hidden="true" />
+                <span><strong>开发规划</strong><small>查看项目接下来的开发计划与进展。</small></span>
+                <ExternalLink aria-hidden="true" />
+              </button>
               <button type="button" className="settings-about-community__item" onClick={props.onOpenIssues}>
                 <CircleHelp aria-hidden="true" />
                 <span><strong>问题反馈</strong><small>遇到 Bug 或异常行为，请前往 GitHub Issues 反馈。</small></span>
@@ -271,11 +276,6 @@ export function SettingsPage(props: {
               <button type="button" className="settings-about-community__item" onClick={props.onOpenDiscussions}>
                 <MessagesSquare aria-hidden="true" />
                 <span><strong>交流讨论</strong><small>交流想法、提出建议、关注开发动态、提出问题或查找解决方案。</small></span>
-                <ExternalLink aria-hidden="true" />
-              </button>
-              <button type="button" className="settings-about-community__item" onClick={props.onOpenRoadmap}>
-                <Map aria-hidden="true" />
-                <span><strong>开发规划</strong><small>查看项目接下来的开发计划与进展。</small></span>
                 <ExternalLink aria-hidden="true" />
               </button>
             </div>
