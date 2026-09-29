@@ -2661,12 +2661,19 @@ select:disabled {
   line-height: 1.5;
 }
 
-.settings-about-thanks a {
+.settings-about-thanks__link {
+  display: inline;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
   color: var(--blue);
+  cursor: pointer;
+  font: inherit;
   text-decoration: none;
 }
 
-.settings-about-thanks a:hover {
+.settings-about-thanks__link:hover {
   text-decoration: underline;
 }
 

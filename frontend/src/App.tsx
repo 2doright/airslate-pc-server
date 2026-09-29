@@ -337,6 +337,7 @@ export function App() {
               onOpenIssues={() => handleOpenExternal(ISSUES_URL)}
               onOpenDiscussions={() => handleOpenExternal(DISCUSSIONS_URL)}
               onOpenRoadmap={() => handleOpenExternal(ROADMAP_URL)}
+              onOpenExternal={handleOpenExternal}
               initialTab={settingsInitialTab}
               updater={updater}
               runAction={runAction}

@@ -27,6 +27,7 @@ export function SettingsPage(props: {
   onOpenIssues: () => void;
   onOpenDiscussions: () => void;
   onOpenRoadmap: () => void;
+  onOpenExternal: (url: string) => void;
   initialTab?: SettingsTab;
   updater: AppUpdaterState;
   runAction: (key: string, action: () => Promise<unknown>) => Promise<void>;
@@ -280,8 +281,8 @@ export function SettingsPage(props: {
             </div>
             <section className="settings-about-thanks" aria-labelledby="settings-about-thanks-title">
               <h3 id="settings-about-thanks-title">致谢</h3>
-              <p><a href="https://github.com/Hibanaw" target="_blank" rel="noreferrer">@Hibanaw</a> 感谢提供 macOS 平台的基本支持（<a href="https://github.com/2doright/airslate-pc-server/pull/6" target="_blank" rel="noreferrer">PR6</a>）</p>
-              <p><a href="https://github.com/octopustank" target="_blank" rel="noreferrer">@octopustank</a> 感谢提供 Linux 平台的基本支持（<a href="https://github.com/2doright/airslate-pc-server/pull/78" target="_blank" rel="noreferrer">PR78</a>）</p>
+              <p>感谢 <button type="button" className="settings-about-thanks__link" onClick={() => props.onOpenExternal('https://github.com/Hibanaw')}>@Hibanaw</button> 为 macOS 平台提供基本支持（<button type="button" className="settings-about-thanks__link" onClick={() => props.onOpenExternal('https://github.com/2doright/airslate-pc-server/pull/6')}>PR #6</button>）</p>
+              <p>感谢 <button type="button" className="settings-about-thanks__link" onClick={() => props.onOpenExternal('https://github.com/octopustank')}>@octopustank</button> 为 Linux 平台提供基本支持（<button type="button" className="settings-about-thanks__link" onClick={() => props.onOpenExternal('https://github.com/2doright/airslate-pc-server/pull/78')}>PR #78</button>）</p>
             </section>
           </section>
         ) : null}
