@@ -20,6 +20,7 @@ export function ConnectionPage(props: {
 
   return (
     <div className="connection-grid">
+      {props.data.distribution === 'appImage' ? <AppImageSetupPanel /> : null}
       <Panel variant="hero" className="connect-hero">
         <PanelHeader
           title="局域网 IPv4 地址"
@@ -85,6 +86,16 @@ export function ConnectionPage(props: {
 
       <PressureCurveCard curve={props.data.pressureCurve} busy={props.busyKey === 'pressure'} runAction={props.runAction} />
     </div>
+  );
+}
+
+function AppImageSetupPanel() {
+  return (
+    <Panel className="appimage-setup-panel">
+      <PanelHeader title="完成 Linux 权限设置" />
+      <p className="appimage-setup-panel__copy">直接运行 AppImage 的用户需要一次性安装同一份 udev 规则，完成后重新连接设备即可。</p>
+      <pre className="appimage-setup-panel__commands"><code>{`sudo tee /etc/udev/rules.d/70-airslate.rules > /dev/null <<'EOF'\nKERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"\nSUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="12d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"\nSUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="18d1", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess"\nEOF\nsudo modprobe uinput\nsudo udevadm control --reload-rules\nsudo udevadm trigger --action=add --subsystem-match=misc --sysname-match=uinput\nsudo udevadm settle`}</code></pre>
+    </Panel>
   );
 }
 

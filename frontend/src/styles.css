@@ -835,6 +835,31 @@ select:disabled {
   gap: 16px;
 }
 
+.appimage-setup-panel {
+  grid-column: 1 / -1;
+  border-color: rgba(22, 131, 255, 0.28);
+  background: linear-gradient(135deg, rgba(235, 246, 255, 0.96), rgba(255, 255, 255, 0.94));
+}
+
+.appimage-setup-panel__copy {
+  margin: -4px 0 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.appimage-setup-panel__commands {
+  max-height: 18rem;
+  margin: 0;
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  font: 0.76rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
 .usb-panel {
   grid-column: 2;
   display: grid;
