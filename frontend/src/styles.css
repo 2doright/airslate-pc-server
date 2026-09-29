@@ -2635,6 +2635,41 @@ select:disabled {
   line-height: 1.45;
 }
 
+.settings-about-thanks {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 16px;
+}
+
+.settings-about-thanks h3,
+.settings-about-thanks p {
+  margin: 0;
+}
+
+.settings-about-thanks h3 {
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.settings-about-thanks p {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.settings-about-thanks a {
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.settings-about-thanks a:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 760px) {
   .settings-about-community {
     grid-template-columns: 1fr;
