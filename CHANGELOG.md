@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.8.0 - 2026-09-29
+
 - show AppImage users the one-time Linux udev permission setup after launch
 - refresh the About page with focused release highlights, a GitHub Star link, the development roadmap, and contributor acknowledgements
 - enable Linux packages and signed AppImage updates through the shared release configuration

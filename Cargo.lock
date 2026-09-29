@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "airslate_pc_server"
-version = "1.7.0"
+version = "1.8.0"
 dependencies = [
  "input-linux",
  "local-ip-address",
