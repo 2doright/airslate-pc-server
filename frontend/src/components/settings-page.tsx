@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { AppWindow, Cable, CircleHelp, Crosshair, Eye, ExternalLink, Gauge, MessagesSquare, Power, ScanLine, Star } from 'lucide-react';
+import { AppWindow, Cable, CircleHelp, Crosshair, Eye, ExternalLink, Gauge, Map, MessagesSquare, Power, ScanLine, Star } from 'lucide-react';
 import foregroundIcon from '../assets/foreground.png';
 import { Switch, TextInput } from './ui';
 import { UsbScanDialog } from './usb-scan-dialog';
@@ -26,6 +26,8 @@ export function SettingsPage(props: {
   onOpenReleases: () => void;
   onOpenIssues: () => void;
   onOpenDiscussions: () => void;
+  onOpenRoadmap: () => void;
+  onOpenExternal: (url: string) => void;
   initialTab?: SettingsTab;
   updater: AppUpdaterState;
   runAction: (key: string, action: () => Promise<unknown>) => Promise<void>;
@@ -233,9 +235,6 @@ export function SettingsPage(props: {
 
         {tab === 'about' ? (
           <section className="settings-about">
-            <header className="settings-about__header">
-              <h2>关于</h2>
-            </header>
             <div className="settings-about-card">
               <div className="settings-about__identity">
                 <div className="settings-about__mark">
@@ -259,10 +258,16 @@ export function SettingsPage(props: {
             </div>
             <AboutUpdateSection updater={props.updater} />
             <div className="settings-about-community">
-              <div className="settings-about-community__item settings-about-community__item--review">
+              <button type="button" className="settings-about-community__item" onClick={props.onOpenGithub}>
                 <Star aria-hidden="true" />
-                <span><strong>期待你的好评</strong><small>如果 AirSlate 对你有所帮助，欢迎在鸿蒙应用商店留下五星好评。非常感谢你的支持！</small></span>
-              </div>
+                <span><strong>给项目点个 Star</strong><small>如果 AirSlate 对你有所帮助，欢迎在 GitHub 点亮 Star，支持项目持续改进。</small></span>
+                <ExternalLink aria-hidden="true" />
+              </button>
+              <button type="button" className="settings-about-community__item" onClick={props.onOpenRoadmap}>
+                <Map aria-hidden="true" />
+                <span><strong>开发规划</strong><small>查看项目接下来的开发计划与进展。</small></span>
+                <ExternalLink aria-hidden="true" />
+              </button>
               <button type="button" className="settings-about-community__item" onClick={props.onOpenIssues}>
                 <CircleHelp aria-hidden="true" />
                 <span><strong>问题反馈</strong><small>遇到 Bug 或异常行为，请前往 GitHub Issues 反馈。</small></span>
@@ -274,6 +279,11 @@ export function SettingsPage(props: {
                 <ExternalLink aria-hidden="true" />
               </button>
             </div>
+            <section className="settings-about-thanks" aria-labelledby="settings-about-thanks-title">
+              <h3 id="settings-about-thanks-title">致谢</h3>
+              <p>感谢 <button type="button" className="settings-about-thanks__link" onClick={() => props.onOpenExternal('https://github.com/Hibanaw')}>@Hibanaw</button> 为 macOS 平台提供基本支持（<button type="button" className="settings-about-thanks__link" onClick={() => props.onOpenExternal('https://github.com/2doright/airslate-pc-server/pull/6')}>PR #6</button>）</p>
+              <p>感谢 <button type="button" className="settings-about-thanks__link" onClick={() => props.onOpenExternal('https://github.com/octopustank')}>@octopustank</button> 为 Linux 平台提供基本支持（<button type="button" className="settings-about-thanks__link" onClick={() => props.onOpenExternal('https://github.com/2doright/airslate-pc-server/pull/78')}>PR #78</button>）</p>
+            </section>
           </section>
         ) : null}
       </div>
@@ -287,6 +297,7 @@ function AboutUpdateSection(props: {
 }) {
   const { info, phase, progress } = props.updater;
   const hasUpdate = Boolean(info?.availableVersion && info.availableVersion !== info.currentVersion && phase !== 'up-to-date');
+  const highlights = info ? extractReleaseHighlights(info.notes) : '';
 
   if (!props.updater.supported || (!hasUpdate && phase !== 'installing')) return null;
 
@@ -295,7 +306,7 @@ function AboutUpdateSection(props: {
       {hasUpdate && info ? (
         <div className="settings-about-update__available">
           <div className="settings-about-update__title">发现新版本 v{info.availableVersion}</div>
-          {info.notes ? <div className="settings-about-update__notes">{info.notes}</div> : <p>此版本包含功能改进与问题修复。</p>}
+          {highlights ? <div className="settings-about-update__notes">{highlights}</div> : <p>此版本包含功能改进与问题修复。</p>}
           {phase === 'installing' && progress !== null ? (
             <div className="settings-about-update__progress" aria-label={`更新进度 ${Math.round(progress * 100)}%`}>
               <span style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -306,6 +317,11 @@ function AboutUpdateSection(props: {
 
     </section>
   );
+}
+
+function extractReleaseHighlights(notes: string): string {
+  const match = notes.match(/(?:^|\n)##\s*重点更新\s*\n([\s\S]*?)(?=\n##\s|$)/i);
+  return match?.[1].trim() ?? '';
 }
 
 function UpdateStatus(props: { updater: AppUpdaterState }) {

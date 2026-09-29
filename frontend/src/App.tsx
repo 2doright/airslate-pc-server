@@ -29,6 +29,7 @@ const GITHUB_URL = 'https://github.com/2doright/airslate-pc-server';
 const RELEASES_URL = `${GITHUB_URL}/releases`;
 const ISSUES_URL = `${GITHUB_URL}/issues`;
 const DISCUSSIONS_URL = `${GITHUB_URL}/discussions`;
+const ROADMAP_URL = `${GITHUB_URL}/discussions/23`;
 
 export function App() {
   const [page, setPage] = useState<PageKey>('connection');
@@ -335,6 +336,8 @@ export function App() {
               onOpenReleases={() => handleOpenExternal(RELEASES_URL)}
               onOpenIssues={() => handleOpenExternal(ISSUES_URL)}
               onOpenDiscussions={() => handleOpenExternal(DISCUSSIONS_URL)}
+              onOpenRoadmap={() => handleOpenExternal(ROADMAP_URL)}
+              onOpenExternal={handleOpenExternal}
               initialTab={settingsInitialTab}
               updater={updater}
               runAction={runAction}
