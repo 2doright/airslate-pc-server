@@ -135,6 +135,8 @@ jobs:
 
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
 
       - name: Run tests
         run: cargo test --all-features --locked

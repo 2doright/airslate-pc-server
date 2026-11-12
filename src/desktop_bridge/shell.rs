@@ -106,12 +106,14 @@ pub fn run() -> Result<(), AppError> {
                 }
             });
             create_tray(handle)?;
+            tracing::info!(launched_via_autostart, "desktop tray ready");
             if launched_via_autostart {
                 destroy_main_window(handle)?;
             } else {
                 show_main_window(handle)?;
             }
             start_window_requests(handle, window_receiver)?;
+            tracing::info!("desktop shell ready");
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -231,6 +233,7 @@ fn show_main_window(app: &AppHandle) -> tauri::Result<()> {
     window.show()?;
     window.unminimize()?;
     window.set_focus()?;
+    tracing::info!("main window activated");
     Ok(())
 }
 

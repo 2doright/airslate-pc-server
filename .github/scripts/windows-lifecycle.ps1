@@ -6,12 +6,34 @@ $installer = Get-Item 'target/debug/bundle/msi/*.msi'
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 public static class AirSlateWindow {
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr FindWindow(string className, string title);
     [DllImport("user32.dll")]
     public static extern IntPtr SendMessageTimeout(IntPtr window, uint message,
         UIntPtr wParam, IntPtr lParam, uint flags, uint timeout, out UIntPtr result);
+    private delegate bool WindowCallback(IntPtr window, IntPtr parameter);
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(WindowCallback callback, IntPtr parameter);
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr window, StringBuilder text, int capacity);
+    public static string DescribeWindows(int processId) {
+        var output = new StringBuilder();
+        EnumWindows((window, parameter) => {
+            uint owner;
+            GetWindowThreadProcessId(window, out owner);
+            if (owner == processId) {
+                var title = new StringBuilder(1024);
+                GetWindowText(window, title, title.Capacity);
+                output.AppendLine(window + " " + title);
+            }
+            return true;
+        }, IntPtr.Zero);
+        return output.ToString();
+    }
 }
 '@
 
@@ -22,6 +44,14 @@ function Wait-Until([scriptblock] $Condition, [string] $Description) {
         Start-Sleep -Milliseconds 200
     } while ([DateTime]::UtcNow -lt $deadline)
     Get-Process airslate_pc_server -ErrorAction SilentlyContinue | Format-List Id, Path, Responding
+    Get-Process airslate_pc_server -ErrorAction SilentlyContinue | ForEach-Object {
+        [AirSlateWindow]::DescribeWindows($_.Id)
+    }
+    Get-NetTCPConnection -LocalPort 48562 -ErrorAction SilentlyContinue | Format-List
+    Get-ChildItem -Path $logDirectory.FullName -Filter '*.stdout.log' | ForEach-Object {
+        Write-Output $_.Name
+        Get-Content -LiteralPath $_.FullName -Tail 20
+    }
     throw "Timed out waiting for $Description"
 }
 
@@ -70,6 +100,9 @@ Install-AirSlate $oldInstaller 'install-old.log'
 $oldServer = Start-AirSlate 'old-autostart' -Autostart
 Wait-Until { Test-ServerReady } 'the released server to listen'
 Install-AirSlate $installer.FullName 'upgrade.log'
+if ((Get-FileHash $executable).Hash -ne (Get-FileHash 'target/debug/airslate_pc_server.exe').Hash) {
+    throw 'Manual upgrade did not install the newly built executable'
+}
 $oldServer.Refresh()
 if (-not $oldServer.HasExited) { throw 'Manual upgrade left the old background process running' }
 
