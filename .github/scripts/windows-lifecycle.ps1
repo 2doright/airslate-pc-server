@@ -142,4 +142,17 @@ if (-not (Test-ServerReady) -or (Get-Process airslate_pc_server).Id -ne $primary
 # A direct installer launch must also close the fixed version with the console open.
 Invoke-Msi @('/i', "`"$($installer.FullName)`"") 'reinstall.log'
 Wait-Until { @(Get-Process airslate_pc_server -ErrorAction SilentlyContinue).Count -eq 0 } 'the installed server to exit'
+
+# Force autostart to own the instance lock, then activate it with one manual launch.
+$autostartServer = Start-AirSlate 'autostart-primary' -Autostart
+Wait-Until { Test-ServerReady } 'the autostart server to listen'
+if ((Get-ConsoleWindow) -ne [IntPtr]::Zero) { throw 'Autostart opened the console' }
+$manualOpen = Start-AirSlate 'activate-autostart'
+Wait-Until { (Get-ConsoleWindow) -ne [IntPtr]::Zero } 'one manual launch to activate the autostart server'
+Wait-Until { $manualOpen.Refresh(); $manualOpen.HasExited } 'the manual activation process to exit'
+if ((Get-Process airslate_pc_server).Id -ne $autostartServer.Id) {
+    throw 'Manual activation replaced the autostart backend'
+}
+Invoke-Msi @('/i', "`"$($installer.FullName)`"") 'close-autostart.log'
+Wait-Until { @(Get-Process airslate_pc_server -ErrorAction SilentlyContinue).Count -eq 0 } 'the autostart server to exit'
 Write-Output 'Windows lifecycle tests passed'
