@@ -55,10 +55,10 @@ function Wait-Until([scriptblock] $Condition, [string] $Description) {
     throw "Timed out waiting for $Description"
 }
 
-function Install-AirSlate([string] $Package, [string] $LogName) {
+function Invoke-Msi([string[]] $Arguments, [string] $LogName) {
     $logPath = Join-Path $logDirectory.FullName $LogName
-    $installation = Start-Process msiexec.exe -WindowStyle Hidden -PassThru -ArgumentList @(
-        '/i', "`"$Package`"", '/qn', '/norestart', '/l*v', "`"$logPath`""
+    $installation = Start-Process msiexec.exe -WindowStyle Hidden -PassThru -ArgumentList (
+        $Arguments + @('/qn', '/norestart', '/l*v', "`"$logPath`"")
     )
     if (-not $installation.WaitForExit(120000)) {
         throw 'Windows Installer did not finish within two minutes'
@@ -91,16 +91,23 @@ function Test-ServerReady {
     $listeners.Count -eq 1 -and $listeners[0].OwningProcess -eq $servers[0].Id
 }
 
+# Tauri restores the unpatched build output after bundling. Use the actual MSI payload
+# as the expected installed binary, including its package-type marker.
+$payloadDirectory = Join-Path $env:RUNNER_TEMP 'airslate-msi-payload'
+Invoke-Msi @('/a', "`"$($installer.FullName)`"", "TARGETDIR=`"$payloadDirectory`"") 'extract.log'
+$expectedExecutable = @(Get-ChildItem $payloadDirectory -Recurse -Filter 'airslate_pc_server.exe')
+if ($expectedExecutable.Count -ne 1) { throw 'The MSI must contain exactly one AirSlate executable' }
+
 # Exercise the released version's tray-only process during a real same-version MSI upgrade.
 gh release download v1.8.0 --repo 2doright/airslate-pc-server `
     --pattern 'AirSlate-PC-Server_1.8.0_windows-x64.msi' --dir $logDirectory.FullName
 if ($LASTEXITCODE -ne 0) { throw 'Could not download the v1.8.0 upgrade fixture' }
 $oldInstaller = Join-Path $logDirectory.FullName 'AirSlate-PC-Server_1.8.0_windows-x64.msi'
-Install-AirSlate $oldInstaller 'install-old.log'
+Invoke-Msi @('/i', "`"$oldInstaller`"") 'install-old.log'
 $oldServer = Start-AirSlate 'old-autostart' -Autostart
 Wait-Until { Test-ServerReady } 'the released server to listen'
-Install-AirSlate $installer.FullName 'upgrade.log'
-if ((Get-FileHash $executable).Hash -ne (Get-FileHash 'target/debug/airslate_pc_server.exe').Hash) {
+Invoke-Msi @('/i', "`"$($installer.FullName)`"") 'upgrade.log'
+if ((Get-FileHash $executable).Hash -ne (Get-FileHash $expectedExecutable[0].FullName).Hash) {
     throw 'Manual upgrade did not install the newly built executable'
 }
 $oldServer.Refresh()
@@ -133,6 +140,6 @@ if (-not (Test-ServerReady) -or (Get-Process airslate_pc_server).Id -ne $primary
 }
 
 # A direct installer launch must also close the fixed version with the console open.
-Install-AirSlate $installer.FullName 'reinstall.log'
+Invoke-Msi @('/i', "`"$($installer.FullName)`"") 'reinstall.log'
 Wait-Until { @(Get-Process airslate_pc_server -ErrorAction SilentlyContinue).Count -eq 0 } 'the installed server to exit'
 Write-Output 'Windows lifecycle tests passed'
