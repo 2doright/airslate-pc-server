@@ -42,9 +42,7 @@ fn run() -> Result<(), error::AppError> {
     init_dpi_awareness()?;
     #[cfg(target_os = "linux")]
     apply_wayland_webview_workaround();
-    let context = app::initialize()?;
-    app::start_services(&context)?;
-    desktop_bridge::shell::run(context)
+    desktop_bridge::shell::run()
 }
 
 #[cfg(windows)]

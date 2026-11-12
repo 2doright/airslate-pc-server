@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- prevent repeated launches from leaving background instances that interfere with connections
+- reopen the console reliably after closing it to the tray
+- close running AirSlate instances automatically when installing a Windows update manually
+- restore macOS CI and release packaging on a supported runner
+
 ## 1.8.0 - 2026-09-29
 
 - show AppImage users the one-time Linux udev permission setup after launch

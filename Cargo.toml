@@ -12,11 +12,11 @@ local-ip-address = "0.6"
 nusb = "=0.2.7"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tauri = { version = "2.10.3", features = ["tray-icon"] }
+tauri = { version = "2.12", features = ["tray-icon"] }
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-opener = "2"
 tauri-plugin-process = "2"
-tauri-plugin-single-instance = "2.4.1"
+tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
 thiserror = "2.0"
