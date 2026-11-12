@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.8.1 - 2026-11-13
+
 - prevent repeated launches from leaving background instances that interfere with connections
 - reopen the console reliably after closing it to the tray
 - close running AirSlate instances automatically when installing a Windows update manually
