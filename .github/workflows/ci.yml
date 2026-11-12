@@ -46,6 +46,7 @@ jobs:
               - 'tauri.conf.json'
               - 'capabilities/**'
               - 'assets/**'
+              - '.github/scripts/windows-lifecycle.ps1'
               - '.github/workflows/ci.yml'
             rustfmt:
               - '**/*.rs'
