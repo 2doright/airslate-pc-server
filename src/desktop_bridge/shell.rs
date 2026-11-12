@@ -1,7 +1,7 @@
 use std::{env, sync::mpsc, thread};
 
 use tauri::{
-    AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
+    AppHandle, Emitter, Manager, RunEvent, WebviewWindowBuilder,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
@@ -18,10 +18,6 @@ const MAIN_WINDOW_LABEL: &str = "main";
 const TRAY_OPEN_ID: &str = "open";
 const TRAY_QUIT_ID: &str = "quit";
 const AUTOSTART_ARG: &str = "--autostart";
-const DEFAULT_WINDOW_WIDTH: f64 = 2064.0;
-const DEFAULT_WINDOW_HEIGHT: f64 = 1232.0;
-const MIN_WINDOW_WIDTH: f64 = 960.0;
-const MIN_WINDOW_HEIGHT: f64 = 540.0;
 
 struct WindowRequests(mpsc::Sender<()>);
 
@@ -107,12 +103,10 @@ pub fn run() -> Result<(), AppError> {
             });
             create_tray(handle)?;
             tracing::info!(launched_via_autostart, "desktop tray ready");
-            if launched_via_autostart {
-                destroy_main_window(handle)?;
-            } else {
-                show_main_window(handle)?;
-            }
             start_window_requests(handle, window_receiver)?;
+            if !launched_via_autostart {
+                request_main_window(handle);
+            }
             tracing::info!("desktop shell ready");
             Ok(())
         })
@@ -176,14 +170,14 @@ fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
         return Ok(());
     }
 
-    WebviewWindowBuilder::new(app, MAIN_WINDOW_LABEL, WebviewUrl::default())
-        .title("AirSlate 控制台")
-        .inner_size(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
-        .min_inner_size(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
-        .resizable(true)
-        .center()
-        .visible(false)
-        .build()?;
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|config| config.label == MAIN_WINDOW_LABEL)
+        .ok_or_else(|| tauri::Error::AssetNotFound(MAIN_WINDOW_LABEL.to_string()))?;
+    WebviewWindowBuilder::from_config(app, config)?.build()?;
 
     Ok(())
 }
@@ -239,13 +233,6 @@ fn show_main_window(app: &AppHandle) -> tauri::Result<()> {
 
 fn window_state_flags() -> StateFlags {
     StateFlags::POSITION | StateFlags::SIZE | StateFlags::MAXIMIZED
-}
-
-fn destroy_main_window(app: &AppHandle) -> tauri::Result<()> {
-    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-        window.destroy()?;
-    }
-    Ok(())
 }
 
 #[cfg(test)]
