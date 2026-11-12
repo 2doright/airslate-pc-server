@@ -5,7 +5,7 @@
 - prevent repeated launches from leaving background instances that interfere with connections
 - reopen the console reliably after closing it to the tray
 - close running AirSlate instances automatically when installing a Windows update manually
-- restore macOS pull-request validation on a supported CI runner
+- restore macOS CI and release packaging on a supported runner
 
 ## 1.8.0 - 2026-09-29
 
