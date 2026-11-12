@@ -144,8 +144,19 @@ fn start_window_requests(app: &AppHandle, receiver: mpsc::Receiver<()>) -> Resul
         .name("main-window".into())
         .spawn(move || {
             while receiver.recv().is_ok() {
-                if let Err(error) = show_main_window(&handle) {
-                    tracing::error!(%error, "failed to open the main window");
+                if let Err(error) = create_main_window(&handle) {
+                    tracing::error!(%error, "failed to create the main window");
+                    continue;
+                }
+                // Restore window state on the event loop so its cache lock cannot
+                // block a close event while this thread waits for a native window call.
+                let event_handle = handle.clone();
+                if let Err(error) = handle.run_on_main_thread(move || {
+                    if let Err(error) = show_main_window(&event_handle) {
+                        tracing::error!(%error, "failed to show the main window");
+                    }
+                }) {
+                    tracing::error!(%error, "failed to dispatch the main window activation");
                 }
             }
         })?;
@@ -212,13 +223,9 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
 }
 
 fn show_main_window(app: &AppHandle) -> tauri::Result<()> {
-    let window = if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-        window
-    } else {
-        create_main_window(app)?;
-        app.get_webview_window(MAIN_WINDOW_LABEL)
-            .ok_or_else(|| tauri::Error::AssetNotFound(MAIN_WINDOW_LABEL.to_string()))?
-    };
+    let window = app
+        .get_webview_window(MAIN_WINDOW_LABEL)
+        .ok_or_else(|| tauri::Error::AssetNotFound(MAIN_WINDOW_LABEL.to_string()))?;
 
     window.restore_state(window_state_flags())?;
     window.show()?;

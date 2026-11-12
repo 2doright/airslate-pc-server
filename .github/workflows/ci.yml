@@ -172,7 +172,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: windows-lifecycle-logs
-          path: lifecycle-logs/
+          path: lifecycle-logs/*.log
           if-no-files-found: ignore
           retention-days: 7
 
