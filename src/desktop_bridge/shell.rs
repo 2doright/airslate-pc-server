@@ -22,13 +22,17 @@ const DEFAULT_WINDOW_WIDTH: f64 = 2064.0;
 const DEFAULT_WINDOW_HEIGHT: f64 = 1232.0;
 const MIN_WINDOW_WIDTH: f64 = 960.0;
 const MIN_WINDOW_HEIGHT: f64 = 540.0;
+
 struct WindowRequests(mpsc::Sender<()>);
 
 pub fn run() -> Result<(), AppError> {
     let launched_via_autostart = is_autostart(env::args());
+    let (window_sender, window_receiver) = mpsc::channel();
     // Acquire the instance lock before initializing input, USB, or network services.
-    let builder =
-        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+    // Queue activation requests even while the primary instance is still in setup.
+    let builder = tauri::Builder::default()
+        .manage(WindowRequests(window_sender))
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if !is_autostart(args.into_iter()) {
                 request_main_window(app);
             }
@@ -83,7 +87,6 @@ pub fn run() -> Result<(), AppError> {
             app::start_services(&context)?;
             app.manage(context);
             let handle = app.handle();
-            start_window_requests(handle)?;
             let event_handle = handle.clone();
             thread::spawn(move || {
                 while let Ok(event) = session_status_events.recv() {
@@ -108,6 +111,7 @@ pub fn run() -> Result<(), AppError> {
             } else {
                 show_main_window(handle)?;
             }
+            start_window_requests(handle, window_receiver)?;
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -132,9 +136,7 @@ fn should_keep_running(exit_code: Option<i32>) -> bool {
     exit_code.is_none()
 }
 
-fn start_window_requests(app: &AppHandle) -> Result<(), AppError> {
-    let (sender, receiver) = mpsc::channel();
-    app.manage(WindowRequests(sender));
+fn start_window_requests(app: &AppHandle, receiver: mpsc::Receiver<()>) -> Result<(), AppError> {
     let handle = app.clone();
     // WebView2 creation must run outside synchronous native event handlers.
     // One consumer also serializes simultaneous tray and second-launch requests.
