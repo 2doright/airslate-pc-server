@@ -81,7 +81,7 @@ function Start-AirSlate([string] $Name, [switch] $Autostart) {
 }
 
 function Get-ConsoleWindow {
-    [AirSlateWindow]::FindWindow($null, 'AirSlate 控制台')
+    [AirSlateWindow]::FindWindow([NullString]::Value, 'AirSlate 控制台')
 }
 
 function Test-ServerReady {
