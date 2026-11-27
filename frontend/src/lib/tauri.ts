@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
 export type HoverMovePolicyLevel = 0 | 1 | 2 | 3;
+export type PointerOutput = 'pen' | 'mouse';
 
 export interface ShortcutPresetDto {
   id: string;
@@ -73,6 +74,7 @@ export interface AppBootstrapDto {
   hoverMovePolicy: HoverMovePolicyLevel;
   preemptPreviousStroke: boolean;
   preciseAnchorCorrectionEnabled: boolean;
+  pointerOutput: PointerOutput;
   wiredConnectionEnabled: boolean;
   usbInterface: string;
   ipv4Values: string[];
@@ -188,6 +190,10 @@ export async function setPreemptPreviousStroke(enabled: boolean) {
 
 export async function setPreciseAnchorCorrectionEnabled(enabled: boolean) {
   return invoke('set_precise_anchor_correction_enabled', { enabled });
+}
+
+export async function setPointerOutput(output: PointerOutput) {
+  return invoke('set_pointer_output', { output });
 }
 
 export async function setUsbInterface(interfaceValue: string) {

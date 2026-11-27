@@ -11,7 +11,7 @@ use crate::{
     shortcut::{ShortcutPresetLibrary, ShortcutProfile},
 };
 
-const CONFIG_VERSION: u32 = 13;
+const CONFIG_VERSION: u32 = 14;
 pub const MAX_LATEST_CONTACT_MOVE_TOLERANCE_MS: u32 = 100;
 const APP_DIR: &str = "AirSlatePcServer";
 const CONFIG_FILE: &str = "config.toml";
@@ -141,6 +141,14 @@ impl PressureCurve {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+pub enum PointerOutput {
+    #[default]
+    Pen,
+    Mouse,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum HoverMovePolicy {
     #[default]
     PreserveAll,
@@ -195,6 +203,7 @@ pub struct Config {
     pub hover_move_policy: HoverMovePolicy,
     pub preempt_previous_stroke: bool,
     pub precise_anchor_correction_enabled: bool,
+    pub pointer_output: PointerOutput,
     pub wired_connection_enabled: bool,
     pub usb_interface: UsbInterface,
     pub selected_monitor_id: Option<String>,
@@ -219,6 +228,7 @@ impl Default for Config {
             hover_move_policy: HoverMovePolicy::default(),
             preempt_previous_stroke: false,
             precise_anchor_correction_enabled: false,
+            pointer_output: PointerOutput::default(),
             wired_connection_enabled: true,
             usb_interface: UsbInterface::default(),
             selected_monitor_id: None,
@@ -498,6 +508,31 @@ mod tests {
         let restored = toml::from_str::<Config>(&old_raw).expect("old config should deserialize");
 
         assert!(!restored.precise_anchor_correction_enabled);
+    }
+
+    #[test]
+    fn pointer_output_defaults_to_pen_and_round_trips() {
+        let defaults = Config::default();
+        assert_eq!(defaults.pointer_output, PointerOutput::Pen);
+
+        let mut configured = defaults;
+        configured.pointer_output = PointerOutput::Mouse;
+        let raw = toml::to_string(&configured).expect("config should serialize");
+        assert!(raw.contains("pointer_output = \"mouse\""));
+        let restored = toml::from_str::<Config>(&raw).expect("config should deserialize");
+        assert_eq!(restored.pointer_output, PointerOutput::Mouse);
+    }
+
+    #[test]
+    fn old_config_defaults_to_pen_output() {
+        let config = Config::default();
+        let raw = toml::to_string_pretty(&config).expect("config should serialize");
+        let mut table = toml::from_str::<toml::Table>(&raw).expect("config should be a table");
+        table.remove("pointer_output");
+        let old_raw = toml::to_string(&table).expect("old config should serialize");
+        let restored = toml::from_str::<Config>(&old_raw).expect("old config should deserialize");
+
+        assert_eq!(restored.pointer_output, PointerOutput::Pen);
     }
 
     #[test]

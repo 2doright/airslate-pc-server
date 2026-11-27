@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { AppWindow, Cable, CircleHelp, Crosshair, Eye, ExternalLink, Gauge, Map, MessagesSquare, Power, ScanLine, Star } from 'lucide-react';
+import { AppWindow, Cable, CircleHelp, Crosshair, Eye, ExternalLink, Gauge, Map, MessagesSquare, MousePointer, Power, ScanLine, Star } from 'lucide-react';
 import foregroundIcon from '../assets/foreground.png';
 import { Switch, TextInput } from './ui';
 import { UsbScanDialog } from './usb-scan-dialog';
-import { setHoverMovePolicy, setLaunchAtStartup, setLatestContactMoveOnly, setLatestContactMoveToleranceMs, setPreciseAnchorCorrectionEnabled, setPreemptPreviousStroke, setUsbInterface, type AppBootstrapDto, type HoverMovePolicyLevel } from '../lib/tauri';
+import { setHoverMovePolicy, setLaunchAtStartup, setLatestContactMoveOnly, setLatestContactMoveToleranceMs, setPointerOutput, setPreciseAnchorCorrectionEnabled, setPreemptPreviousStroke, setUsbInterface, type AppBootstrapDto, type HoverMovePolicyLevel } from '../lib/tauri';
 import type { AppUpdaterState } from '../hooks/use-app-updater';
 
 type SettingsTab = 'general' | 'advanced' | 'about';
@@ -117,6 +117,14 @@ export function SettingsPage(props: {
                   checked={props.data.preciseAnchorCorrectionEnabled}
                   disabled={props.busyKey === 'precise-anchor-correction'}
                   onChange={(enabled) => void props.runAction('precise-anchor-correction', () => setPreciseAnchorCorrectionEnabled(enabled))}
+                />
+                <SettingsToggleRow
+                  icon={<MousePointer aria-hidden="true" />}
+                  title="鼠标输出兼容模式"
+                  description="部分应用只读取鼠标事件，无法接收 Windows Ink 笔输入。开启后改用绝对坐标鼠标事件；压感不可用，重启 AirSlate 后生效。"
+                  checked={props.data.pointerOutput === 'mouse'}
+                  disabled={props.busyKey === 'pointer-output'}
+                  onChange={(enabled) => void props.runAction('pointer-output', () => setPointerOutput(enabled ? 'mouse' : 'pen'))}
                 />
               </div>
             </section>

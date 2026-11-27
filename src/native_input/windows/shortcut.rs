@@ -117,7 +117,7 @@ fn build_click_at_inputs(button: MouseButton, x: i32, y: i32) -> Vec<INPUT> {
     ]
 }
 
-fn mouse_input(
+pub(super) fn mouse_input(
     dx: i32,
     dy: i32,
     mouse_data: i32,
@@ -138,7 +138,7 @@ fn mouse_input(
     }
 }
 
-fn absolute_mouse_coords(x: i32, y: i32) -> (i32, i32) {
+pub(super) fn absolute_mouse_coords(x: i32, y: i32) -> (i32, i32) {
     // SAFETY: GetSystemMetrics only reads process-wide system metrics and receives valid constants.
     let left = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
     // SAFETY: GetSystemMetrics only reads process-wide system metrics and receives valid constants.
