@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- add an optional mouse-output compatibility mode for applications that only read mouse input, with pen pressure unavailable in that mode
+
 ## 1.8.1 - 2026-11-13
 
 - prevent repeated launches from leaving background instances that interfere with connections

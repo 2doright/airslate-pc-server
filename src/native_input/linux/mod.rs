@@ -3,14 +3,17 @@ use std::sync::Arc;
 use input_linux::{EventKind, SynchronizeKind, sys, uinput::UInputHandle};
 
 use crate::{
-    error::AppError, input_pipeline::PenInjector, shortcut::ShortcutExecutor,
-    workspace::WorkspaceService,
+    config::PointerOutput, error::AppError, input_pipeline::PenInjector,
+    shortcut::ShortcutExecutor, workspace::WorkspaceService,
 };
 
 mod pen;
 mod shortcut;
 
-pub fn create_pen_injector(workspace: &WorkspaceService) -> Result<Arc<dyn PenInjector>, AppError> {
+pub fn create_pen_injector(
+    workspace: &WorkspaceService,
+    _output: PointerOutput,
+) -> Result<Arc<dyn PenInjector>, AppError> {
     Ok(Arc::new(pen::LinuxPenInjector::new(workspace.clone())?))
 }
 

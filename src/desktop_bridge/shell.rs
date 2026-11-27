@@ -59,6 +59,7 @@ pub fn run() -> Result<(), AppError> {
             crate::desktop_bridge::commands::set_hover_move_policy,
             crate::desktop_bridge::commands::set_preempt_previous_stroke,
             crate::desktop_bridge::commands::set_precise_anchor_correction_enabled,
+            crate::desktop_bridge::commands::set_pointer_output,
             crate::desktop_bridge::commands::set_usb_interface,
             crate::desktop_bridge::commands::set_wired_connection_enabled,
             crate::desktop_bridge::commands::disconnect_active_session,

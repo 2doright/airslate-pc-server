@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    error::AppError, input_pipeline::PenInjector, shortcut::ShortcutExecutor,
-    workspace::WorkspaceService,
+    config::PointerOutput, error::AppError, input_pipeline::PenInjector,
+    shortcut::ShortcutExecutor, workspace::WorkspaceService,
 };
 
 mod core_graphics;
@@ -11,6 +11,7 @@ mod shortcut;
 
 pub(super) fn create_pen_injector(
     _workspace: &WorkspaceService,
+    _output: PointerOutput,
 ) -> Result<Arc<dyn PenInjector>, AppError> {
     Ok(Arc::new(pen::MacosPenInjector::new()?))
 }

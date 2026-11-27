@@ -9,7 +9,9 @@ use super::dto::{
 use super::local_ip::lan_ipv4_values;
 use crate::{
     app::AppContext,
-    config::{HoverMovePolicy, PressureCurve, PressureCurveControlPoint, UsbInterface},
+    config::{
+        HoverMovePolicy, PointerOutput, PressureCurve, PressureCurveControlPoint, UsbInterface,
+    },
     error::AppError,
     shortcut::{KeyCode, RadialInnerBindings, SpecialAction},
 };
@@ -230,6 +232,19 @@ pub fn set_precise_anchor_correction_enabled(
     state
         .runtime
         .set_precise_anchor_correction_enabled(enabled)
+        .map_err(error_message)
+}
+
+#[tauri::command]
+pub fn set_pointer_output(state: State<'_, AppContext>, output: String) -> Result<(), String> {
+    let output = match output.as_str() {
+        "pen" => PointerOutput::Pen,
+        "mouse" => PointerOutput::Mouse,
+        _ => return Err(format!("未知的笔输入输出模式：{output}")),
+    };
+    state
+        .runtime
+        .set_pointer_output(output)
         .map_err(error_message)
 }
 

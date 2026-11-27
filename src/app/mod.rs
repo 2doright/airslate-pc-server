@@ -64,7 +64,7 @@ pub fn initialize() -> Result<AppContext, AppError> {
         session.clone(),
     );
     let radial_overlay = Arc::new(RadialOverlayService::new()?);
-    let injector = create_pen_injector(&workspace)?;
+    let injector = create_pen_injector(&workspace, config.pointer_output)?;
     let shortcut_executor = create_shortcut_executor(&workspace);
     let input_sink: Arc<dyn IncomingEventSink> = Arc::new(StylusInputPipeline::new_with_settings(
         workspace.clone(),

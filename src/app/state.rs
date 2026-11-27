@@ -729,6 +729,16 @@ impl AppRuntime {
         Ok(())
     }
 
+    pub fn set_pointer_output(&self, output: crate::config::PointerOutput) -> Result<(), AppError> {
+        let mut config = self
+            .config
+            .lock()
+            .map_err(|_| AppError::StatePoisoned("config"))?;
+        config.pointer_output = output;
+        config.normalize();
+        config.save(&self.config_path)
+    }
+
     pub fn set_precise_anchor_correction_enabled(&self, enabled: bool) -> Result<(), AppError> {
         let mut config = self
             .config
